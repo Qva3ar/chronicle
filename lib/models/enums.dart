@@ -1,0 +1,4 @@
+enum ContextActions {
+  paste,
+  replace,
+}

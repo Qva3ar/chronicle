@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/add_contact.dart';
+import 'package:flutter_crud/tags_manager.dart';
 import 'package:flutter_crud/contact_list.dart';
 import 'package:flutter_crud/homepage.dart';
 import 'colors.dart';
@@ -43,8 +43,8 @@ class MyDrawal extends StatelessWidget {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => AddContact()));
+                // Navigator.push(
+                //     context, MaterialPageRoute(builder: (_) => AddRecord()));
               },
             ),
             Divider(

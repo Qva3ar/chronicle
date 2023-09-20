@@ -45,7 +45,7 @@ class _ContactListState extends State<ContactList> {
                 var item = allCategoryData[index];
                 Uint8List bytes = base64Decode(item['profile']);
                 return Container(
-                  color: MyColors.orangeTile,
+                  // color: MyColors.orangeTile,
                   padding: EdgeInsets.zero,
                   margin: EdgeInsets.zero,
                   child: Column(
@@ -55,7 +55,14 @@ class _ContactListState extends State<ContactList> {
                           SizedBox(
                             width: 20,
                           ),
-                          CircleAvatar(child: Image.memory(bytes,fit: BoxFit.cover,),minRadius: 20,maxRadius: 25,),
+                          CircleAvatar(
+                            child: Image.memory(
+                              bytes,
+                              fit: BoxFit.cover,
+                            ),
+                            minRadius: 20,
+                            maxRadius: 25,
+                          ),
                           Text("${item['name']}"),
                           Text("${item['lname']}"),
                           Spacer(),
@@ -87,10 +94,10 @@ class _ContactListState extends State<ContactList> {
   }
 
   void _query() async {
-    final allRows = await dbHelper.queryAllRowsofContact();
+    final allRows = await dbHelper.queryAllRowsofRecords();
     print('query all rows:');
     allRows.forEach(print);
-    allCategoryData = allRows;
+    // allCategoryData = allRows;
     setState(() {});
   }
 
