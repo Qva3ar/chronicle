@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/mydrawal.dart';
+import 'package:Chrono/mydrawal.dart';
 
 import 'colors.dart';
 import 'db_manager.dart';
@@ -95,7 +95,7 @@ class _ContactListState extends State<ContactList> {
 
   void _query() async {
     final allRows = await dbHelper.queryAllRowsofRecords();
-    print('query all rows:');
+    //print('query all rows:');
     allRows.forEach(print);
     // allCategoryData = allRows;
     setState(() {});
@@ -104,7 +104,7 @@ class _ContactListState extends State<ContactList> {
   void _delete(int id) async {
     // Assuming that the number of rows is the id for the last row.
     final rowsDeleted = await dbHelper.deleteContact(id);
-    print('deleted $rowsDeleted row(s): row $id');
+    //print('deleted $rowsDeleted row(s): row $id');
     _query();
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/colors.dart';
-import 'package:flutter_crud/homepage.dart';
-import 'package:flutter_crud/models/chat-context-message.dart';
-import 'package:flutter_crud/models/enums.dart';
-import 'package:flutter_crud/services/gpt-note-bind.service.dart';
+import 'package:Chrono/colors.dart';
+import 'package:Chrono/homepage.dart';
+import 'package:Chrono/models/chat-context-message.dart';
+import 'package:Chrono/models/enums.dart';
+import 'package:Chrono/services/gpt-note-bind.service.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 class MessageBubble extends StatefulWidget {
@@ -35,12 +35,12 @@ class _MessageBubbleState extends State<MessageBubble> {
   // Add this property
   @override
   Widget build(BuildContext context) {
-    print(widget.recordIds);
+    //print(widget.recordIds);
     final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: cardColor2,
+        color: widget.isUserMessage ? cardColor2 : cardColor3,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
       ),
       child: Padding(
@@ -54,14 +54,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                 Text(
                   widget.isUserMessage ? 'You' : 'AI',
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontSize: 18),
+                      fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
                 ),
                 PopupMenuButton(
                     color: MyColors.trecondaryColor,
-                    icon: Icon(Icons.more_vert,
-                        color: MyColors.forthyColor), // add this line
+                    icon: Icon(Icons.more_vert, color: MyColors.forthyColor), // add this line
                     itemBuilder: (_) => <PopupMenuItem<ContextActions>>[
                           new PopupMenuItem<ContextActions>(
                             child: Container(
@@ -87,13 +84,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                       switch (index) {
                         case ContextActions.paste:
                           widget.gptNoteBindService?.sendMessage(
-                              new ChatContextMessage(
-                                  widget.content, ContextActions.paste));
+                              new ChatContextMessage(widget.content, ContextActions.paste));
                           break;
                         case ContextActions.replace:
                           widget.gptNoteBindService?.sendMessage(
-                              new ChatContextMessage(
-                                  widget.content, ContextActions.replace));
+                              new ChatContextMessage(widget.content, ContextActions.replace));
                           break;
                       }
                     })
@@ -103,18 +98,15 @@ class _MessageBubbleState extends State<MessageBubble> {
             MarkdownWidget(
               data: widget.content,
               shrinkWrap: true,
+              config: MarkdownConfig(configs: [PConfig(textStyle: TextStyle(color: Colors.white))]),
             ),
             widget.recordIds != null && widget.recordIds!.isNotEmpty
                 ? TextButton(
                     style: TextButton.styleFrom(
-                        side:
-                            BorderSide(color: Colors.greenAccent, width: 2.0)),
+                        side: BorderSide(color: Colors.greenAccent, width: 2.0)),
                     onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  HomePage(recordIds: widget.recordIds)));
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => HomePage(recordIds: widget.recordIds)));
                     },
                     child: Text("Go to Notes"),
                   )

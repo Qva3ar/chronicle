@@ -1,9 +1,9 @@
-name: flutter_crud
+name: Chrono
 description: A new Flutter project.
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -15,7 +15,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.0+1
+version: 1.0.9+10
 
 environment:
   sdk: ">=2.17.0 <3.0.0"
@@ -30,13 +30,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   sqflite: ^2.0.1
   path_provider: ^2.0.8
-  image_picker: ^0.8.4+4
   signature: ^5.0.0
   flutter_multi_select_items: ^0.4.2
   eva_icons_flutter: ^3.1.0
@@ -46,11 +44,25 @@ dependencies:
   markdown_widget: ^2.2.0
   dart_openai: ^4.0.0
   flutter_svg: ^2.0.7
-  intl: ^0.18.1
+  intl: ^0.19.0
+  grouped_list: ^5.1.2
+  shared_preferences: ^2.2.2
+  flexible_scrollbar: ^0.1.3
+  url_launcher: ^6.2.2
+  file_picker: ^8.0.3
+  flutter_email_sender: ^6.0.3
+  undo: ^1.5.0
 
 dev_dependencies:
+  flutter_launcher_icons: "^0.13.1"
   flutter_test:
     sdk: flutter
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -64,7 +76,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -99,9 +110,7 @@ flutter:
           weight: 500
         - asset: assets/fonts/Montserrat-Bold.ttf
           weight: 600
-       
 
-   
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages

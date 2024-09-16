@@ -40,12 +40,9 @@ class Record {
     }
     ;
 
-    int millisecondsSinceEpoch =
-        map['created_at']; // Replace this with your milliseconds value
-    DateTime dateTime =
-        DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
-    String formattedDateTime =
-        DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
+    int millisecondsSinceEpoch = map['created_at']; // Replace this with your milliseconds value
+    DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
+    String formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
 
     return Record(
       id: map['_id'],
@@ -54,5 +51,9 @@ class Record {
       tagIds: tagIds,
       createdAt: formattedDateTime,
     );
+  }
+
+  DateTime get createdAtDate {
+    return DateFormat('yyyy-MM-dd HH:mm:ss').parse(createdAt);
   }
 }

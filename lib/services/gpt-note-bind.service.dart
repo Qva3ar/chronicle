@@ -1,5 +1,7 @@
-import 'package:flutter_crud/models/chat-context-message.dart';
-import 'package:rxdart/rxdart.dart'; // Import RxDart
+import 'package:dart_openai/dart_openai.dart';
+import 'package:Chrono/models/chat-context-message.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import RxDart
 
 class GPTNoteBindService {
   // Private constructor
@@ -13,9 +15,39 @@ class GPTNoteBindService {
     return _instance;
   }
 
+  String key = '';
+  String model = '';
+
+  //getter setter for key
+  String get getKey => key;
+  setKey(String key) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    OpenAI.apiKey = key;
+    await prefs.setString('key', key); // Save the model to SharedPreferences
+    this.key = key;
+  }
+
+  bool isKeyProvided() {
+    return key.isNotEmpty;
+  }
+
+  //getter setter for model
+  String get getModel => model;
+  setModel(String model) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('model', model); // Save the model to SharedPreferences
+    this.model = model;
+  }
+
+  Future<void> loadModel() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    this.model = prefs.getString('model') ?? ''; // Load the model from SharedPreferences
+    this.key = prefs.getString('key') ?? ''; // Load the model from SharedPreferences
+    OpenAI.apiKey = this.key;
+  }
+
   // Create a Subject to manage the communication
-  final PublishSubject<ChatContextMessage> _messageSubject =
-      PublishSubject<ChatContextMessage>();
+  final PublishSubject<ChatContextMessage> _messageSubject = PublishSubject<ChatContextMessage>();
 
   // Stream for receiving messages from one widget to another
   Stream<ChatContextMessage> get messageStream => _messageSubject.stream;

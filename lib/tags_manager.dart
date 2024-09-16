@@ -7,12 +7,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/contact_list.dart';
-import 'package:flutter_crud/record.service.dart';
-import 'package:flutter_crud/shared/confirm-dialog.dart';
-import 'package:flutter_crud/tag_color_picker.dart';
+import 'package:Chrono/contact_list.dart';
+import 'package:Chrono/record.service.dart';
+import 'package:Chrono/shared/confirm-dialog.dart';
+import 'package:Chrono/tag_color_picker.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
 
 import 'colors.dart';
@@ -40,43 +39,33 @@ class Category {
 }
 
 class TagsManager extends StatefulWidget {
-  final void Function(int) onTagSelected; //
+  final void Function(int?) onTagSelected; //
+  final int? selectedTag;
 
-  const TagsManager({Key? key, required this.onTagSelected}) : super(key: key);
+  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected}) : super(key: key);
 
   @override
   _TagsManagerState createState() => _TagsManagerState();
 }
 
 class _TagsManagerState extends State<TagsManager> {
-  RecordService recordService = new RecordService();
-
-  // final TextEditingController _firstName = TextEditingController();
-  final TextEditingController _categoryController = TextEditingController();
-  // final TextEditingController _mobileNumber = TextEditingController();
-  // final TextEditingController _emailAddress = TextEditingController();
-  final formGlobalKey = GlobalKey<FormState>();
-  File? imageFile;
-  final ImagePicker _picker = ImagePicker();
-  String currentCategory = "";
-  var imageEncoded;
-  List<Category> allCategoryData = [];
+  RecordService recordService = RecordService(); // Замените RecordService на ваш реальный сервис
   final dbHelper = DatabaseHelper.instance;
+
+  final TextEditingController _categoryController = TextEditingController();
+  final formGlobalKey = GlobalKey<FormState>();
+  List<Category> allCategoryData = [];
   late Future<Uint8List> imageBytes;
-  final SignatureController _controller = SignatureController(
-    penStrokeWidth: 5,
-    penColor: Colors.red,
-    exportBackgroundColor: Colors.blue,
-  );
-  int key = 0;
-  int? selectedChipIndex = null;
+
+  int? selectedChipIndex;
   List<Tag> allTags = [];
   Tag addTag = Tag(
-      id: -1, name: "Добавить/Изменить", color: Colors.white.value.toString());
+    id: -1,
+    name: "Add/Remove",
+    color: Colors.white.value.toString(),
+  );
   Tag? selectedTag;
   bool isEditing = false;
-
-// INITIALIZE. RESULT IS A WIDGET, SO IT CAN BE DIRECTLY USED IN BUILD METHOD
 
   int selectedColor = Colors.transparent.value;
 
@@ -84,79 +73,71 @@ class _TagsManagerState extends State<TagsManager> {
     selectedColor = color.value;
   }
 
-  void getAllTags() async {
-    allTags = await recordService.queryAllTagsJust();
-    allTags.add(addTag);
-    // allTags = await recordService.queryAllTagsJust();
-    setState(() {});
+  Future<void> getAllTags() async {
+    List<Tag> tags = await recordService.queryAllTagsJust();
+    setState(() {
+      allTags = tags;
+      allTags.add(addTag);
+    });
   }
 
   @override
   void initState() {
+    selectedChipIndex = widget.selectedTag;
     super.initState();
     _query();
     getAllTags();
   }
 
-  saveTag() async {
+  Future<void> saveTag() async {
     if (selectedTag != null) {
-      recordService
-          .updateTag(selectedTag!.id, _categoryController.text, selectedColor)
-          .then((value) {
-        getAllTags();
-        // _categoryController.text = "";
-      });
+      await recordService.updateTag(selectedTag!.id, _categoryController.text, selectedColor);
     } else {
-      recordService
-          .insertTag(_categoryController.text, selectedColor)
-          .then((value) {
-        getAllTags();
-        _categoryController.text = "";
-      });
+      await recordService.insertTag(_categoryController.text, selectedColor);
     }
+    getAllTags();
+    _categoryController.text = "";
   }
 
-  removeTag() async {
+  Future<void> removeTag() async {
     if (selectedTag != null) {
       showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return ConfirmDialog(
-                title: "Tag deletion",
-                message: "Are you sure?",
-                onConfirm: (bool result) async {
-                  if (result) {
-                    final id = await recordService.deleteTag(selectedTag!.id);
-
-                    if (id) {
-                      getAllTags();
-                      _categoryController.text = "";
-                      selectedTag = null;
-                    }
-                  }
-                });
-          });
+        context: context,
+        builder: (BuildContext context) {
+          return ConfirmDialog(
+            title: "Tag deletion",
+            message: "Are you sure?",
+            onConfirm: (bool) async {
+              final id = await recordService.deleteTag(selectedTag!.id);
+              if (id) {
+                getAllTags();
+                widget.onTagSelected(null);
+                _categoryController.text = "";
+                selectedTag = null;
+              }
+            },
+          );
+        },
+      );
     }
   }
 
-  setEditing(bool isEdit) {
-    setState(
-      () {
-        isEditing = isEdit;
-      },
-    );
+  void setEditing(bool isEdit) {
+    setState(() {
+      isEditing = isEdit;
+    });
     if (isEditing) {
       selectTagForEditing();
     }
   }
 
-  selectTagForEditing() {
-    if (isEditing) {
-      selectedTag =
-          allTags.where((element) => element.id == selectedChipIndex).first;
+  void selectTagForEditing() {
+    if (isEditing && selectedChipIndex != null) {
+      selectedTag = allTags.firstWhere(
+        (element) => element.id == selectedChipIndex,
+      );
       if (selectedTag != null) {
         _categoryController.text = selectedTag!.name;
-        setState(() {});
       }
     }
   }
@@ -173,140 +154,48 @@ class _TagsManagerState extends State<TagsManager> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // const SizedBox(
-              //   height: 20,
-              // ),
-              // InkWell(
-              //   onTap: () async {
-              //     final XFile? pickedFile = await _picker.pickImage(
-              //         source: ImageSource.gallery);
-
-              //     if (pickedFile != null) {
-              //       imageBytes = pickedFile.readAsBytes();
-              //       setState(() {
-              //         imageFile = File(pickedFile.path);
-              //       });
-              //     }
-              //   },
-              //   child: imageFile == null
-              //       ? CircleAvatar(
-              //           backgroundColor: MyColors.primaryColor,
-              //           minRadius: 50,
-              //           child: Icon(
-              //             Icons.image,
-              //             color: Colors.white,
-              //           ),
-              //         )
-              //       : CircleAvatar(
-              //           backgroundImage: Image.file(
-              //             imageFile!,
-              //             fit: BoxFit.cover,
-              //             alignment: Alignment.center,
-              //           ).image,
-              //           minRadius: 100,
-              //         ),
-              // ),
-              // SizedBox(
-              //   height: 20,
-              // ),
-              // TextFormField(
-              //   decoration: InputDecoration(
-              //     focusedBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(
-              //           color: Colors.greenAccent, width: 2.0),
-              //     ),
-              //     enabledBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(
-              //           color: MyColors.primaryColor, width: 1.0),
-              //     ),
-              //     hintText: 'First Name',
-              //     contentPadding:
-              //         EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              //   ),
-              //   controller: _firstName,
-              //   validator: (value) {
-              //     if (value == null || value.isEmpty) {
-              //       return 'Enter First Name';
-              //     }
-              //     return null;
-              //   },
-              // ),
-              // SizedBox(
-              //   height: 20,
-              // ),
-              // Center(
-              //   child: MultiSelectContainer(
-              //       key: UniqueKey(),
-              //       items: allCategoryData
-              //           .map((e) =>
-              //               MultiSelectCard(value: e.name, label: e.name))
-              //           .toList(),
-              //       onChange: (allSelectedItems, selectedItem) {
-              //         // var selected = selectedItem as MultiSelectCard;
-              //         if (selectedItem == 'add') {
-              //           print('ADD');
-              //           showModalBottomSheet(
-              //               context: context,
-              //               builder: (context) {
-              //                 return AddRecord();
-              //               });
-              //           return;
-              //         }
-              //         print(allSelectedItems);
-
-              //         // setState(() {
-              //         //   _animals.add(MultiSelectCard(value: 1, label: "1"));
-              //         // });
-              //         // print(_animals.length);
-              //       }),
-              // ),
               Text("Search by Tag"),
-              LimitedBox(
-                maxHeight: 300,
-                child: Wrap(
-                  spacing: 8.0, // Расстояние между чипсами
-                  children: allTags.map((entry) {
-                    final int id = entry.id;
-                    final tag = entry;
+              Wrap(
+                spacing: 8.0, // Расстояние между чипсами
+                children: allTags.map((entry) {
+                  final int id = entry.id;
+                  final tag = entry;
 
-                    return ChoiceChip(
-                      label: Text(tag.name ?? ""), // Замените на ваш текст
-                      selected: selectedChipIndex == id,
-                      side: selectedChipIndex == id
-                          ? BorderSide(width: 2, color: white)
-                          : null,
-                      backgroundColor: Color(int.parse(tag.color!)),
-                      onSelected: (bool selected) {
-                        setState(() {
-                          if (selected) {
-                            if (id == -1) {
-                              setEditing(!isEditing);
-                              return;
-                            }
-                            // currentPage = 0;
-                            widget.onTagSelected(id);
-                            selectedChipIndex = id;
-                            selectTagForEditing();
-                            // loadRecords();
-                          } else {
-                            if (id == -1) {
-                              setEditing(false);
-                              return;
-                            }
-                            // currentPage = 0;
-                            selectedChipIndex = null;
-                            // loadRecords();
+                  return ChoiceChip(
+                    label: Text(tag.name ?? ""), // Замените на ваш текст
+                    selected: selectedChipIndex == id,
+                    side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
+                    backgroundColor: Color(int.parse(tag.color!)),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          if (id == -1) {
+                            setEditing(!isEditing);
+                            return;
                           }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+                          // currentPage = 0;
+                          widget.onTagSelected(id);
+                          selectedChipIndex = id;
+                          selectTagForEditing();
+                          // loadRecords();
+                        } else {
+                          if (id == -1) {
+                            setEditing(false);
+                            return;
+                          }
+                          widget.onTagSelected(null);
+                          // currentPage = 0;
+                          selectedChipIndex = null;
+                          // loadRecords();
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
               ),
               isEditing
                   ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 0, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
                       child: Column(
                         children: [
                           TextFormField(
@@ -315,17 +204,13 @@ class _TagsManagerState extends State<TagsManager> {
                               filled: true,
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                    color: const Color.fromARGB(
-                                        255, 223, 234, 229),
-                                    width: 2.0),
+                                    color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: MyColors.primaryColor, width: 1.0),
+                                borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
                               ),
                               hintText: 'Tag Name',
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             ),
                             controller: _categoryController,
                             validator: (value) {
@@ -338,8 +223,7 @@ class _TagsManagerState extends State<TagsManager> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: ColorPickerWidget(
-                                selected: selectedTag,
-                                onColorSelected: onColorSelected),
+                                selected: selectedTag, onColorSelected: onColorSelected),
                           ),
                           Row(
                             children: [
@@ -348,12 +232,10 @@ class _TagsManagerState extends State<TagsManager> {
                                 child: TextButton(
                                   style: ButtonStyle(
                                     backgroundColor:
-                                        MaterialStateProperty.all<Color>(
-                                            MyColors.trecondaryColor),
+                                        WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
                                   ),
                                   onPressed: () {
-                                    if (formGlobalKey.currentState!
-                                        .validate()) {
+                                    if (formGlobalKey.currentState!.validate()) {
                                       saveTag();
                                     }
                                   },
@@ -367,12 +249,10 @@ class _TagsManagerState extends State<TagsManager> {
                                   ? TextButton(
                                       style: ButtonStyle(
                                         backgroundColor:
-                                            MaterialStateProperty.all<Color>(
-                                                MyColors.remove),
+                                            WidgetStateProperty.all<Color>(MyColors.remove),
                                       ),
                                       onPressed: () {
-                                        if (formGlobalKey.currentState!
-                                            .validate()) {
+                                        if (formGlobalKey.currentState!.validate()) {
                                           removeTag();
                                         }
                                       },
@@ -398,10 +278,9 @@ class _TagsManagerState extends State<TagsManager> {
   void _query() async {
     final allRows = await dbHelper.queryAllRows();
     if (kDebugMode) {
-      print('query all rows:');
+      //print('query all rows:');
     }
-    allCategoryData =
-        allRows.map((element) => Category(name: element["name"])).toList();
+    allCategoryData = allRows.map((element) => Category(name: element["name"])).toList();
     setState(() {});
   }
 }

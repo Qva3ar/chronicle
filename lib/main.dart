@@ -1,11 +1,12 @@
-import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/homepage.dart';
-import 'package:flutter_crud/secrects.dart';
-import 'package:flutter_crud/services/gpt.service.dart';
+import 'package:Chrono/homepage.dart';
+import 'package:Chrono/services/gpt-note-bind.service.dart';
 
-void main() {
-  OpenAI.apiKey = openAiApiKey;
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await GPTNoteBindService().loadModel();
+
   runApp(const MyApp());
 }
 
@@ -17,16 +18,16 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      debugShowCheckedModeBanner: false,
+      // debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Montserrat',
         primarySwatch: Colors.blue,
         textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white, // This is a custom color variable
-          ),
-        ),
-        textTheme: TextTheme(bodyMedium: TextStyle(color: Colors.white)),
+            // style: TextButton.styleFrom(
+            //   foregroundColor: Colors.white, // This is a custom color variable
+            // ),
+            ),
+        textTheme: TextTheme(bodyMedium: TextStyle(color: Colors.black)),
       ),
       home: HomePage(),
     );

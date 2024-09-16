@@ -1,13 +1,34 @@
+import 'package:Chrono/settings_page.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_crud/tags_manager.dart';
-import 'package:flutter_crud/contact_list.dart';
-import 'package:flutter_crud/homepage.dart';
+import 'package:Chrono/instuction_page.dart';
+import 'package:Chrono/shared/api-key-popup.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
     Key? key,
   }) : super(key: key);
+
+  final policyUrl =
+      'https://docs.google.com/document/d/16Yi3piQAQLk3SW5itI1iiIntvVG9amvWDSaZpIX43ts/edit?usp=sharing';
+
+  Future<void> _showApiKeyPopup(BuildContext context) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return ApiKeyPopup();
+      },
+    );
+  }
+
+  Future<void> _launchUrl() async {
+    final url = Uri.parse(policyUrl);
+
+    if (!await launchUrl(url)) {
+      throw Exception('Could not launch $url');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,14 +43,18 @@ class MyDrawal extends StatelessWidget {
           // Important: Remove any padding from the ListView.
           padding: EdgeInsets.zero,
           children: [
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
             ListTile(
               title: const Text(
-                'Add Category',
+                'PROMPTS',
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => HomePage()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => InstructionsPage()));
               },
             ),
             Divider(
@@ -39,10 +64,11 @@ class MyDrawal extends StatelessWidget {
             ),
             ListTile(
               title: const Text(
-                'Add Contact',
+                'GPT SETTINGS',
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
+                _showApiKeyPopup(context);
                 // Navigator.push(
                 //     context, MaterialPageRoute(builder: (_) => AddRecord()));
               },
@@ -54,12 +80,11 @@ class MyDrawal extends StatelessWidget {
             ),
             ListTile(
               title: const Text(
-                'Contact List',
+                'SETTINGS',
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => ContactList()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
               },
             ),
             Divider(
@@ -67,6 +92,36 @@ class MyDrawal extends StatelessWidget {
               height: 2,
               thickness: 2,
             ),
+            ListTile(
+              title: const Text(
+                'PRIVACY POLICY',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                _launchUrl();
+                // Navigator.push(
+                //     context, MaterialPageRoute(builder: (_) => AddRecord()));
+              },
+            ),
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            // ListTile(
+            //   title: const Text(
+            //     'Contact List',
+            //     style: TextStyle(color: Colors.white),
+            //   ),
+            //   onTap: () {
+            //     Navigator.push(context, MaterialPageRoute(builder: (_) => ContactList()));
+            //   },
+            // ),
+            // Divider(
+            //   color: MyColors.drawalDivider,
+            //   height: 2,
+            //   thickness: 2,
+            // ),
           ],
         ),
       ),

@@ -1,8 +1,9 @@
+import 'package:Chrono/models/record.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_crud/db_manager.dart';
-import 'package:flutter_crud/services/gpt.service.dart';
+import 'package:Chrono/db_manager.dart';
+import 'package:Chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -13,7 +14,7 @@ class RecordService {
   GPTService gptService = GPTService();
   // Приватный конструктор
   RecordService._internal() {
-    print("Конструктор RecordService вызван");
+    //print("Конструктор RecordService вызван");
     _titleSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
       prepareTitle(event);
     });
@@ -30,8 +31,8 @@ class RecordService {
 
   getRecomendations(String event) async {
     // final complation = await gptService.getCompletion(event, _tags.value);
-    // print("===========ID===========");
-    // print(complation.choices[0]);
+    // //print("===========ID===========");
+    // //print(complation.choices[0]);
     // OpenAIChatCompletionChoiceModel model = complation.choices[0];
     // gptSelectedTags.add(model.message.content);
   }
@@ -50,6 +51,30 @@ class RecordService {
   final gptSelectedTags = PublishSubject<String>();
   int? _currentRecordId;
 
+  final _importSubject = BehaviorSubject<bool>();
+
+  // Stream getter to be used by UI components
+  Stream<bool> get importStream => _importSubject.stream;
+
+  // Method to call when import is successful
+  void importSuccess() {
+    _importSubject.sink.add(true);
+  }
+
+  // Dispose method to close the stream
+  void dispose() {
+    _importSubject.close();
+  }
+
+  List<Record> allRecords = [];
+  setRecords(List<Record> records) {
+    allRecords = records;
+  }
+
+  getAllRecords() {
+    return allRecords;
+  }
+
   void handleTitle(String title) {
     _titleSubject.add(title);
   }
@@ -59,15 +84,19 @@ class RecordService {
   }
 
   void setTagIds(List<int>? tagIds) {
-    _tagIdsSubject.add(tagIds);
+    _tagIdsSubject.add(tagIds ?? []);
     Map<String, dynamic> updatedRow = {};
 
     _handleTitleAndText(updatedRow);
   }
 
+  void clearTagIds() {
+    _tagIdsSubject.add([]);
+  }
+
   void setCurrentRecordId(int? recordId) {
     if (recordId != null) {
-      _currentRecordId = recordId as int;
+      _currentRecordId = recordId;
     } else {
       _currentRecordId = null;
     }
@@ -79,8 +108,7 @@ class RecordService {
     }
     Map<String, dynamic> updatedRow = {
       DatabaseHelper.columnRecordTitle: title,
-      DatabaseHelper.columnRecordCreatedAt:
-          DateTime.now().millisecondsSinceEpoch,
+      DatabaseHelper.columnRecordCreatedAt: DateTime.now().millisecondsSinceEpoch,
     };
     _handleTitleAndText(updatedRow);
   }
@@ -91,57 +119,41 @@ class RecordService {
     }
     Map<String, dynamic> updatedRow = {
       DatabaseHelper.columnRecordText: text,
-      DatabaseHelper.columnRecordCreatedAt:
-          DateTime.now().millisecondsSinceEpoch,
     };
     _handleTitleAndText(updatedRow);
   }
 
   void _handleTitleAndText(Map<String, dynamic> updatedRow) async {
-    updatedRow[DatabaseHelper.columnRecordCreatedAt] =
-        DateTime.now().millisecondsSinceEpoch;
     if (_currentRecordId != null) {
       bool recordExists = await dbHelper.recordExists(_currentRecordId!);
       if (recordExists) {
         updatedRow[DatabaseHelper.columnId] = _currentRecordId;
         await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
-        print('Record updated');
+        //print('Record updated');
       } else {
-        _currentRecordId =
-            await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
-        print('New record created with id: $_currentRecordId');
+        updatedRow[DatabaseHelper.columnRecordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+        _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
+        //print('New record created with id: $_currentRecordId');
       }
     } else {
-      _currentRecordId =
-          await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
-      print('New record created with id: $_currentRecordId');
+      if (updatedRow[DatabaseHelper.columnRecordText] != null) {
+        updatedRow[DatabaseHelper.columnRecordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+        _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
+        //print('New record created with id: $_currentRecordId');
+      }
     }
 
-    _queryRecords();
+    // _queryRecords();
   }
 
-  void insertRecord(String catName) async {
-    // row to insert
-    Map<String, dynamic> row = {
-      DatabaseHelper.columnRecordText: catName,
-      DatabaseHelper.columnRecordCreatedAt:
-          DateTime.now().millisecondsSinceEpoch
-    };
-    print('insert stRT');
-
-    final id = await dbHelper.insertRecord(row, _tagIdsSubject.value!);
-    print('inserted row id: $id');
-    _queryRecords();
-  }
-
-  void _queryRecords() async {
-    final allRows = await dbHelper.queryAllRowsofRecords();
-    print(allRows[0]);
+  Future<List<Record>> queryRecords() async {
+    final allRecords = await dbHelper.queryAllRowsofRecords();
+    //print(allRows[0]);
+    return allRecords;
     // allRows.forEach(print);
   }
 
-  Future<List<MultiSelectCard<dynamic>>> queryTags(
-      List<int>? selectedTags) async {
+  Future<List<MultiSelectCard<dynamic>>> queryTags(List<int>? selectedTags) async {
     final allTags = await dbHelper.queryAllRows();
 
     return allTags
@@ -150,16 +162,13 @@ class RecordService {
         .map((e) => MultiSelectCard(
               value: e['_id'],
               label: e['name'],
-              selected:
-                  selectedTags != null && selectedTags.contains(e['_id']) ||
-                      false,
+              selected: selectedTags != null && selectedTags.contains(e['_id']) || false,
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
                     color: Color(int.parse(e['color'])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])),
-                    borderRadius: BorderRadius.circular(10)),
+                    color: Color(int.parse(e['color'])), borderRadius: BorderRadius.circular(10)),
               ),
             ))
         .toList();
@@ -177,8 +186,7 @@ class RecordService {
                     color: Color(int.parse(e['color'])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])),
-                    borderRadius: BorderRadius.circular(10)),
+                    color: Color(int.parse(e['color'])), borderRadius: BorderRadius.circular(10)),
               ),
             ))
         .toList();
@@ -211,12 +219,12 @@ class RecordService {
     };
     final id = await dbHelper.insert(row);
     return id;
-    // print('insert stRT');
+    // //print('insert stRT');
     // currentCategory = "";
 
     // final id = await dbHelper.insert(row);
     // if (kDebugMode) {
-    //   print('inserted row id: $id');
+    //   //print('inserted row id: $id');
     // }
     // _query();
     // Navigator.push(context, MaterialPageRoute(builder: (_) => ContactList()));
@@ -239,7 +247,7 @@ class RecordService {
 
   Future<int> getCountOfRecords() async {
     int recordCount = await DatabaseHelper.instance.countRecords();
-    print(recordCount);
+    //print(recordCount);
 
     return recordCount;
   }
