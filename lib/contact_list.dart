@@ -15,7 +15,7 @@ class ContactList extends StatefulWidget {
 }
 
 class _ContactListState extends State<ContactList> {
-  final dbHelper = DatabaseHelper.instance;
+  final dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> allCategoryData = [];
 
   @override

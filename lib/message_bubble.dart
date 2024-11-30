@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:Chrono/colors.dart';
-import 'package:Chrono/homepage.dart';
+import 'package:Chrono/features/home/presentation/screen/home_page.dart';
 import 'package:Chrono/models/chat-context-message.dart';
 import 'package:Chrono/models/enums.dart';
 import 'package:Chrono/services/gpt-note-bind.service.dart';
@@ -21,6 +21,7 @@ class MessageBubble extends StatefulWidget {
   final bool isNoteEditing;
   final String? recordIds;
   final GPTNoteBindService? gptNoteBindService;
+
   @override
   State<MessageBubble> createState() => _MessageBubbleState();
 }

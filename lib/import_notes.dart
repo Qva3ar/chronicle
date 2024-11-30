@@ -14,6 +14,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
   bool _isLoading = false;
   String _statusMessage = "Press the button to import notes.";
   RecordService dataController = RecordService();
+
   Future<void> _importNotes() async {
     setState(() {
       _isLoading = true;
@@ -30,7 +31,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
       // For example, using a method from your DatabaseHelper
 
       // Assuming DatabaseHelper is set up to handle batch inserts
-      await DatabaseHelper.instance.importRecords(records);
+      await DatabaseHelper().importRecords(records);
 
       setState(() {
         _statusMessage = "Import successful!";

@@ -21,9 +21,9 @@ import 'db_manager.dart';
 import 'models/chat-message.dart';
 
 class ChatPage extends StatefulWidget {
-  final MessageService messageService; // Add this field
+  MessageService messageService = MessageService();
 
-  ChatPage({Key? key, required this.messageService}) : super(key: key);
+  ChatPage({Key? key}) : super(key: key);
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -38,7 +38,7 @@ class _ChatPageState extends State<ChatPage> {
   var _awaitingResponse = false;
   var includeAllNote = false;
   final TextEditingController _textController = TextEditingController();
-  final dbHelper = DatabaseHelper.instance;
+  final dbHelper = DatabaseHelper();
   late StreamSubscription<OpenAIStreamChatCompletionModel> stream;
 
   double tokenCount = 0;

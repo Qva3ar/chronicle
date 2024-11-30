@@ -14,6 +14,7 @@ class MyColors {
   static const drawalBackground = Color(0xff141414);
 }
 
+const Color textColor = Color.fromRGBO(222, 223, 230, 1);
 const Color bgColor = Color(0xFF212227);
 const Color cardColor = Color(0xFF2D2E33);
 const Color cardColor2 = Color.fromARGB(255, 55, 56, 61);

@@ -13,8 +13,9 @@ class InstructionsBlockWidget extends StatefulWidget {
 
 class _InstructionsBlockWidgetState extends State<InstructionsBlockWidget> {
   List<Instruction> instructions = [];
-  DatabaseHelper dbHelper = DatabaseHelper.instance;
+  DatabaseHelper dbHelper = DatabaseHelper();
   bool isVisible = false;
+
   @override
   void initState() {
     super.initState();

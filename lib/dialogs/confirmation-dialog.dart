@@ -33,7 +33,7 @@ Future<void> showDeleteConfirmationDialog(BuildContext context) async {
   // If the user confirms, proceed to delete all notes
   if (confirm) {
     try {
-      await DatabaseHelper.instance.deleteAllNotes();
+      await DatabaseHelper().deleteAllNotes();
       recordService.importSuccess();
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('All notes have been deleted successfully.')));

@@ -1,0 +1,9 @@
+{
+  "repeat": "Repeat",
+  "enter_text": "Enter a description",
+  "description": "Description",
+  "delete": "Delete",
+  "select_days_title": "Select days",
+  "select_days_ok_buttons": "Ok",
+  "select_days_exit_buttons": "Exit"
+}
