@@ -1,9 +1,8 @@
+import 'package:Chrono/db_manager.dart';
 import 'package:Chrono/models/record.dart';
-import 'package:dart_openai/dart_openai.dart';
+import 'package:Chrono/services/gpt.service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -12,6 +11,7 @@ import 'models/tag.dart';
 class RecordService {
   static final RecordService _singleton = RecordService._internal();
   GPTService gptService = GPTService();
+
   // Приватный конструктор
   RecordService._internal() {
     //print("Конструктор RecordService вызван");
@@ -42,7 +42,7 @@ class RecordService {
     return _singleton;
   }
 
-  final dbHelper = DatabaseHelper.instance;
+  final dbHelper = DatabaseHelper();
 
   final _titleSubject = BehaviorSubject<String>.seeded('');
   final _textSubject = BehaviorSubject<String>.seeded('');
@@ -67,6 +67,7 @@ class RecordService {
   }
 
   List<Record> allRecords = [];
+
   setRecords(List<Record> records) {
     allRecords = records;
   }
@@ -246,7 +247,7 @@ class RecordService {
   }
 
   Future<int> getCountOfRecords() async {
-    int recordCount = await DatabaseHelper.instance.countRecords();
+    int recordCount = await DatabaseHelper().countRecords();
     //print(recordCount);
 
     return recordCount;

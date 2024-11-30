@@ -1,12 +1,12 @@
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:Chrono/models/instructions.model.dart';
 import 'package:Chrono/models/record.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path_provider/path_provider.dart';
+
+import 'features/health_reminder/data/db/health_reminder_db_service.dart';
 
 class DatabaseHelper {
   final pageSize = 1000;
@@ -37,13 +37,10 @@ class DatabaseHelper {
   static final columnInstructionText = 'text';
   static final columnVisibility = 'visibility';
 
-  // make this a singleton class
-  DatabaseHelper._privateConstructor();
-  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
-
-  // only have a single app-wide reference to the database
   static Database? _database;
+
   Future<Database> get database async => _database ??= await _initDatabase();
+
   Future<Database?> get database1 async {
     if (_database == null) {
       _database = await _initDatabase();
@@ -52,11 +49,15 @@ class DatabaseHelper {
   }
 
   // this opens the database (and creates it if it doesn't exist)
-  _initDatabase() async {
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, _databaseName);
-    return await openDatabase(path,
-        version: _databaseVersion, onCreate: _onCreate, onUpgrade: _onUpgrade);
+  Future<Database> _initDatabase() async {
+    final databasePath = await getDatabasesPath();
+    String path = join(databasePath, _databaseName);
+    return await openDatabase(
+      path,
+      version: _databaseVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   // SQL code to create the database table
@@ -94,6 +95,16 @@ class DatabaseHelper {
       )
       ''');
 
+    await db.execute('''
+    CREATE TABLE ${HealthReminderDbService.tableName}(
+    ${HealthReminderDbService.columnId} TEXT PRIMARY KEY, 
+    ${HealthReminderDbService.columnDate} TEXT,
+    ${HealthReminderDbService.columnDescription} TEXT,
+    ${HealthReminderDbService.columnIsChecked} INTEGER,
+    ${HealthReminderDbService.columnMode} TEXT
+    )
+    ''');
+
     await insertInstructions(db);
   }
 
@@ -130,12 +141,12 @@ class DatabaseHelper {
   // and the value is the column value. The return value is the id of the
   // inserted row.
   Future<int> insert(Map<String, dynamic> row) async {
-    Database? db = await instance.database;
+    Database? db = await database;
     return await db.insert(tableCategory, row);
   }
 
   Future<int> updateTag(int tagId, Map<String, dynamic> row) async {
-    final Database db = await instance.database;
+    final Database db = await database;
     return await db.update(
       tableCategory,
       row,
@@ -145,7 +156,7 @@ class DatabaseHelper {
   }
 
   Future<int> insertRecord(Map<String, dynamic> row, List<int> tagIds) async {
-    final Database db = await instance.database;
+    final Database db = await database;
     int id = await db.transaction((txn) async {
       int recordId = await txn.insert(tableRecord, row);
       for (int tagId in tagIds) {
@@ -160,7 +171,7 @@ class DatabaseHelper {
   }
 
   Future<int> updateRecord(Map<String, dynamic> row, List<int> tagIds) async {
-    final Database db = await instance.database;
+    final Database db = await database;
     int id = row[columnId];
     return await db.transaction((txn) async {
       await txn.update(
@@ -185,7 +196,7 @@ class DatabaseHelper {
   }
 
   Future<bool> recordExists(int id) async {
-    Database db = await instance.database;
+    Database db = await database;
     var result = await db.rawQuery('SELECT COUNT(*) FROM $tableRecord WHERE $columnId = ?', [id]);
     return Sqflite.firstIntValue(result) == 1;
   }
@@ -193,7 +204,7 @@ class DatabaseHelper {
   // All of the rows are returned as a list of maps, where each map is
   // a key-value list of columns.
   Future<List<Map<String, dynamic>>> queryAllRows() async {
-    Database db = await instance.database;
+    Database db = await database;
     return await db.query(tableCategory);
   }
 
@@ -201,14 +212,14 @@ class DatabaseHelper {
     int page,
   ) async {
     final offset = (page - 1) * pageSize; // pageSize - количество записей на одной странице
-    final Database db = await instance.database;
+    final Database db = await database;
     final records = await db.query(tableRecord,
         limit: pageSize, offset: offset, orderBy: DatabaseHelper.columnRecordCreatedAt);
     return records;
   }
 
   Future<List<Record>> queryAllRecords() async {
-    Database db = await instance.database;
+    Database db = await database;
     final recordsData = await db.query(tableRecord, orderBy: columnRecordCreatedAt);
     List<Record> records = recordsData.map((data) => Record.fromMap(data)).toList();
     return records;
@@ -282,7 +293,7 @@ class DatabaseHelper {
   }
 
   Future<List<Record>> queryAllRowsofRecords() async {
-    Database db = await instance.database;
+    Database db = await database;
 
     final List<Map<String, dynamic>> recordsData = await db.query(tableRecord);
     List<Record> records = recordsData.map((data) => Record.fromMap(data)).toList();
@@ -353,7 +364,7 @@ class DatabaseHelper {
   // Deletes the row specified by the id. The number of affected rows is
   // returned. This should be 1 as long as the row exists.
   Future<bool> deleteTag(int id) async {
-    final Database db = await instance.database;
+    final Database db = await database;
 
     try {
       await db.transaction((txn) async {
@@ -373,7 +384,7 @@ class DatabaseHelper {
   }
 
   Future<int> deleteContact(int id) async {
-    Database db = await instance.database;
+    Database db = await database;
     return await db.delete(tableRecord, where: '$columnId = ?', whereArgs: [id]);
   }
 

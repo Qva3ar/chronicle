@@ -8,7 +8,7 @@ class InstructionsPage extends StatefulWidget {
 }
 
 class _InstructionsPageState extends State<InstructionsPage> {
-  DatabaseHelper dbHelper = DatabaseHelper.instance;
+  DatabaseHelper dbHelper = DatabaseHelper();
   List<Instruction> instructions = [];
 
   @override

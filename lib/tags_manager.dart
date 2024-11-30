@@ -1,23 +1,14 @@
 // ignore_for_file: prefer_const_constructors
 
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:Chrono/contact_list.dart';
 import 'package:Chrono/record.service.dart';
 import 'package:Chrono/shared/confirm-dialog.dart';
 import 'package:Chrono/tag_color_picker.dart';
-import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
-import 'package:signature/signature.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'colors.dart';
 import 'db_manager.dart';
 import 'models/tag.dart';
-import 'mydrawal.dart';
 
 class Animal {
   final int id;
@@ -50,7 +41,7 @@ class TagsManager extends StatefulWidget {
 
 class _TagsManagerState extends State<TagsManager> {
   RecordService recordService = RecordService(); // Замените RecordService на ваш реальный сервис
-  final dbHelper = DatabaseHelper.instance;
+  final dbHelper = DatabaseHelper();
 
   final TextEditingController _categoryController = TextEditingController();
   final formGlobalKey = GlobalKey<FormState>();
@@ -162,7 +153,7 @@ class _TagsManagerState extends State<TagsManager> {
                   final tag = entry;
 
                   return ChoiceChip(
-                    label: Text(tag.name ?? ""), // Замените на ваш текст
+                    label: Text(tag.name), // Замените на ваш текст
                     selected: selectedChipIndex == id,
                     side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
                     backgroundColor: Color(int.parse(tag.color!)),

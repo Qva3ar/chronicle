@@ -4,7 +4,7 @@ import 'package:Chrono/db_manager.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DataExporter {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   Future<File> exportData() async {
     List<Map<String, dynamic>> notes = await _dbHelper.fetchAllNotes();

@@ -1,35 +1,47 @@
-import 'package:flutter/material.dart';
-import 'package:Chrono/homepage.dart';
+import 'package:Chrono/core/di/dependency_injection.dart';
+import 'package:Chrono/core/navigation/router.dart';
 import 'package:Chrono/services/gpt-note-bind.service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'generated/l10n.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  initializeDateFormatting();
   await GPTNoteBindService().loadModel();
 
-  runApp(const MyApp());
+  initDependencyInjection();
+  runApp(MyApp(chronoRouter: getIt()));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({Key? key, required this.chronoRouter});
 
-  // This widget is the root of your application.
+  final ChronoRouter chronoRouter;
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      // debugShowCheckedModeBanner: false,
+    return MaterialApp.router(
       theme: ThemeData(
-        fontFamily: 'Montserrat',
-        primarySwatch: Colors.blue,
         textButtonTheme: TextButtonThemeData(
-            // style: TextButton.styleFrom(
-            //   foregroundColor: Colors.white, // This is a custom color variable
-            // ),
-            ),
-        textTheme: TextTheme(bodyMedium: TextStyle(color: Colors.black)),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+          ),
+        ),
       ),
-      home: HomePage(),
+      routeInformationProvider: chronoRouter.router.routeInformationProvider,
+      routeInformationParser: chronoRouter.router.routeInformationParser,
+      routerDelegate: chronoRouter.router.routerDelegate,
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        S.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: S.delegate.supportedLocales,
     );
   }
 }

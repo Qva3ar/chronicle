@@ -39,7 +39,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
 
   final TextEditingController _textController = TextEditingController();
   GPTService gptService = GPTService();
-  DatabaseHelper dbHelper = DatabaseHelper.instance;
+  DatabaseHelper dbHelper = DatabaseHelper();
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
   List<Instruction> instructions = [];
 
