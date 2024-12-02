@@ -100,8 +100,7 @@ class DatabaseHelper {
     ${HealthReminderDbService.columnId} TEXT PRIMARY KEY, 
     ${HealthReminderDbService.columnDate} TEXT,
     ${HealthReminderDbService.columnDescription} TEXT,
-    ${HealthReminderDbService.columnIsChecked} INTEGER,
-    ${HealthReminderDbService.columnMode} TEXT
+    ${HealthReminderDbService.columnDays} TEXT
     )
     ''');
 
