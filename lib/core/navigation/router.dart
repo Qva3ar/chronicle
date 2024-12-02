@@ -68,18 +68,18 @@ class ChronoRouter {
                         child: HealthReminderPage(id: id),
                       );
                     },
-                    routes: [
-                      GoRoute(
-                          path: RepeatRoute.name,
-                          pageBuilder: (context, state) {
-                            final List<RepeatMode> modes = state.extra as List<RepeatMode>;
-                            return MaterialPage(
-                              child: RepeatPage(
-                                modes: modes,
-                              ),
-                            );
-                          }),
-                    ],
+                    // routes: [
+                    //   GoRoute(
+                    //       path: RepeatRoute.name,
+                    //       pageBuilder: (context, state) {
+                    //         final List<RepeatMode> modes = state.extra as List<RepeatMode>;
+                    //         return MaterialPage(
+                    //           child: RepeatPage(
+                    //             modes: modes,
+                    //           ),
+                    //         );
+                    //       }),
+                    // ],
                   ),
                 ],
               ),
