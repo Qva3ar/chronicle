@@ -25,20 +25,11 @@ class HealthReminderByIdLoaded extends HealthReminderEvent {
   List<Object?> get props => [id];
 }
 
-class HealthReminderRepeatModeChanged extends HealthReminderEvent {
-  final List<RepeatMode> modes;
+class HealthReminderDayOfWeekButtonClicked extends HealthReminderEvent {
+  final DayOfWeek currentDay;
 
-  HealthReminderRepeatModeChanged({required this.modes});
-
-  @override
-  List<Object?> get props => [modes];
-}
-
-class HealthReminderDayOfWeekButtonClicked extends HealthReminderEvent{
-  final DayOfWeek dayOfWeek;
-
-  HealthReminderDayOfWeekButtonClicked({required this.dayOfWeek});
+  HealthReminderDayOfWeekButtonClicked({required this.currentDay});
 
   @override
-  List<Object?> get props => [dayOfWeek];
+  List<Object?> get props => [currentDay];
 }

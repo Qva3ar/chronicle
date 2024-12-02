@@ -8,7 +8,7 @@ import 'package:Chrono/services/gpt-note-bind.service.dart';
 import 'package:Chrono/services/messages.service.dart';
 import 'package:Chrono/shared/api-key-popup.dart';
 import 'package:Chrono/colors.dart';
-import 'package:Chrono/record.service.dart';
+import 'package:Chrono/features/notes/data/db/record.service.dart';
 import 'package:Chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:flutter_svg/svg.dart';
@@ -18,6 +18,7 @@ class CardDetailPage extends StatefulWidget {
   final String text;
   final int? recordId;
   final List<int>? recordsTag;
+  final bool isGenerated;
 
   const CardDetailPage({
     Key? key,
@@ -25,6 +26,7 @@ class CardDetailPage extends StatefulWidget {
     required this.text,
     this.recordId,
     this.recordsTag,
+    required this.isGenerated
   }) : super(key: key);
   @override
   _CardDetailPageState createState() => _CardDetailPageState();
@@ -47,6 +49,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
   GPTService gpt = GPTService();
 
   bool _isListeningToStream = false;
+  int _isGenerated = 0;
+
 
   List<String> undoStack = [];
   List<String> redoStack = [];
@@ -67,6 +71,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       setState(() {
         _titleController.text = widget.title;
         _descriptionController.text = widget.text;
+        _isGenerated = widget.isGenerated ? 1 : 0;
       });
 
       askGpt();
@@ -139,6 +144,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   handleTitle(String title) {
     recordService.handleTitle(title);
+  }
+
+  handleIsGenerated(int isGenerated) {
+    recordService.handleIsGenerated(isGenerated);
   }
 
   handleText(String text) {
@@ -437,7 +446,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
                 border: InputBorder.none,
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3))),
             controller: _descriptionController,
-            onChanged: handleText,
+            onChanged: (value) {
+             handleText(value);
+             handleIsGenerated(_isGenerated);
+            },
             style: TextStyle(
                 fontWeight: FontWeight.w500, fontSize: 14, height: 1.5, color: Colors.white),
           ),

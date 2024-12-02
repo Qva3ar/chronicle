@@ -14,6 +14,8 @@ class DayOfWeek extends Equatable {
     DayOfWeek(dayOfWeek: 'Sat', isSelected: true),
   ];
 
+  static List<String> selectedDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   DayOfWeek({
     required this.dayOfWeek,
     required this.isSelected,

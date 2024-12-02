@@ -58,6 +58,7 @@ class _Body extends StatelessWidget {
       child: Column(
         children: [
           TimePickerSpinner(
+            time: bloc.state.date,
             highlightedTextStyle: TextStyle(color: Colors.white, fontSize: 60),
             alignment: Alignment.center,
             spacing: 50,
@@ -68,40 +69,8 @@ class _Body extends StatelessWidget {
               bloc.add(HealthReminderTimeSelected(selectedTime: selectedTime));
             },
           ),
-          _RepeatTextButton(),
           _DaysOfWeekButtons(),
           _DescriptionWidget(),
-        ],
-      ),
-    );
-  }
-}
-
-class _RepeatTextButton extends StatelessWidget {
-  const _RepeatTextButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          MaterialButton(
-            onPressed: () {},
-            color: Colors.grey,
-            child: Text('on weekdays'),
-          ),
-          MaterialButton(
-            onPressed: () {},
-            color: Colors.grey,
-            child: Text('every day'),
-          ),
-          MaterialButton(
-            onPressed: () {},
-            color: Colors.grey,
-            child: Text('once'),
-          ),
         ],
       ),
     );
@@ -113,9 +82,6 @@ class _DaysOfWeekButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<HealthReminderBloc>();
-    // final modes = bloc.state.modes;
-
     return BlocBuilder<HealthReminderBloc, HealthReminderState>(
       builder: (context, state) {
         final daysOfWeek = state.daysOfWeek;
@@ -134,7 +100,9 @@ class _DaysOfWeekButtons extends StatelessWidget {
                       day.isSelected ? MyColors.contactDivider : MyColors.trecondaryColor,
                 ),
                 onPressed: () {
-                  bloc.add(HealthReminderDayOfWeekButtonClicked(dayOfWeek: daysOfWeek[index]));
+                  context
+                      .read<HealthReminderBloc>()
+                      .add(HealthReminderDayOfWeekButtonClicked(currentDay: daysOfWeek[index]));
                 },
                 child: Text(day.dayOfWeek),
               );
@@ -143,35 +111,6 @@ class _DaysOfWeekButtons extends StatelessWidget {
         );
       },
     );
-
-    // return TextButton(
-    //   onPressed: () {
-    //     context.push(RepeatRoute.navigateRoute,extra: modes).then(
-    //       (value) {
-    //         if (value is List<RepeatMode>) {
-    //           bloc.add(HealthReminderRepeatModeChanged(modes: value));
-    //         }
-    //       },
-    //     );
-    //   },
-    //   child: Padding(
-    //     padding: const EdgeInsets.symmetric(horizontal: 8),
-    //     child: Row(
-    //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    //       crossAxisAlignment: CrossAxisAlignment.center,
-    //       children: [
-    //         Text(
-    //           S.of(context).repeat,
-    //           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30, color: textColor),
-    //         ),
-    //         Text(
-    //           bloc.getRepeatMode(modes),
-    //           style: TextStyle(color: Colors.white54),
-    //         ),
-    //       ],
-    //     ),
-    //   ),
-    // );
   }
 }
 

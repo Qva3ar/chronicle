@@ -9,6 +9,7 @@ class HealthReminderInteractor {
   }) : _healthReminderRepository = healthReminderRepository;
 
   Future saveReminder(HealthReminderData reminder) async {
+    print('INTERACTOR');
     _healthReminderRepository.saveReminder(reminder);
   }
 
