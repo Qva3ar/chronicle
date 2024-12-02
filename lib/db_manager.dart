@@ -105,7 +105,6 @@ class DatabaseHelper {
     )
     ''');
 
-
     await insertInstructions(db);
   }
 
