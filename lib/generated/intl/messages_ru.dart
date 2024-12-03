@@ -21,13 +21,14 @@ class MessageLookup extends MessageLookupByLibrary {
   String get localeName => 'ru';
 
   final messages = _notInlinedMessages(_notInlinedMessages);
-
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
         "delete": MessageLookupByLibrary.simpleMessage("Delete"),
         "description": MessageLookupByLibrary.simpleMessage("Description"),
-        "enter_text": MessageLookupByLibrary.simpleMessage("Enter a description"),
+        "enter_text":
+            MessageLookupByLibrary.simpleMessage("Enter a description"),
         "repeat": MessageLookupByLibrary.simpleMessage("Repeat"),
-        "select_days_exit_buttons": MessageLookupByLibrary.simpleMessage("Exit"),
+        "select_days_exit_buttons":
+            MessageLookupByLibrary.simpleMessage("Exit"),
         "select_days_ok_buttons": MessageLookupByLibrary.simpleMessage("Ok"),
         "select_days_title": MessageLookupByLibrary.simpleMessage("Select days")
       };
