@@ -16,6 +16,7 @@ class StartPage extends StatelessWidget {
     return BlocProvider(
       create: (context) => getIt<StartCubit>(),
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: _Body(navigationShell: navigationShell),
       ),
     );

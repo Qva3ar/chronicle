@@ -33,7 +33,11 @@ class TagsManager extends StatefulWidget {
   final void Function(int?) onTagSelected; //
   final int? selectedTag;
 
-  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected}) : super(key: key);
+  TagsManager({
+    Key? key,
+    this.selectedTag,
+    required this.onTagSelected,
+  }) : super(key: key);
 
   @override
   _TagsManagerState createState() => _TagsManagerState();
@@ -135,131 +139,206 @@ class _TagsManagerState extends State<TagsManager> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: MyColors.secondaryColor,
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Form(
-          key: formGlobalKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Search by Tag"),
-              Wrap(
-                spacing: 8.0, // Расстояние между чипсами
-                children: allTags.map((entry) {
-                  final int id = entry.id;
-                  final tag = entry;
-
-                  return ChoiceChip(
-                    label: Text(tag.name), // Замените на ваш текст
-                    selected: selectedChipIndex == id,
-                    side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
-                    backgroundColor: Color(int.parse(tag.color!)),
-                    onSelected: (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          if (id == -1) {
-                            setEditing(!isEditing);
-                            return;
-                          }
-                          // currentPage = 0;
-                          widget.onTagSelected(id);
-                          selectedChipIndex = id;
-                          selectTagForEditing();
-                          // loadRecords();
-                        } else {
-                          if (id == -1) {
-                            setEditing(false);
-                            return;
-                          }
-                          widget.onTagSelected(null);
-                          // currentPage = 0;
-                          selectedChipIndex = null;
-                          // loadRecords();
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              isEditing
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            decoration: InputDecoration(
-                              fillColor: Colors.white,
-                              filled: true,
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
-                              ),
-                              hintText: 'Tag Name',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            ),
-                            controller: _categoryController,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Write Tag name';
-                              }
-                              return null;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return SingleChildScrollView(
+      child: Container(
+        color: MyColors.secondaryColor,
+        child: Padding(
+          padding: EdgeInsets.only(top: 20, left: 20, right: 20),
+          child: Form(
+            key: formGlobalKey,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Search by Tag"),
+                  Container(
+                    constraints: BoxConstraints(maxHeight: 300),
+                    // height: 400,
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Wrap(
+                        spacing: 8.0, // Расстояние между чипсами
+                        children: allTags.map((entry) {
+                          final int id = entry.id;
+                          final tag = entry;
+                          return ChoiceChip(
+                            label: Text(tag.name),
+                            // Замените на ваш текст
+                            selected: selectedChipIndex == id,
+                            side:
+                                selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
+                            backgroundColor: Color(int.parse(tag.color!)),
+                            onSelected: (bool selected) {
+                              setState(() {
+                                if (selected) {
+                                  if (id == -1) {
+                                    setEditing(!isEditing);
+                                    return;
+                                  }
+                                  // currentPage = 0;
+                                  widget.onTagSelected(id);
+                                  selectedChipIndex = id;
+                                  selectTagForEditing();
+                                  // loadRecords();
+                                } else {
+                                  if (id == -1) {
+                                    setEditing(false);
+                                    return;
+                                  }
+                                  widget.onTagSelected(null);
+                                  // currentPage = 0;
+                                  selectedChipIndex = null;
+                                  // loadRecords();
+                                }
+                              });
                             },
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: ColorPickerWidget(
-                                selected: selectedTag, onColorSelected: onColorSelected),
-                          ),
-                          Row(
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  isEditing
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+                          child: Column(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 20),
-                                child: TextButton(
-                                  style: ButtonStyle(
-                                    backgroundColor:
-                                        WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
-                                  ),
-                                  onPressed: () {
-                                    if (formGlobalKey.currentState!.validate()) {
-                                      saveTag();
-                                    }
-                                  },
-                                  child: Text(
-                                    "Save",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              selectedTag != null
-                                  ? TextButton(
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            WidgetStateProperty.all<Color>(MyColors.remove),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      decoration: InputDecoration(
+                                        fillColor: Colors.white,
+                                        filled: true,
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: const Color.fromARGB(255, 223, 234, 229),
+                                              width: 2.0),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderSide:
+                                              BorderSide(color: MyColors.primaryColor, width: 1.0),
+                                        ),
+                                        hintText: 'Tag Name',
+                                        contentPadding:
+                                            EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                       ),
-                                      onPressed: () {
-                                        if (formGlobalKey.currentState!.validate()) {
-                                          removeTag();
+                                      controller: _categoryController,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Write Tag name';
                                         }
+                                        return null;
                                       },
-                                      child: Text(
-                                        "Remove",
-                                        style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 10, right: 10),
+                                    child: IntrinsicHeight(
+                                      child: TextButton(
+                                        style: ButtonStyle(
+                                          backgroundColor: WidgetStateProperty.all<Color>(
+                                              MyColors.trecondaryColor),
+                                          shape: WidgetStateProperty.all(
+                                            RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(5),
+                                            ),
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          if (formGlobalKey.currentState!.validate()) {
+                                            saveTag();
+                                          }
+                                        },
+                                        child: Text(
+                                          "Save",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       ),
-                                    )
-                                  : Container()
+                                    ),
+                                  ),
+                                  selectedTag != null
+                                      ? IntrinsicHeight(
+                                        child: TextButton(
+                                            style: ButtonStyle(
+                                              backgroundColor:
+                                                  WidgetStateProperty.all<Color>(MyColors.remove),
+                                              shape: WidgetStateProperty.all(
+                                                RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(5),
+                                                ),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              if (formGlobalKey.currentState!.validate()) {
+                                                removeTag();
+                                              }
+                                            },
+                                            child: Text(
+                                              "Remove",
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                          ),
+                                      )
+                                      : Container(),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: ColorPickerWidget(
+                                    selected: selectedTag, onColorSelected: onColorSelected),
+                              ),
+                              Row(
+                                children: [
+                                  // Padding(
+                                  //   padding: const EdgeInsets.only(right: 20),
+                                  //   child: TextButton(
+                                  //     style: ButtonStyle(
+                                  //       backgroundColor: WidgetStateProperty.all<Color>(
+                                  //           MyColors.trecondaryColor),
+                                  //     ),
+                                  //     onPressed: () {
+                                  //       if (formGlobalKey.currentState!.validate()) {
+                                  //         saveTag();
+                                  //       }
+                                  //     },
+                                  //     child: Text(
+                                  //       "Save",
+                                  //       style: TextStyle(color: Colors.white),
+                                  //     ),
+                                  //   ),
+                                  // ),
+
+                                  // selectedTag != null
+                                  //     ? TextButton(
+                                  //         style: ButtonStyle(
+                                  //           backgroundColor:
+                                  //               WidgetStateProperty.all<Color>(MyColors.remove),
+                                  //         ),
+                                  //         onPressed: () {
+                                  //           if (formGlobalKey.currentState!.validate()) {
+                                  //             removeTag();
+                                  //           }
+                                  //         },
+                                  //         child: Text(
+                                  //           "Remove",
+                                  //           style: TextStyle(color: Colors.white),
+                                  //         ),
+                                  //       )
+                                  //     : Container()
+                                ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                    )
-                  : Container()
-            ],
+                        )
+                      : Container(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
