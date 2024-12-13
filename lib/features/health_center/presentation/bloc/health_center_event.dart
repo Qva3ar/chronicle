@@ -17,7 +17,7 @@ class HealthCenterReminderDeleted extends HealthCenterEvent {
 }
 
 class HealthCenterReminderIsChecked extends HealthCenterEvent {
-  final bool? isChecked;
+  final bool isChecked;
   final String index;
 
   HealthCenterReminderIsChecked({required this.isChecked, required this.index});

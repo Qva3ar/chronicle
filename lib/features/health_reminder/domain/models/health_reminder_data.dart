@@ -5,14 +5,14 @@ class HealthReminderData extends Equatable {
   final DateTime date;
   final String description;
   bool isChecked;
-  String mode;
+  final List<String> selectedDays;
 
   HealthReminderData({
     required this.id,
     required this.date,
     required this.description,
     required this.isChecked,
-    required this.mode,
+    required this.selectedDays,
   });
 
   @override
@@ -21,6 +21,6 @@ class HealthReminderData extends Equatable {
         date,
         description,
         isChecked,
-        mode,
+        selectedDays,
       ];
 }

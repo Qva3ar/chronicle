@@ -24,7 +24,6 @@ class StartPage extends StatelessWidget {
 
 class _Body extends StatelessWidget {
   const _Body({
-    super.key,
     required this.navigationShell,
   });
 

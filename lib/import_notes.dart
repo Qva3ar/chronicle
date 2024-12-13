@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/record.service.dart';
-import 'package:flutter/material.dart';
+
+import 'package:Chrono/core/db/db_manager.dart';
+import 'package:Chrono/features/notes/data/db/record.service.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 
 class ImportNotesDialog extends StatefulWidget {
   @override

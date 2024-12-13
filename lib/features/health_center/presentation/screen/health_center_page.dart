@@ -76,9 +76,8 @@ class _Body extends StatelessWidget {
                           activeColor: textColor,
                           value: reminder.isChecked,
                           onChanged: (value) {
-                            // print('VALUE === $value');
                             bloc.add(HealthCenterReminderIsChecked(
-                                isChecked: value, index: reminder.id));
+                                isChecked: value ?? true, index: reminder.id));
                           },
                         ),
                       ),
