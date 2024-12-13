@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:Chrono/colors.dart';
-import 'package:Chrono/features/home/presentation/screen/home_page.dart';
 import 'package:Chrono/models/chat-context-message.dart';
 import 'package:Chrono/models/enums.dart';
 import 'package:Chrono/services/gpt-note-bind.service.dart';
+import 'package:flutter/material.dart';
 import 'package:markdown_widget/markdown_widget.dart';
+
+import 'features/notes/presentation/screen/home_page.dart';
 
 class MessageBubble extends StatefulWidget {
   const MessageBubble({
@@ -33,11 +34,8 @@ class _MessageBubbleState extends State<MessageBubble> {
     super.initState();
   }
 
-  // Add this property
   @override
   Widget build(BuildContext context) {
-    //print(widget.recordIds);
-    final themeData = Theme.of(context);
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(

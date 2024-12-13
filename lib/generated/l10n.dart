@@ -1,6 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'intl/messages_all.dart';
 
 // **************************************************************************
@@ -46,6 +47,36 @@ class S {
 
   static S? maybeOf(BuildContext context) {
     return Localizations.of<S>(context, S);
+  }
+
+  /// `Notes`
+  String get notes {
+    return Intl.message(
+      'Notes',
+      name: 'notes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Productivity Center`
+  String get productivity_center {
+    return Intl.message(
+      'Productivity Center',
+      name: 'productivity_center',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `GPT`
+  String get gpt {
+    return Intl.message(
+      'GPT',
+      name: 'gpt',
+      desc: '',
+      args: [],
+    );
   }
 
   /// `Repeat`

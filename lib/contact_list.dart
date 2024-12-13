@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:Chrono/mydrawal.dart';
+import 'package:flutter/material.dart';
 
 import 'colors.dart';
-import 'db_manager.dart';
+import 'core/db/db_manager.dart';
 
 class ContactList extends StatefulWidget {
   const ContactList({Key? key}) : super(key: key);
@@ -102,9 +102,7 @@ class _ContactListState extends State<ContactList> {
   }
 
   void _delete(int id) async {
-    // Assuming that the number of rows is the id for the last row.
-    final rowsDeleted = await dbHelper.deleteContact(id);
-    //print('deleted $rowsDeleted row(s): row $id');
+    await dbHelper.deleteContact(id);
     _query();
   }
 }

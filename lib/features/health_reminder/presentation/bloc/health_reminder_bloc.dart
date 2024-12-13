@@ -1,11 +1,12 @@
 import 'package:Chrono/features/health_reminder/domain/interactor/health_reminder_interactor.dart';
 import 'package:Chrono/features/health_reminder/domain/models/health_reminder_data.dart';
-import 'package:Chrono/features/health_reminder/presentation/models/repeat_mode.dart';
-import 'package:Chrono/features/repeat/presentation/models/day_of_week.dart';
+import 'package:Chrono/features/health_reminder/presentation/models/day_of_week.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
+
+import '../../../../core/notifications/notifications_service.dart';
 
 part 'health_reminder_event.dart';
 
@@ -16,29 +17,34 @@ class HealthReminderBloc extends Bloc<HealthReminderEvent, HealthReminderState> 
     required HealthReminderInteractor healthReminderInteractor,
   })  : _healthReminderInteractor = healthReminderInteractor,
         super(HealthReminderState(
-            date: DateTime.now(), modes: RepeatMode.getModes(), daysOfWeek: DayOfWeek.daysOfWeek)) {
+          date: DateTime.now(),
+          daysOfWeek: DayOfWeek.daysOfWeek,
+          selectedDays: DayOfWeek.selectedDays,
+        )) {
     on<HealthReminderTimeSelected>(_onHealthReminderTimeSelected);
     on<HealthReminderSaveButtonClicked>(_onHealthReminderSaveButtonClicked);
     on<HealthReminderByIdLoaded>(_onHealthReminderByIdLoaded);
-    on<HealthReminderRepeatModeChanged>(_onHealthReminderRepeatModeChanged);
+    on<HealthReminderDayOfWeekButtonClicked>(_onHealthReminderDayOfWeekClicked);
   }
 
   final HealthReminderInteractor _healthReminderInteractor;
 
   final TextEditingController descriptionController = TextEditingController();
 
-  void _onHealthReminderRepeatModeChanged(
-    HealthReminderRepeatModeChanged event,
+  void _onHealthReminderDayOfWeekClicked(
+    HealthReminderDayOfWeekButtonClicked event,
     Emitter<HealthReminderState> emit,
   ) {
-    var modes = state.modes;
-    for (int i = 0; i < modes.length; i++) {
-      if (modes[i].mode == event.modes[i].mode) {
-        modes[i].isSelected = true;
-      } else
-        modes[i].isSelected = false;
-    }
-    emit(state.copyWith(modes: modes));
+    final currentDay = event.currentDay;
+    List<DayOfWeek> daysOfWeek = state.daysOfWeek;
+    final newDaysOfWeek = daysOfWeek
+        .map((day) => day == currentDay
+            ? day.copyWith(isSelected: event.currentDay.isSelected ? false : true)
+            : day)
+        .toList();
+    emit(state.copyWith(
+      daysOfWeek: newDaysOfWeek,
+    ));
   }
 
   void _onHealthReminderTimeSelected(
@@ -62,18 +68,26 @@ class HealthReminderBloc extends Bloc<HealthReminderEvent, HealthReminderState> 
     }
     emit(state.copyWith(id: id, isLoading: true));
     await Future.delayed(const Duration(milliseconds: 300));
-    var modes = state.modes;
     final reminder = await _healthReminderInteractor.getReminderById(id);
-    for (int i = 0; i < modes.length; i++) {
-      if (modes[i].mode == reminder?.mode) {
-        modes[i].isSelected = true;
-      } else
-        modes[i].isSelected = false;
+
+    final List<DayOfWeek> daysOfWeek = [];
+
+    for (int i = 0; i < state.daysOfWeek.length; i++) {
+      for (int j = 0; j < reminder!.selectedDays.length; j++) {
+        if (state.daysOfWeek[i].dayOfWeek == reminder.selectedDays[j]) {
+          daysOfWeek.add(DayOfWeek(dayOfWeek: state.daysOfWeek[i].dayOfWeek, isSelected: true));
+        }
+      }
+      if (daysOfWeek.length != i + 1) {
+        daysOfWeek.add(DayOfWeek(dayOfWeek: state.daysOfWeek[i].dayOfWeek, isSelected: false));
+      }
     }
+
     descriptionController.text = reminder?.description ?? '';
     emit(state.copyWith(
       date: reminder?.date,
-      modes: modes,
+      selectedDays: reminder?.selectedDays,
+      daysOfWeek: daysOfWeek,
       isLoading: false,
     ));
   }
@@ -82,50 +96,67 @@ class HealthReminderBloc extends Bloc<HealthReminderEvent, HealthReminderState> 
     HealthReminderSaveButtonClicked event,
     Emitter<HealthReminderState> emit,
   ) async {
-    final id = state.id;
-    String mode = 'Mode is not selected';
-    for (int i = 0; i < state.modes.length; i++) {
-      if (state.modes[i].isSelected == true) {
-        mode = state.modes[i].mode;
+    final List<String> selectedDays = [];
+    for (var day in state.daysOfWeek) {
+      if (day.isSelected) {
+        selectedDays.add(day.dayOfWeek);
       }
     }
-    final reminder = HealthReminderData(
-      id: id,
-      date: state.date,
-      description: descriptionController.text,
-      isChecked: true,
-      mode: mode,
-    );
-    await _healthReminderInteractor.saveReminder(reminder);
-    emit(state.copyWith(needExit: true));
+
+
+    for (var day in selectedDays) {
+      final currentTime = DateTime.now();
+      final dayOfWeek = _getDateFromDayOfWeek(day);
+      final dayDifference = (dayOfWeek - currentTime.weekday + 7) % 7;
+      final dayId = Uuid().v4();
+      final scheduledTime = DateTime(
+        currentTime.year,
+        currentTime.month,
+        currentTime.day,
+        state.date.hour,
+        state.date.minute,
+      ).add(Duration(days: dayDifference));
+      print('SHEDULED TIME -====== >>>>>>> : $scheduledTime');
+      print('ID -====== >>>>>>> : ${dayId.hashCode}');
+      NotificationsService.scheduleNotification(
+        dayId.hashCode,
+        'Выполните запланированную рутину',
+        descriptionController.text,
+        scheduledTime,
+      );
+
+
+      final reminder = HealthReminderData(
+        id: state.id,
+        date: state.date,
+        description: descriptionController.text,
+        isChecked: false,
+        selectedDays: selectedDays,
+      );
+      await _healthReminderInteractor.saveReminder(reminder);
+      emit(state.copyWith(
+        needExit: true,
+      ));
+    }
   }
 
-  String getRepeatMode(List<RepeatMode> modes) {
-    String mode = 'Mode is not selected';
-    for (int i = 0; i < modes.length; i++) {
-      if (modes[i].isSelected == true) {
-        mode = modes[i].mode;
-      }
-    }
-    return mode;
-  }
+  int _getDateFromDayOfWeek(String dayOfWeekString) {
+    Map<String, int> daysMap = {
+      "Sun": DateTime.sunday,
+      "Mon": DateTime.monday,
+      "Tue": DateTime.tuesday,
+      "Wed": DateTime.wednesday,
+      "Thu": DateTime.thursday,
+      "Fri": DateTime.friday,
+      "Sat": DateTime.saturday,
+    };
 
-  List<String> getStringModes(List<RepeatMode> modes) {
-    List<String> stringModes = [];
-    for (var mode in modes) {
-      stringModes.add(mode.mode);
-    }
-    return stringModes;
-  }
+    int? targetDay = daysMap[dayOfWeekString];
 
-  List<int> getIntIsSelected(List<RepeatMode> modes) {
-    List<int> intIsSelected = [];
-    for (var mode in modes) {
-      if (mode.isSelected) {
-        intIsSelected.add(1);
-      } else
-        intIsSelected.add(0);
+    if (targetDay == null) {
+      print("Invalid day of week ===== >>>: $dayOfWeekString");
     }
-    return intIsSelected;
+
+    return targetDay!;
   }
 }

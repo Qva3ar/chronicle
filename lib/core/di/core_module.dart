@@ -1,5 +1,5 @@
+import 'package:Chrono/core/db/db_manager.dart';
 import 'package:Chrono/core/navigation/router.dart';
-import 'package:Chrono/db_manager.dart';
 
 import 'dependency_injection.dart';
 

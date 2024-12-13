@@ -8,7 +8,7 @@ class HealthReminderDataMapper {
       date: DateTime.parse(entity.date),
       description: entity.description,
       isChecked: entity.isChecked == 0 ? false : true,
-      mode: entity.mode,
+      selectedDays: entity.selectedDays.split(' '),
     );
   }
 
@@ -18,7 +18,7 @@ class HealthReminderDataMapper {
       date: data.date.toIso8601String(),
       description: data.description,
       isChecked: data.isChecked ? 1 : 0,
-      mode: data.mode,
+      selectedDays: data.selectedDays.join(' '),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:Chrono/features/health_reminder/domain/models/health_reminder_data.dart';
 
 abstract class HealthReminderRepository {
-  Future<int?> saveReminder(HealthReminderData data);
+  Future saveReminder(HealthReminderData data);
 
   Future<List<HealthReminderData>> getReminders();
 

@@ -38,6 +38,8 @@ dependencies:
     sdk: flutter
   intl: any
   flutter_time_picker_spinner: ^2.0.0
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
 
 dev_dependencies:
   flutter_launcher_icons: "^0.13.1"

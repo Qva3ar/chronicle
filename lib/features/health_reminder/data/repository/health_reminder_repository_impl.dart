@@ -16,16 +16,16 @@ class HealthReminderRepositoryImpl extends HealthReminderRepository {
         _healthReminderDataMapper = healthReminderDataMapper;
 
   @override
-  Future<int?> saveReminder(HealthReminderData data) {
+  Future saveReminder(HealthReminderData data) {
     HealthReminderEntity entity = _healthReminderDataMapper.mapToEntity(data);
-    final id = _healthReminderDbService.insertReminder(entity);
-    return id;
+    return _healthReminderDbService.insertReminder(entity);
   }
 
   @override
   Future<List<HealthReminderData>> getReminders() async {
     final entities = await _healthReminderDbService.getReminders();
-    return entities.map(_healthReminderDataMapper.mapToData).toList();
+    final data = entities.map(_healthReminderDataMapper.mapToData).toList();
+    return data;
   }
 
   @override
@@ -42,7 +42,7 @@ class HealthReminderRepositoryImpl extends HealthReminderRepository {
   @override
   Future saveRemindersList(List<HealthReminderData> remindersList) async {
     final entities = remindersList.map(_healthReminderDataMapper.mapToEntity).toList();
-    return await _healthReminderDbService.insertRemindersList(entities);
+    await _healthReminderDbService.insertRemindersList(entities);
   }
 
   @override

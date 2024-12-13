@@ -17,9 +17,7 @@ class HealthCenterInteractor {
     await _healthReminderRepository.deleteReminder(id);
   }
 
-  Future<List<HealthReminderData>> updateReminders(List<HealthReminderData> reminders) async {
-    await _healthReminderRepository.deleteAllReminders();
+  Future saveReminders(List<HealthReminderData> reminders) async {
     await _healthReminderRepository.saveRemindersList(reminders);
-    return await _healthReminderRepository.getReminders();
   }
 }

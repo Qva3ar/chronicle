@@ -1,4 +1,4 @@
-import 'package:Chrono/db_manager.dart';
+import 'package:Chrono/core/db/db_manager.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'models/health_reminder_entity.dart';
@@ -9,17 +9,16 @@ class HealthReminderDbService {
   static const columnDate = 'date';
   static const columnDescription = 'description';
   static const columnIsChecked = 'is_checked';
-  static const columnMode = 'mode';
+  static const columnSelectedDays = 'days';
 
   final DatabaseHelper _databaseHelper;
 
   HealthReminderDbService({required DatabaseHelper databaseHelper})
       : _databaseHelper = databaseHelper;
 
-  Future<int> insertReminder(HealthReminderEntity entity) async {
+  Future insertReminder(HealthReminderEntity entity) async {
     final database = await _databaseHelper.database;
-    return database.insert(tableName, entity.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    database.insert(tableName, entity.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<HealthReminderEntity>> getReminders() async {
@@ -43,10 +42,9 @@ class HealthReminderDbService {
 
   Future insertRemindersList(List<HealthReminderEntity> remindersList) async {
     final Database database = await _databaseHelper.database;
-    final Batch batch = database.batch();
 
     for (HealthReminderEntity reminder in remindersList) {
-      batch.insert(tableName, reminder.toJson());
+      database.insert(tableName, reminder.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 

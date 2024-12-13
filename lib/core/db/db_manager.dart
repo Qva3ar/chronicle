@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-import 'features/health_reminder/data/db/health_reminder_db_service.dart';
+import '../../features/health_reminder/data/db/health_reminder_db_service.dart';
 
 class DatabaseHelper {
   final pageSize = 1000;
@@ -28,8 +28,8 @@ class DatabaseHelper {
 
   static final columnRecordTitle = 'title';
   static final columnRecordText = 'text';
-  static final columnRecordTags = 'tags';
   static final columnRecordCreatedAt = 'created_at';
+  static final columnRecordIsGenerated = 'is_generated';
 
   static final tableInstructions = 'instructions';
 
@@ -74,7 +74,8 @@ class DatabaseHelper {
             $columnId INTEGER PRIMARY KEY,
             $columnRecordTitle TEXT,
             $columnRecordText TEXT,
-            $columnRecordCreatedAt INTEGER NOT NULL
+            $columnRecordCreatedAt INTEGER NOT NULL,
+            $columnRecordIsGenerated INTEGER
           )
           ''');
 
@@ -101,7 +102,7 @@ class DatabaseHelper {
     ${HealthReminderDbService.columnDate} TEXT,
     ${HealthReminderDbService.columnDescription} TEXT,
     ${HealthReminderDbService.columnIsChecked} INTEGER,
-    ${HealthReminderDbService.columnMode} TEXT
+    ${HealthReminderDbService.columnSelectedDays} TEXT
     )
     ''');
 
@@ -109,12 +110,10 @@ class DatabaseHelper {
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Удалите существующие таблицы
     await db.execute('DROP TABLE IF EXISTS $tableCategory');
     await db.execute('DROP TABLE IF EXISTS $tableRecord');
     await db.execute('DROP TABLE IF EXISTS $tableRecordTag');
 
-    // Создайте новые таблицы с обновленной схемой
     await _onCreate(db, newVersion);
   }
 
@@ -208,22 +207,22 @@ class DatabaseHelper {
     return await db.query(tableCategory);
   }
 
-  Future<List<Map<String, dynamic>>> queryRecords(
-    int page,
-  ) async {
-    final offset = (page - 1) * pageSize; // pageSize - количество записей на одной странице
-    final Database db = await database;
-    final records = await db.query(tableRecord,
-        limit: pageSize, offset: offset, orderBy: DatabaseHelper.columnRecordCreatedAt);
-    return records;
-  }
+  // Future<List<Map<String, dynamic>>> queryRecords(
+  //   int page,
+  // ) async {
+  //   final offset = (page - 1) * pageSize; // pageSize - количество записей на одной странице
+  //   final Database db = await database;
+  //   final records = await db.query(tableRecord,
+  //       limit: pageSize, offset: offset, orderBy: DatabaseHelper.columnRecordCreatedAt);
+  //   return records;
+  // }
 
-  Future<List<Record>> queryAllRecords() async {
-    Database db = await database;
-    final recordsData = await db.query(tableRecord, orderBy: columnRecordCreatedAt);
-    List<Record> records = recordsData.map((data) => Record.fromMap(data)).toList();
-    return records;
-  }
+  // Future<List<Record>> queryAllRecords() async {
+  //   Database db = await database;
+  //   final recordsData = await db.query(tableRecord, orderBy: columnRecordCreatedAt);
+  //   List<Record> records = recordsData.map((data) => Record.fromMap(data)).toList();
+  //   return records;
+  // }
 
   Future<List<Map<String, dynamic>>> fetchAllNotes() async {
     Database db = await database;
@@ -306,7 +305,6 @@ class DatabaseHelper {
       tableRecord,
       where: '$columnId IN (${recordIds})',
     );
-
     List<Record> records = recordsData.map((data) => Record.fromMap(data)).toList();
     return records;
   }

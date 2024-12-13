@@ -1,13 +1,13 @@
 // ignore_for_file: prefer_const_constructors
 
-import 'package:Chrono/record.service.dart';
+import 'package:Chrono/features/notes/data/db/record.service.dart';
 import 'package:Chrono/shared/confirm-dialog.dart';
 import 'package:Chrono/tag_color_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'colors.dart';
-import 'db_manager.dart';
+import 'core/db/db_manager.dart';
 import 'models/tag.dart';
 
 class Animal {
@@ -153,7 +153,8 @@ class _TagsManagerState extends State<TagsManager> {
                   final tag = entry;
 
                   return ChoiceChip(
-                    label: Text(tag.name), // Замените на ваш текст
+                    label: Text(tag.name),
+                    // Замените на ваш текст
                     selected: selectedChipIndex == id,
                     side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
                     backgroundColor: Color(int.parse(tag.color!)),

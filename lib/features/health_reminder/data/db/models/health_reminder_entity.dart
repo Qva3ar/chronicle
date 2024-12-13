@@ -6,14 +6,14 @@ class HealthReminderEntity extends Equatable {
   final String date;
   final String description;
   final int isChecked;
-  final String mode;
+  final String selectedDays;
 
   HealthReminderEntity({
     required this.id,
     required this.date,
     required this.description,
+    required this.selectedDays,
     required this.isChecked,
-    required this.mode,
   });
 
   factory HealthReminderEntity.fromJson(Map<String, dynamic> json) {
@@ -22,17 +22,19 @@ class HealthReminderEntity extends Equatable {
       date: json[HealthReminderDbService.columnDate],
       description: json[HealthReminderDbService.columnDescription],
       isChecked: json[HealthReminderDbService.columnIsChecked],
-      mode: json[HealthReminderDbService.columnMode],
+      selectedDays: json[HealthReminderDbService.columnSelectedDays],
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        HealthReminderDbService.columnId: id,
-        HealthReminderDbService.columnDate: date,
-        HealthReminderDbService.columnDescription: description,
-        HealthReminderDbService.columnIsChecked: isChecked,
-        HealthReminderDbService.columnMode: mode,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      HealthReminderDbService.columnId: id,
+      HealthReminderDbService.columnDate: date,
+      HealthReminderDbService.columnDescription: description,
+      HealthReminderDbService.columnIsChecked: isChecked,
+      HealthReminderDbService.columnSelectedDays: selectedDays,
+    };
+  }
 
   @override
   List<Object?> get props => [
@@ -40,6 +42,6 @@ class HealthReminderEntity extends Equatable {
         date,
         description,
         isChecked,
-        mode,
+        selectedDays,
       ];
 }
