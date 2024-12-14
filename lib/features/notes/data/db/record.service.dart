@@ -1,4 +1,4 @@
-import 'package:Chrono/db_manager.dart';
+import 'package:Chrono/core/db/db_manager.dart';
 import 'package:Chrono/models/record.dart';
 import 'package:Chrono/services/gpt.service.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'models/tag.dart';
+import '../../../../models/tag.dart';
 
 class RecordService {
   static final RecordService _singleton = RecordService._internal();
@@ -26,6 +26,9 @@ class RecordService {
       if (event.isNotEmpty) {
         getRecomendations(event);
       }
+    });
+    _isGeneratedSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
+      prepareIsGenerated(event);
     });
   }
 
@@ -47,6 +50,7 @@ class RecordService {
   final _titleSubject = BehaviorSubject<String>.seeded('');
   final _textSubject = BehaviorSubject<String>.seeded('');
   final _tagIdsSubject = BehaviorSubject<List<int>?>.seeded([]);
+  final _isGeneratedSubject = BehaviorSubject<int>.seeded(0);
   final _tags = BehaviorSubject<List<Tag>>.seeded([]);
   final gptSelectedTags = PublishSubject<String>();
   int? _currentRecordId;
@@ -82,6 +86,10 @@ class RecordService {
 
   void handleText(String desc) {
     _textSubject.add(desc);
+  }
+
+  void handleIsGenerated(int isGenerated) {
+    _isGeneratedSubject.add(isGenerated);
   }
 
   void setTagIds(List<int>? tagIds) {
@@ -120,6 +128,13 @@ class RecordService {
     }
     Map<String, dynamic> updatedRow = {
       DatabaseHelper.columnRecordText: text,
+    };
+    _handleTitleAndText(updatedRow);
+  }
+
+  void prepareIsGenerated(int isGenerated) {
+    Map<String, dynamic> updatedRow = {
+      DatabaseHelper.columnRecordIsGenerated: isGenerated,
     };
     _handleTitleAndText(updatedRow);
   }
@@ -204,11 +219,6 @@ class RecordService {
   }
 
   Future<int> insertTag(String catName, int color) async {
-    var base64image;
-    // if (imageFile?.exists() != null) {
-    //   base64image = base64Encode(imageFile!.readAsBytesSync().toList());
-    // }
-
     // row to insert
     Map<String, dynamic> row = {
       DatabaseHelper.columnTagName: catName,

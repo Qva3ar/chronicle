@@ -1,11 +1,13 @@
+import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
-class Record {
+class Record extends Equatable {
   int id;
   String title;
   String text;
   List<int> tagIds;
   String createdAt;
+  bool isGenerated;
 
   Record({
     required this.id,
@@ -13,6 +15,7 @@ class Record {
     required this.text,
     required this.tagIds,
     required this.createdAt,
+    required this.isGenerated,
   });
 
   // Добавьте метод для сериализации объекта в Map
@@ -23,6 +26,7 @@ class Record {
       'text': text,
       'tagIds': tagIds.join(','), // Преобразуем список ID тегов в строку
       'createdAt': createdAt,
+      'isGenerated': isGenerated ? 1 : 0,
     };
   }
 
@@ -38,7 +42,6 @@ class Record {
           .map((e) => int.parse(e))
           .toList();
     }
-    ;
 
     int millisecondsSinceEpoch = map['created_at']; // Replace this with your milliseconds value
     DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
@@ -50,10 +53,21 @@ class Record {
       text: map['text'] ?? '',
       tagIds: tagIds,
       createdAt: formattedDateTime,
+      isGenerated: map['isGenerated'] == 1 ? true : false,
     );
   }
 
   DateTime get createdAtDate {
     return DateFormat('yyyy-MM-dd HH:mm:ss').parse(createdAt);
   }
+
+  @override
+  List<Object?> get props => [
+        id,
+        title,
+        text,
+        tagIds,
+        createdAt,
+        isGenerated,
+      ];
 }

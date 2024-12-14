@@ -6,16 +6,14 @@ import 'package:Chrono/core/navigation/routes/chat_route.dart';
 import 'package:Chrono/core/navigation/routes/health_center_route.dart';
 import 'package:Chrono/core/navigation/routes/health_reminder_route.dart';
 import 'package:Chrono/core/navigation/routes/home_route.dart';
-import 'package:Chrono/core/navigation/routes/repeat_route.dart';
 import 'package:Chrono/features/health_center/presentation/screen/health_center_page.dart';
-import 'package:Chrono/features/health_reminder/presentation/models/repeat_mode.dart';
 import 'package:Chrono/features/health_reminder/presentation/screen/health_reminder_page.dart';
-import 'package:Chrono/features/home/presentation/screen/card_details.dart';
-import 'package:Chrono/features/home/presentation/screen/home_page.dart';
-import 'package:Chrono/features/repeat/presentation/screen/repeat_page.dart';
 import 'package:Chrono/features/start/presentation/screen/start_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../features/notes/presentation/screen/card_details.dart';
+import '../../features/notes/presentation/screen/home_page.dart';
 
 class ChronoRouter {
   final GoRouter router = GoRouter(
@@ -37,14 +35,19 @@ class ChronoRouter {
                         final title = state.uri.queryParameters[CardRoute.titleKeyArg] ?? '';
                         final text = state.uri.queryParameters[CardRoute.textKeyArg] ?? '';
                         final tags = state.uri.queryParameters[CardRoute.tagsKeyArg] ?? '';
-                        List<int> tagsList = tags == '' ? [] : List<int>.from(jsonDecode(tags));
+                        final isGenerated =
+                            state.uri.queryParameters[CardRoute.isGeneratedKeyArg] ?? '';
+
                         final parsedId = id == null ? null : int.parse(id);
+                        List<int> tagsList = tags == '' ? [] : List<int>.from(jsonDecode(tags));
+                        final parsedIsGenerated = isGenerated == 'true' ? true : false;
                         return MaterialPage(
                             child: CardDetailPage(
                           recordId: parsedId,
                           title: title,
                           text: text,
                           recordsTag: tagsList,
+                          isGenerated: parsedIsGenerated,
                         ));
                       }),
                 ],
@@ -68,18 +71,6 @@ class ChronoRouter {
                         child: HealthReminderPage(id: id),
                       );
                     },
-                    routes: [
-                      GoRoute(
-                          path: RepeatRoute.name,
-                          pageBuilder: (context, state) {
-                            final List<RepeatMode> modes = state.extra as List<RepeatMode>;
-                            return MaterialPage(
-                              child: RepeatPage(
-                                modes: modes,
-                              ),
-                            );
-                          }),
-                    ],
                   ),
                 ],
               ),

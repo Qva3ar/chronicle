@@ -6,9 +6,12 @@ class CardRoute {
   static const String titleKeyArg = 'title';
   static const String textKeyArg = 'text';
   static const List<int>? tagsKeyArg = [];
+  static const bool isGeneratedKeyArg = false;
 
-  static String getRouteWithArgs(int? id, String title, String text, List<int>? tags) {
-    final buffer = StringBuffer('${HomeRoute.name}$name?$titleKeyArg=$title&$textKeyArg=$text');
+  static String getRouteWithArgs(
+      int? id, String title, String text, List<int>? tags, bool isGenerated) {
+    final buffer = StringBuffer(
+        '${HomeRoute.name}$name?$titleKeyArg=$title&$textKeyArg=$text&$isGeneratedKeyArg=$isGenerated');
     if (id != null) {
       buffer.write('&$idKeyArg=$id');
     }

@@ -1,5 +1,5 @@
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/record.service.dart';
+import 'package:Chrono/core/db/db_manager.dart';
+import 'package:Chrono/features/notes/data/db/record.service.dart';
 import 'package:flutter/material.dart';
 
 Future<void> showDeleteConfirmationDialog(BuildContext context) async {
