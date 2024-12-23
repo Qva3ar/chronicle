@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/notifications/notifications_service.dart';
+
 part 'health_reminder_event.dart';
+
 part 'health_reminder_state.dart';
 
 class HealthReminderBloc extends Bloc<HealthReminderEvent, HealthReminderState> {
@@ -93,22 +96,67 @@ class HealthReminderBloc extends Bloc<HealthReminderEvent, HealthReminderState> 
     HealthReminderSaveButtonClicked event,
     Emitter<HealthReminderState> emit,
   ) async {
-    final id = state.id;
     final List<String> selectedDays = [];
     for (var day in state.daysOfWeek) {
       if (day.isSelected) {
         selectedDays.add(day.dayOfWeek);
       }
     }
-    final reminder = HealthReminderData(
-      id: id,
-      date: state.date,
-      description: descriptionController.text,
-      isChecked: false,
-      selectedDays: selectedDays,
-    );
-    print('PRINT BLOC == $reminder');
-    await _healthReminderInteractor.saveReminder(reminder);
-    emit(state.copyWith(needExit: true));
+
+
+    for (var day in selectedDays) {
+      final currentTime = DateTime.now();
+      final dayOfWeek = _getDateFromDayOfWeek(day);
+      final dayDifference = (dayOfWeek - currentTime.weekday + 7) % 7;
+      final dayId = Uuid().v4();
+      final scheduledTime = DateTime(
+        currentTime.year,
+        currentTime.month,
+        currentTime.day,
+        state.date.hour,
+        state.date.minute,
+      ).add(Duration(days: dayDifference));
+      print('SHEDULED TIME -====== >>>>>>> : $scheduledTime');
+      print('ID -====== >>>>>>> : ${dayId.hashCode}');
+      NotificationsService.scheduleNotification(
+        dayId.hashCode,
+        'Выполните запланированную рутину',
+        descriptionController.text,
+        scheduledTime,
+      );
+
+
+      final reminder = HealthReminderData(
+        id: state.id,
+        date: state.date,
+        description: descriptionController.text,
+        isChecked: false,
+        selectedDays: selectedDays,
+      );
+      await _healthReminderInteractor.saveReminder(reminder);
+      emit(state.copyWith(
+        needExit: true,
+      ));
+    }
+  }
+
+  int _getDateFromDayOfWeek(String dayOfWeekString) {
+    Map<String, int> daysMap = {
+      "Sun": DateTime.sunday,
+      "Mon": DateTime.monday,
+      "Tue": DateTime.tuesday,
+      "Wed": DateTime.wednesday,
+      "Thu": DateTime.thursday,
+      "Fri": DateTime.friday,
+      "Sat": DateTime.saturday,
+    };
+
+    int? targetDay = daysMap[dayOfWeekString];
+
+    if (targetDay == null) {
+      print("Invalid day of week ===== >>>: $dayOfWeekString");
+    }
+
+    return targetDay!;
   }
 }

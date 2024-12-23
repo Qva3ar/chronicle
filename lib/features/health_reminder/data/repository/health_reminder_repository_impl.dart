@@ -18,7 +18,6 @@ class HealthReminderRepositoryImpl extends HealthReminderRepository {
   @override
   Future saveReminder(HealthReminderData data) {
     HealthReminderEntity entity = _healthReminderDataMapper.mapToEntity(data);
-    print('ENTITY === $entity');
     return _healthReminderDbService.insertReminder(entity);
   }
 
