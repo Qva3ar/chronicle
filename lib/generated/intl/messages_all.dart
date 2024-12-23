@@ -19,7 +19,6 @@ import 'package:intl/src/intl_helpers.dart';
 import 'messages_ru.dart' as messages_ru;
 
 typedef Future<dynamic> LibraryLoader();
-
 Map<String, LibraryLoader> _deferredLibraries = {
   'ru': () => new SynchronousFuture(null),
 };
@@ -57,7 +56,8 @@ bool _messagesExistFor(String locale) {
 }
 
 MessageLookupByLibrary? _findGeneratedMessagesFor(String locale) {
-  var actualLocale = Intl.verifiedLocale(locale, _messagesExistFor, onFailure: (_) => null);
+  var actualLocale =
+      Intl.verifiedLocale(locale, _messagesExistFor, onFailure: (_) => null);
   if (actualLocale == null) return null;
   return _findExact(actualLocale);
 }
