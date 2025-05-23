@@ -1,21 +1,22 @@
 import 'dart:io';
 
-import 'package:Chrono/dialogs/confirmation-dialog.dart';
-import 'package:Chrono/import_notes.dart';
-import 'package:Chrono/services/data-exporter.dart';
+import 'package:chrono/dialogs/confirmation-dialog.dart';
+import 'package:chrono/import_notes.dart';
+import 'package:chrono/screens/routine_manager_screen.dart';
+import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
-import 'package:Chrono/services/messages.service.dart';
-import 'package:Chrono/shared/api-key-popup.dart';
-import 'package:Chrono/shared/extensions.dart';
-import 'package:Chrono/tags_manager.dart';
-import 'package:Chrono/api/chat-api.dart';
-import 'package:Chrono/card_details.dart';
-import 'package:Chrono/chat_page.dart';
-import 'package:Chrono/colors.dart';
-import 'package:Chrono/models/category.dart';
-import 'package:Chrono/models/record.dart';
-import 'package:Chrono/record.service.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/services/messages.service.dart';
+import 'package:chrono/shared/api-key-popup.dart';
+import 'package:chrono/shared/extensions.dart';
+import 'package:chrono/tags_manager.dart';
+import 'package:chrono/api/chat-api.dart';
+import 'package:chrono/card_details.dart';
+import 'package:chrono/chat_page.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/models/category.dart';
+import 'package:chrono/models/record.dart';
+import 'package:chrono/record.service.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -147,9 +148,9 @@ class _HomePageState extends State<HomePage> {
     for (var i = 0; i < 100; i++) {
       int count = i * 2;
       Map<String, dynamic> row = {
-        DatabaseHelper.columnRecordText:
+        DatabaseColumns.recordText:
             "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam   record $count",
-        DatabaseHelper.columnRecordCreatedAt:
+        DatabaseColumns.recordCreatedAt:
             DateTime.now().subtract(Duration(days: i)).millisecondsSinceEpoch
       };
       final id = await dbHelper.insertRecord(row, [2, 3]);
@@ -289,13 +290,13 @@ class _HomePageState extends State<HomePage> {
         child: Icon(Icons.add), //icon inside button
       ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
       //floating action button location to left
 
       bottomNavigationBar: BottomAppBar(
         //bottom navigation bar on scaffold
         color: MyColors.trecondaryColor,
-        shape: AutomaticNotchedShape(
+        shape: const AutomaticNotchedShape(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(8),
@@ -340,6 +341,27 @@ class _HomePageState extends State<HomePage> {
                 ),
                 label: Text('Tags'), // <-- Text
               ),
+              IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const RoutineManagerScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    // <-- Icon
+                    Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
               ElevatedButton.icon(
                 icon: SvgPicture.asset(
                   'assets/icons/chat.svg', // Replace with the path to your SVG file
@@ -436,26 +458,57 @@ class _HomePageState extends State<HomePage> {
                       ).then((value) => loadRecords(refresh: true));
                     },
                     child: Card(
-                      elevation: 0, // Поднятие карточки
+                      elevation: 0,
                       margin: EdgeInsets.symmetric(
                         vertical: 8,
                         horizontal: 16,
-                      ), // Отступы
-                      color: Color.fromARGB(255, 80, 80, 80), // Цвет карточки
+                      ),
+                      color: item.recordType == 'routine'
+                          ? Color.fromARGB(255, 100, 80, 80) // Different color for routine records
+                          : Color.fromARGB(255, 80, 80, 80),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8), // Скругление углов
+                        borderRadius: BorderRadius.circular(8),
+                        side: item.recordType == 'routine'
+                            ? BorderSide(
+                                color: Colors.orange, width: 1) // Border for routine records
+                            : BorderSide.none,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Text(
-                              "${item.text}",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (item.recordType == 'routine')
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: Colors.orange,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Routine Completed',
+                                        style: TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                SizedBox(height: item.recordType == 'routine' ? 8 : 0),
+                                Text(
+                                  "${item.text}",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Row(
@@ -549,9 +602,9 @@ class _HomePageState extends State<HomePage> {
   // }
 
   void _queryRecords() async {
-    final allRows = await dbHelper.queryAllRowsofRecords();
+    final allRecords = await dbHelper.queryAllRecords();
     // allRows.forEach(print);
-    allRecords = allRows;
+    // allRecords = allRecords;
     setState(() {});
   }
 

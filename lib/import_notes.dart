@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/record.service.dart';
+import 'package:chrono/db_manager.dart';
+import 'package:chrono/record.service.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 

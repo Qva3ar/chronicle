@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:Chrono/colors.dart';
+import 'package:chrono/colors.dart';
 
 class ConfirmDialog extends StatelessWidget {
   final String title;

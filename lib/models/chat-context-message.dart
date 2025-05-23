@@ -1,4 +1,4 @@
-import 'package:Chrono/models/enums.dart';
+import 'package:chrono/models/enums.dart';
 
 class ChatContextMessage {
   ChatContextMessage(this.content, this.action);

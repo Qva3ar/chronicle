@@ -1,7 +1,7 @@
 // api_key_popup.dart
 import 'package:flutter/material.dart';
-import 'package:Chrono/helpers/api-key-options.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/helpers/api-key-options.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ApiKeyPopup extends StatefulWidget {

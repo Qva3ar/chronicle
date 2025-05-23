@@ -1,3 +1,5 @@
+import 'package:chrono/db_manager.dart';
+
 class Instruction {
   int? id; // Auto-incremented id
   String text;
@@ -12,18 +14,18 @@ class Instruction {
   // Convert the object to a Map
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'text': text,
-      'visibility': visibility ? 1 : 0,
+      DatabaseColumns.id: id,
+      DatabaseColumns.instructionText: text,
+      DatabaseColumns.visibility: visibility ? 1 : 0,
     };
   }
 
   // Create an Instruction object from a Map
   factory Instruction.fromMap(Map<String, dynamic> map) {
     return Instruction(
-      id: map['_id'],
-      text: map['text'],
-      visibility: map['visibility'] == 1,
+      id: map[DatabaseColumns.id],
+      text: map[DatabaseColumns.instructionText],
+      visibility: map[DatabaseColumns.visibility] == 1,
     );
   }
 }

@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:Chrono/dialogs/confirmation-dialog.dart';
-import 'package:Chrono/import_notes.dart';
-import 'package:Chrono/services/data-exporter.dart';
+import 'package:chrono/dialogs/confirmation-dialog.dart';
+import 'package:chrono/import_notes.dart';
+import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 

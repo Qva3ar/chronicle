@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:Chrono/colors.dart';
-import 'package:Chrono/homepage.dart';
-import 'package:Chrono/models/chat-context-message.dart';
-import 'package:Chrono/models/enums.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/homepage.dart';
+import 'package:chrono/models/chat-context-message.dart';
+import 'package:chrono/models/enums.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 class MessageBubble extends StatefulWidget {

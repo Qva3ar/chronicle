@@ -2,14 +2,14 @@ import 'dart:convert';
 
 import 'package:eva_icons_flutter/eva_icons_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/chat_page_note.dart';
-import 'package:Chrono/models/enums.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
-import 'package:Chrono/services/messages.service.dart';
-import 'package:Chrono/shared/api-key-popup.dart';
-import 'package:Chrono/colors.dart';
-import 'package:Chrono/record.service.dart';
-import 'package:Chrono/services/gpt.service.dart';
+import 'package:chrono/chat_page_note.dart';
+import 'package:chrono/models/enums.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/services/messages.service.dart';
+import 'package:chrono/shared/api-key-popup.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/record.service.dart';
+import 'package:chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:flutter_svg/svg.dart';
 

@@ -1,9 +1,9 @@
-import 'package:Chrono/models/record.dart';
+import 'package:chrono/models/record.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/services/gpt.service.dart';
+import 'package:chrono/db_manager.dart';
+import 'package:chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -107,8 +107,8 @@ class RecordService {
       return;
     }
     Map<String, dynamic> updatedRow = {
-      DatabaseHelper.columnRecordTitle: title,
-      DatabaseHelper.columnRecordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+      DatabaseColumns.recordTitle: title,
+      DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
     };
     _handleTitleAndText(updatedRow);
   }
@@ -118,7 +118,7 @@ class RecordService {
       return;
     }
     Map<String, dynamic> updatedRow = {
-      DatabaseHelper.columnRecordText: text,
+      DatabaseColumns.recordText: text,
     };
     _handleTitleAndText(updatedRow);
   }
@@ -127,17 +127,17 @@ class RecordService {
     if (_currentRecordId != null) {
       bool recordExists = await dbHelper.recordExists(_currentRecordId!);
       if (recordExists) {
-        updatedRow[DatabaseHelper.columnId] = _currentRecordId;
+        updatedRow[DatabaseColumns.id] = _currentRecordId;
         await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
         //print('Record updated');
       } else {
-        updatedRow[DatabaseHelper.columnRecordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
         _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
         //print('New record created with id: $_currentRecordId');
       }
     } else {
-      if (updatedRow[DatabaseHelper.columnRecordText] != null) {
-        updatedRow[DatabaseHelper.columnRecordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+      if (updatedRow[DatabaseColumns.recordText] != null) {
+        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
         _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
         //print('New record created with id: $_currentRecordId');
       }
@@ -147,7 +147,7 @@ class RecordService {
   }
 
   Future<List<Record>> queryRecords() async {
-    final allRecords = await dbHelper.queryAllRowsofRecords();
+    final allRecords = await dbHelper.queryAllRecords();
     //print(allRows[0]);
     return allRecords;
     // allRows.forEach(print);
@@ -160,15 +160,17 @@ class RecordService {
         // .where((e) =>
         //     selectedTags != null && selectedTags.contains(e['_id']) || false)
         .map((e) => MultiSelectCard(
-              value: e['_id'],
-              label: e['name'],
-              selected: selectedTags != null && selectedTags.contains(e['_id']) || false,
+              value: e[DatabaseColumns.id],
+              label: e[DatabaseColumns.tagName],
+              selected:
+                  selectedTags != null && selectedTags.contains(e[DatabaseColumns.id]) || false,
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])).withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])), borderRadius: BorderRadius.circular(10)),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])),
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ))
         .toList();
@@ -179,14 +181,15 @@ class RecordService {
 
     return allTags
         .map((e) => MultiSelectCard(
-              value: e['_id'],
-              label: e['name'],
+              value: e[DatabaseColumns.id],
+              label: e[DatabaseColumns.tagName],
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])).withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e['color'])), borderRadius: BorderRadius.circular(10)),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])),
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ))
         .toList();
@@ -210,8 +213,8 @@ class RecordService {
 
     // row to insert
     Map<String, dynamic> row = {
-      DatabaseHelper.columnTagName: catName,
-      DatabaseHelper.columnTagColor: color,
+      DatabaseColumns.tagName: catName,
+      DatabaseColumns.tagColor: color,
       // DatabaseHelper.columnMobile: _mobileNumber.text,
       // DatabaseHelper.columnEmail: _emailAddress.text,
       // DatabaseHelper.columnCategory: currentCategory,
@@ -233,8 +236,8 @@ class RecordService {
   Future<int> updateTag(int tagId, String catName, int color) async {
     // row to insert
     Map<String, dynamic> row = {
-      DatabaseHelper.columnTagName: catName,
-      DatabaseHelper.columnTagColor: color,
+      DatabaseColumns.tagName: catName,
+      DatabaseColumns.tagColor: color,
     };
 
     final id = await dbHelper.updateTag(tagId, row);
@@ -246,7 +249,7 @@ class RecordService {
   }
 
   Future<int> getCountOfRecords() async {
-    int recordCount = await DatabaseHelper.instance.countRecords();
+    int recordCount = await dbHelper.countRecords();
     //print(recordCount);
 
     return recordCount;

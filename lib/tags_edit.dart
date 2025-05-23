@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:Chrono/colors.dart';
-import 'package:Chrono/models/tag.dart';
-import 'package:Chrono/tag_color_picker.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/models/tag.dart';
+import 'package:chrono/tag_color_picker.dart';
 
 class TagsEditWidget extends StatelessWidget {
   final TextEditingController controller;

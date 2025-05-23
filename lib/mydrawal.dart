@@ -1,7 +1,8 @@
-import 'package:Chrono/settings_page.dart';
+import 'package:chrono/settings_page.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/instuction_page.dart';
-import 'package:Chrono/shared/api-key-popup.dart';
+import 'package:chrono/instuction_page.dart';
+import 'package:chrono/shared/api-key-popup.dart';
+import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 
@@ -85,6 +86,21 @@ class MyDrawal extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
+              },
+            ),
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            ListTile(
+              title: const Text(
+                'ROUTINE MANAGER',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const RoutineManagerScreen()));
               },
             ),
             Divider(

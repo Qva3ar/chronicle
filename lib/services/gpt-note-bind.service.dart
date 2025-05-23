@@ -1,5 +1,5 @@
 import 'package:dart_openai/dart_openai.dart';
-import 'package:Chrono/models/chat-context-message.dart';
+import 'package:chrono/models/chat-context-message.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import RxDart
 

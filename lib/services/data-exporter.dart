@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:Chrono/db_manager.dart';
+import 'package:chrono/db_manager.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DataExporter {

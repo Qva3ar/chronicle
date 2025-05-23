@@ -7,10 +7,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/contact_list.dart';
-import 'package:Chrono/record.service.dart';
-import 'package:Chrono/shared/confirm-dialog.dart';
-import 'package:Chrono/tag_color_picker.dart';
+import 'package:chrono/contact_list.dart';
+import 'package:chrono/record.service.dart';
+import 'package:chrono/shared/confirm-dialog.dart';
+import 'package:chrono/tag_color_picker.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:signature/signature.dart';
 

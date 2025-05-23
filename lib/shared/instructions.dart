@@ -1,5 +1,5 @@
-import 'package:Chrono/models/record.dart';
-import 'package:Chrono/models/tag.dart';
+import 'package:chrono/models/record.dart';
+import 'package:chrono/models/tag.dart';
 
 class Instractions {
   static String useUserNoteText(String noteData) {

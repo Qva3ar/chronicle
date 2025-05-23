@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/message_bubble.dart';
-import 'package:Chrono/message_composer.dart';
-import 'package:Chrono/models/instructions.model.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
-import 'package:Chrono/services/gpt.service.dart';
-import 'package:Chrono/services/messages.service.dart';
-import 'package:Chrono/shared/instructions-block.dart';
-import 'package:Chrono/shared/instructions.dart';
+import 'package:chrono/db_manager.dart';
+import 'package:chrono/message_bubble.dart';
+import 'package:chrono/message_composer.dart';
+import 'package:chrono/models/instructions.model.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/services/gpt.service.dart';
+import 'package:chrono/services/messages.service.dart';
+import 'package:chrono/shared/instructions-block.dart';
+import 'package:chrono/shared/instructions.dart';
 
 import 'models/chat-message.dart';
 

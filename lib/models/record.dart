@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:chrono/db_manager.dart';
 
 class Record {
   int id;
@@ -6,6 +7,7 @@ class Record {
   String text;
   List<int> tagIds;
   String createdAt;
+  String recordType;
 
   Record({
     required this.id,
@@ -13,16 +15,18 @@ class Record {
     required this.text,
     required this.tagIds,
     required this.createdAt,
+    this.recordType = 'regular',
   });
 
   // Добавьте метод для сериализации объекта в Map
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'title': title,
-      'text': text,
+      DatabaseColumns.id: id,
+      DatabaseColumns.recordTitle: title,
+      DatabaseColumns.recordText: text,
       'tagIds': tagIds.join(','), // Преобразуем список ID тегов в строку
-      'createdAt': createdAt,
+      DatabaseColumns.recordCreatedAt: createdAt,
+      DatabaseColumns.recordType: recordType,
     };
   }
 
@@ -38,18 +42,18 @@ class Record {
           .map((e) => int.parse(e))
           .toList();
     }
-    ;
 
-    int millisecondsSinceEpoch = map['created_at']; // Replace this with your milliseconds value
+    int millisecondsSinceEpoch = map[DatabaseColumns.recordCreatedAt];
     DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
     String formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
 
     return Record(
-      id: map['_id'],
-      title: map['title'] ?? '',
-      text: map['text'] ?? '',
+      id: map[DatabaseColumns.id],
+      title: map[DatabaseColumns.recordTitle] ?? '',
+      text: map[DatabaseColumns.recordText] ?? '',
       tagIds: tagIds,
       createdAt: formattedDateTime,
+      recordType: map[DatabaseColumns.recordType] ?? 'regular',
     );
   }
 

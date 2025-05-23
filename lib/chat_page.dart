@@ -1,22 +1,22 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:Chrono/models/tag.dart';
-import 'package:Chrono/record.service.dart';
+import 'package:chrono/models/tag.dart';
+import 'package:chrono/record.service.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
-import 'package:Chrono/colors.dart';
-import 'package:Chrono/helpers/token.helper.dart';
-import 'package:Chrono/message_bubble.dart';
-import 'package:Chrono/message_composer.dart';
-import 'package:Chrono/models/record.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
-import 'package:Chrono/services/gpt.service.dart';
-import 'package:Chrono/services/messages.service.dart';
-import 'package:Chrono/shared/instructions-block.dart';
-import 'package:Chrono/shared/instructions.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/helpers/token.helper.dart';
+import 'package:chrono/message_bubble.dart';
+import 'package:chrono/message_composer.dart';
+import 'package:chrono/models/record.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/services/gpt.service.dart';
+import 'package:chrono/services/messages.service.dart';
+import 'package:chrono/shared/instructions-block.dart';
+import 'package:chrono/shared/instructions.dart';
 
-import 'package:Chrono/helpers/api-key-options.dart';
+import 'package:chrono/helpers/api-key-options.dart';
 import 'db_manager.dart';
 import 'models/chat-message.dart';
 

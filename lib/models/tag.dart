@@ -1,3 +1,5 @@
+import 'package:chrono/db_manager.dart';
+
 class Tag {
   final int id;
   final String name;
@@ -11,17 +13,17 @@ class Tag {
 
   factory Tag.fromJson(Map<String, dynamic> json) {
     return Tag(
-      id: json['_id'],
-      name: json['name'],
-      color: json['color'],
+      id: json[DatabaseColumns.id],
+      name: json[DatabaseColumns.tagName],
+      color: json[DatabaseColumns.tagColor],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
-      'color': color,
+      DatabaseColumns.id: id,
+      DatabaseColumns.tagName: name,
+      DatabaseColumns.tagColor: color,
     };
   }
 

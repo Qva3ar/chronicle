@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:Chrono/db_manager.dart';
-import 'package:Chrono/models/instructions.model.dart';
+import 'package:chrono/db_manager.dart';
+import 'package:chrono/models/instructions.model.dart';
 
 class InstructionsPage extends StatefulWidget {
   @override

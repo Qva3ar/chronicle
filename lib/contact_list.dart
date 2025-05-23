@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:Chrono/mydrawal.dart';
+import 'package:chrono/mydrawal.dart';
 
 import 'colors.dart';
 import 'db_manager.dart';
@@ -94,7 +94,7 @@ class _ContactListState extends State<ContactList> {
   }
 
   void _query() async {
-    final allRows = await dbHelper.queryAllRowsofRecords();
+    final allRows = await dbHelper.queryAllRecords();
     //print('query all rows:');
     allRows.forEach(print);
     // allCategoryData = allRows;

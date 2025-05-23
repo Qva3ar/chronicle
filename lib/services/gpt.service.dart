@@ -1,9 +1,9 @@
 import 'dart:async';
 // import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:dart_openai/dart_openai.dart';
-import 'package:Chrono/models/chat-message.dart';
-import 'package:Chrono/models/tag.dart';
-import 'package:Chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/models/chat-message.dart';
+import 'package:chrono/models/tag.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:http/http.dart' as http;
 
 // final apiKey = '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';
