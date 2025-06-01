@@ -11,8 +11,8 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 14;
-  static const int pageSize = 1000;
+  static const int databaseVersion = 19;
+  static const int pageSize = 20;
 }
 
 /// Table and column names
@@ -22,6 +22,8 @@ class DatabaseTables {
   static const String recordTag = 'record_tag';
   static const String instructions = 'instructions';
   static const String routines = 'routines';
+  static const String goals = 'goals';
+  static const String sessions = 'sessions';
 }
 
 class DatabaseColumns {
@@ -49,6 +51,16 @@ class DatabaseColumns {
   static const String routinePeriodAfter = 'period_after';
   static const String routineInterval = 'interval';
   static const String routineIsDone = 'is_done';
+
+  // Goal table columns
+  static const String goalTitle = 'title';
+  static const String goalDailyHours = 'daily_hours';
+  static const String goalSessionMinutes = 'session_minutes';
+  static const String goalIsActive = 'is_active';
+  static const String goalLastStartedAt = 'last_started_at';
+  static const String goalRemainingTime = 'remaining_time';
+  static const String goalSession = 'session';
+  static const String goalTotalTimeSpent = 'total_time_spent';
 }
 
 /// A singleton class that manages the SQLite database operations
@@ -148,6 +160,34 @@ class DatabaseHelper {
         )
       ''');
 
+      // Create goals table
+      await db.execute('''
+        CREATE TABLE ${DatabaseTables.goals} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.goalTitle} TEXT NOT NULL,
+          ${DatabaseColumns.goalDailyHours} REAL NOT NULL,
+          ${DatabaseColumns.goalSessionMinutes} INTEGER,
+          ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.goalLastStartedAt} INTEGER,
+          ${DatabaseColumns.goalRemainingTime} INTEGER
+        )
+      ''');
+
+      // Create sessions table
+      await db.execute('''
+        CREATE TABLE ${DatabaseTables.sessions} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          goal_id INTEGER NOT NULL,
+          start_time INTEGER NOT NULL,
+          end_time INTEGER,
+          planned_duration_minutes INTEGER NOT NULL,
+          actual_duration_seconds INTEGER,
+          is_completed INTEGER NOT NULL DEFAULT 0,
+          notes TEXT,
+          FOREIGN KEY (goal_id) REFERENCES ${DatabaseTables.goals}(${DatabaseColumns.id}) ON DELETE CASCADE
+        )
+      ''');
+
       await _insertDefaultInstructions(db);
     } catch (e) {
       log('Error creating database tables: $e');
@@ -163,6 +203,68 @@ class DatabaseHelper {
         await db.execute('''
           ALTER TABLE ${DatabaseTables.record}
           ADD COLUMN ${DatabaseColumns.recordType} TEXT DEFAULT 'regular'
+        ''');
+      }
+
+      if (oldVersion < 15) {
+        // Add goals table
+        await db.execute('''
+          CREATE TABLE ${DatabaseTables.goals} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.goalTitle} TEXT NOT NULL,
+            ${DatabaseColumns.goalDailyHours} REAL NOT NULL,
+            ${DatabaseColumns.goalSessionMinutes} INTEGER,
+            ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
+            ${DatabaseColumns.goalLastStartedAt} INTEGER,
+            ${DatabaseColumns.goalRemainingTime} INTEGER
+          )
+        ''');
+      }
+
+      if (oldVersion < 16) {
+        // Check if session column exists before adding it
+        final columns = await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasSessionColumn = columns.any((col) => col['name'] == DatabaseColumns.goalSession);
+
+        if (!hasSessionColumn) {
+          // Add session column to goals table only if it doesn't exist
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalSession} INTEGER DEFAULT 0
+          ''');
+        }
+      }
+
+      if (oldVersion < 17) {
+        // Add total_time_spent column to goals table
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.goals}
+          ADD COLUMN ${DatabaseColumns.goalTotalTimeSpent} INTEGER
+        ''');
+      }
+
+      if (oldVersion < 18) {
+        // Add session_minutes column to goals table
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.goals}
+          ADD COLUMN ${DatabaseColumns.goalSessionMinutes} INTEGER DEFAULT 25
+        ''');
+      }
+
+      if (oldVersion < 19) {
+        // Add sessions table
+        await db.execute('''
+          CREATE TABLE ${DatabaseTables.sessions} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            goal_id INTEGER NOT NULL,
+            start_time INTEGER NOT NULL,
+            end_time INTEGER,
+            planned_duration_minutes INTEGER NOT NULL,
+            actual_duration_seconds INTEGER,
+            is_completed INTEGER NOT NULL DEFAULT 0,
+            notes TEXT,
+            FOREIGN KEY (goal_id) REFERENCES ${DatabaseTables.goals}(${DatabaseColumns.id}) ON DELETE CASCADE
+          )
         ''');
       }
     } catch (e) {
@@ -723,6 +825,75 @@ class DatabaseHelper {
       );
     } catch (e) {
       log('Error resetting routines done status: $e');
+      rethrow;
+    }
+  }
+
+  // Goal operations
+  Future<int> insertGoal(Map<String, dynamic> row) async {
+    try {
+      final Database db = await instance.database;
+      // Remove the id field since it's auto-incrementing
+      row.remove('id');
+      return await db.insert(DatabaseTables.goals, row);
+    } catch (e) {
+      log('Error inserting goal: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllGoals() async {
+    try {
+      final Database db = await instance.database;
+      return await db.query(DatabaseTables.goals, orderBy: '${DatabaseColumns.id} DESC');
+    } catch (e) {
+      log('Error getting goals: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> updateGoal(Map<String, dynamic> row) async {
+    try {
+      final Database db = await instance.database;
+      final int id = row['_id'] ?? row['id']; // Handle both _id and id
+      row.remove('id'); // Remove id if it exists
+      return await db.update(
+        DatabaseTables.goals,
+        row,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      log('Error updating goal: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> deleteGoal(int id) async {
+    try {
+      final Database db = await instance.database;
+      return await db.delete(
+        DatabaseTables.goals,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      log('Error deleting goal: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getGoalById(int id) async {
+    try {
+      final Database db = await instance.database;
+      final List<Map<String, dynamic>> results = await db.query(
+        DatabaseTables.goals,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+      return results.isNotEmpty ? results.first : null;
+    } catch (e) {
+      log('Error getting goal by ID: $e');
       rethrow;
     }
   }

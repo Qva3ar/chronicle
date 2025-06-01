@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:chrono/homepage.dart';
-import 'package:chrono/services/gpt-note-bind.service.dart';
-import 'package:chrono/services/notification_service.dart';
-import 'package:chrono/db_manager.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
+import 'package:chrono/screens/goals_screen.dart';
+import 'package:chrono/services/database_helper.dart';
+import 'package:chrono/services/timer_service.dart';
+import 'package:chrono/services/app_lifecycle_service.dart';
 
 void main() async {
   try {
     print('Starting app initialization...');
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize database first
+    // Initialize database
     print('Initializing database...');
-    await DatabaseHelper.instance.initializeDatabase();
+    await DatabaseHelper.instance.database;
+    print('Database initialized');
 
-    // Initialize the notification service directly
-    print('Initializing notification service...');
-    await NotificationService().initialize();
-    print('Notification service initialized');
+    // Initialize timer service
+    print('Initializing timer service...');
+    await TimerService.instance.initialize();
+    print('Timer service initialized');
 
-    // Load GPT model
-    print('Loading GPT model...');
-    await GPTNoteBindService().loadModel();
-    print('GPT model loaded');
+    // Initialize app lifecycle service for background handling
+    print('Initializing app lifecycle service...');
+    AppLifecycleService.instance.initialize();
+    print('App lifecycle service initialized');
 
     print('Starting app...');
     runApp(const MyApp());
@@ -36,23 +35,19 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      // debugShowCheckedModeBanner: false,
+      title: 'Goal Manager',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Montserrat',
         primarySwatch: Colors.blue,
-        textButtonTheme: TextButtonThemeData(
-            // style: TextButton.styleFrom(
-            //   foregroundColor: Colors.white, // This is a custom color variable
-            // ),
-            ),
-        textTheme: TextTheme(bodyMedium: TextStyle(color: Colors.black)),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.black),
+        ),
       ),
-      home: HomePage(),
+      home: const GoalsScreen(),
     );
   }
 }

@@ -1,32 +1,27 @@
 import 'dart:io';
 
-import 'package:chrono/dialogs/confirmation-dialog.dart';
-import 'package:chrono/import_notes.dart';
-import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/messages.service.dart';
 import 'package:chrono/shared/api-key-popup.dart';
-import 'package:chrono/shared/extensions.dart';
 import 'package:chrono/tags_manager.dart';
-import 'package:chrono/api/chat-api.dart';
 import 'package:chrono/card_details.dart';
 import 'package:chrono/chat_page.dart';
 import 'package:chrono/colors.dart';
-import 'package:chrono/models/category.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/record.service.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
-import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:grouped_list/grouped_list.dart';
 import 'package:intl/intl.dart';
-import 'package:sqflite/sqflite.dart';
-import 'contact_list.dart';
 import 'models/tag.dart';
 import 'mydrawal.dart';
 import 'db_manager.dart';
+import 'package:chrono/screens/routine_manager_screen.dart';
+import 'package:chrono/screens/goal_manager_screen.dart';
+import 'package:chrono/shared/instructions.dart';
+import 'package:chrono/tag_color_picker.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({Key? key, this.recordIds}) : super(key: key);
@@ -37,7 +32,7 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   RecordService recordService = new RecordService();
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 
@@ -57,6 +52,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
     recordService.getCountOfRecords();
     getAllTags();
     super.initState();
@@ -85,6 +81,12 @@ class _HomePageState extends State<HomePage> {
       loadRecords(refresh: true);
     });
     // saveFakeRecord();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _onScroll() {
@@ -241,7 +243,7 @@ class _HomePageState extends State<HomePage> {
         child: Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: cardColor,
-      drawer: MyDrawal(),
+      drawer: const MyDrawal(),
       appBar: AppBar(
         backgroundColor: MyColors.primaryColor,
         centerTitle: true,
@@ -313,7 +315,7 @@ class _HomePageState extends State<HomePage> {
           child: Row(
             //children inside bottom appbar
             mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
               ElevatedButton.icon(
                 onPressed: () {
@@ -359,6 +361,27 @@ class _HomePageState extends State<HomePage> {
                   icon: Icon(
                     // <-- Icon
                     Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
+              IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const GoalManagerScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    // <-- Icon
+                    Icons.flag,
                     color: Colors.white,
                     size: 24.0,
                   )),
