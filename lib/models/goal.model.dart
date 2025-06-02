@@ -1,3 +1,4 @@
+@pragma('vm:entry-point')
 class Goal {
   final int? id;
   final String title;

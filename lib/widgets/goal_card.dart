@@ -5,11 +5,13 @@ import '../services/timer_service.dart';
 class GoalCard extends StatelessWidget {
   final Goal goal;
   final VoidCallback onTap;
+  final Function(Goal)? onDelete;
 
   const GoalCard({
     Key? key,
     required this.goal,
     required this.onTap,
+    this.onDelete,
   }) : super(key: key);
 
   @override
@@ -36,7 +38,7 @@ class GoalCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row
+                // Header with title and status
                 Row(
                   children: [
                     Expanded(
@@ -55,6 +57,22 @@ class GoalCard extends StatelessWidget {
                         ],
                       ),
                     ),
+
+                    // Delete button
+                    if (onDelete != null && !isActiveGoal) ...[
+                      IconButton(
+                        onPressed: () => _showDeleteConfirmation(context),
+                        icon: const Icon(Icons.delete_outline),
+                        iconSize: 20,
+                        color: Colors.red[400],
+                        tooltip: 'Delete Goal',
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        padding: const EdgeInsets.all(4),
+                      ),
+                    ],
 
                     // Status indicator
                     if (isActiveGoal) ...[
@@ -238,6 +256,34 @@ class GoalCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Goal'),
+        content: Text(
+          'Are you sure you want to delete "${goal.title}"?\n\nThis action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              onDelete?.call(goal);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }

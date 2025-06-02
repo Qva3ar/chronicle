@@ -90,6 +90,42 @@ class _GoalsScreenState extends State<GoalsScreen> {
     await _loadGoals(); // Refresh the goals list
   }
 
+  Future<void> _deleteGoal(Goal goal) async {
+    try {
+      // If this goal is currently active, stop the session first
+      final timerService = TimerService.instance;
+      if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
+        await timerService.stopSession();
+      }
+
+      // Delete from database
+      await DatabaseHelper.instance.deleteGoal(goal.id!);
+
+      // Remove from local list
+      setState(() {
+        _goals.removeWhere((g) => g.id == goal.id);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Goal "${goal.title}" deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting goal: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showAddGoalForm() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -126,6 +162,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                             return GoalCard(
                               goal: goal,
                               onTap: () => _toggleGoalSession(goal),
+                              onDelete: (goal) => _deleteGoal(goal),
                             );
                           },
                         ),

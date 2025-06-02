@@ -85,7 +85,7 @@ class ActiveSessionWidget extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Timer display - showing goal remaining time
+              // Timer display - showing elapsed time instead of remaining
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
@@ -103,22 +103,21 @@ class ActiveSessionWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.flag_outlined,
+                      Icons.timer_outlined,
                       color: Colors.orange,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      timerService.formatTime(timerService.goalTimeRemaining),
+                      timerService.formatTime(timerService.totalTimeElapsed),
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color:
-                                timerService.goalTimeRemaining <= 300 ? Colors.red : Colors.orange,
+                            color: Colors.orange,
                           ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'remaining',
+                      'elapsed',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],
                           ),
@@ -128,6 +127,71 @@ class ActiveSessionWidget extends StatelessWidget {
               ),
 
               const SizedBox(height: 12),
+
+              // Session info row
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Session',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey[600],
+                                  fontSize: 10,
+                                ),
+                          ),
+                          Text(
+                            timerService.formatTime(timerService.sessionTimeElapsed),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[700],
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Goal Left',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey[600],
+                                  fontSize: 10,
+                                ),
+                          ),
+                          Text(
+                            timerService.formatTime(timerService.goalTimeRemaining),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: timerService.goalTimeRemaining <= 300
+                                      ? Colors.red
+                                      : Colors.blue[700],
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
 
               // Progress bar - showing overall goal progress
               Column(

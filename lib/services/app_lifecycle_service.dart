@@ -65,6 +65,9 @@ class AppLifecycleService extends WidgetsBindingObserver {
     print('App resumed - checking for background progress');
     final timerService = TimerService.instance;
 
+    // Refresh timer state from database in case session was completed in background
+    timerService.refreshState();
+
     // The timer service will automatically handle any background completion
     // when it calculates elapsed time based on timestamps
     if (timerService.isRunning) {
