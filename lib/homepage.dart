@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
@@ -372,7 +373,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (context) => const GoalManagerScreen(),
+                      builder: (context) => const GoalsScreen(),
                     ).then((shouldRefresh) {
                       if (shouldRefresh == true) {
                         loadRecords(refresh: true);

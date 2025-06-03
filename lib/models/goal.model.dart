@@ -47,10 +47,10 @@ class Goal {
   String get formattedTimeSpent {
     final h = timeSpentSeconds ~/ 3600;
     final m = (timeSpentSeconds % 3600) ~/ 60;
-    if (h > 0) {
-      return '${h}h ${m}m';
-    }
-    return '${m}m';
+    final s = timeSpentSeconds % 60;
+
+    // Always show hh:mm:ss format
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   // Convert from database map

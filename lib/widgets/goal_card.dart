@@ -6,13 +6,29 @@ class GoalCard extends StatelessWidget {
   final Goal goal;
   final VoidCallback onTap;
   final Function(Goal)? onDelete;
+  final Function(Goal)? onEdit;
 
   const GoalCard({
     Key? key,
     required this.goal,
     required this.onTap,
     this.onDelete,
+    this.onEdit,
   }) : super(key: key);
+
+  // Calculate real-time progress including current session time
+  double _getRealtimeProgress(TimerService timerService, bool isActiveGoal) {
+    if (goal.totalSeconds <= 0) return 0.0;
+
+    if (isActiveGoal && timerService.isRunning) {
+      // For active running goals, include current session time
+      final currentTotalTime = timerService.totalTimeElapsed;
+      return (currentTotalTime / goal.totalSeconds).clamp(0.0, 1.0);
+    } else {
+      // For inactive goals, use stored progress
+      return goal.progress;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,267 +39,256 @@ class GoalCard extends StatelessWidget {
         final isActiveGoal = timerService.activeGoal?.id == goal.id;
         final isRunning = isActiveGoal && timerService.isRunning;
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: isActiveGoal ? Colors.orange : Colors.transparent,
-              width: 2,
+        // Calculate real-time progress
+        final realtimeProgress = _getRealtimeProgress(timerService, isActiveGoal);
+
+        // Don't allow swipe actions on active goals
+        if (isActiveGoal || (onDelete == null && onEdit == null)) {
+          return _buildGoalCard(context, timerService, isActiveGoal, isRunning, realtimeProgress);
+        }
+
+        return Dismissible(
+          key: Key('goal_${goal.id}'),
+          confirmDismiss: (direction) async {
+            if (direction == DismissDirection.endToStart) {
+              // Swipe left to delete
+              return await _showDeleteConfirmation(context);
+            } else if (direction == DismissDirection.startToEnd) {
+              // Swipe right to edit
+              onEdit?.call(goal);
+              return false; // Don't dismiss, just trigger edit
+            }
+            return false;
+          },
+          onDismissed: (direction) {
+            if (direction == DismissDirection.endToStart) {
+              onDelete?.call(goal);
+            }
+          },
+          background: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(0),
             ),
-          ),
-          elevation: isActiveGoal ? 4 : 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with title and status
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            goal.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isActiveGoal ? Colors.orange[700] : null,
-                                ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Delete button
-                    if (onDelete != null && !isActiveGoal) ...[
-                      IconButton(
-                        onPressed: () => _showDeleteConfirmation(context),
-                        icon: const Icon(Icons.delete_outline),
-                        iconSize: 20,
-                        color: Colors.red[400],
-                        tooltip: 'Delete Goal',
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                      ),
-                    ],
-
-                    // Status indicator
-                    if (isActiveGoal) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isRunning ? Colors.green : Colors.orange,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isRunning ? Icons.play_arrow : Icons.pause,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              isRunning ? 'Running' : 'Paused',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (goal.isCompleted) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.check,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Completed',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Progress bar
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Progress',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                        ),
-                        Text(
-                          '${(goal.progress * 100).round()}%',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: goal.progress,
-                      backgroundColor: Colors.grey[200],
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        goal.isCompleted ? Colors.green : Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Time information
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Time Spent',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                          ),
-                          Text(
-                            goal.formattedTimeSpent,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isActiveGoal ? 'Time Remaining' : 'Goal Time',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                          ),
-                          Text(
-                            isActiveGoal
-                                ? timerService.formatTime(timerService.goalTimeRemaining)
-                                : goal.formattedGoalTime,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isActiveGoal && timerService.goalTimeRemaining <= 300
-                                      ? Colors.red
-                                      : null,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Action button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: goal.isCompleted ? null : onTap,
-                    icon: Icon(
-                      isRunning ? Icons.stop : Icons.play_arrow,
-                      size: 18,
-                    ),
-                    label: Text(
-                      goal.isCompleted
-                          ? 'Completed'
-                          : isRunning
-                              ? 'Stop Goal'
-                              : 'Start Goal',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: goal.isCompleted
-                          ? Colors.green
-                          : isRunning
-                              ? Colors.red
-                              : Colors.blue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.green,
-                      disabledForegroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+            alignment: Alignment.centerLeft,
+            child: const Padding(
+              padding: EdgeInsets.only(left: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.edit, color: Colors.white, size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    'Edit',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          secondaryBackground: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(0),
+            ),
+            alignment: Alignment.centerRight,
+            child: const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.delete, color: Colors.white, size: 24),
+                ],
+              ),
+            ),
+          ),
+          child: _buildGoalCard(context, timerService, isActiveGoal, isRunning, realtimeProgress),
         );
       },
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Goal'),
-        content: Text(
-          'Are you sure you want to delete "${goal.title}"?\n\nThis action cannot be undone.',
+  Widget _buildGoalCard(BuildContext context, TimerService timerService, bool isActiveGoal,
+      bool isRunning, double realtimeProgress) {
+    return GestureDetector(
+      onTap: goal.isCompleted ? null : onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        height: 72,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(0),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(
+            children: [
+              // Icon container
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F3F5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    goal.isCompleted
+                        ? Icons.check
+                        : isRunning
+                            ? Icons.pause
+                            : Icons.play_arrow,
+                    size: 24,
+                    color: const Color(0xFF121417),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Title and progress section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title
+                    Text(
+                      goal.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF121417),
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    // Timer for active goals, spent time for inactive goals
+                    if (isActiveGoal) ...[
+                      Text(
+                        isRunning
+                            ? 'Running: ${timerService.formatTime(timerService.totalTimeElapsed)}'
+                            : 'Paused: ${timerService.formatTime(timerService.totalTimeElapsed)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: isRunning ? Colors.green[600] : Colors.orange[600],
+                          height: 1.2,
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'Time spent: ${goal.formattedTimeSpent}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.grey[600],
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 2),
+
+                    // Progress bar and percentage
+                    Row(
+                      children: [
+                        // Progress bar
+                        Expanded(
+                          child: Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCE1E5),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: realtimeProgress,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _getProgressColor(realtimeProgress),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        // Percentage
+                        Text(
+                          '${(realtimeProgress * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF121417),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onDelete?.call(goal);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  Future<bool> _showDeleteConfirmation(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Goal'),
+            content: Text(
+              'Are you sure you want to delete "${goal.title}"?\n\nThis action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Color _getProgressColor(double progress) {
+    if (progress >= 1.0) {
+      return Colors.green; // Completed
+    } else if (progress >= 0.8) {
+      return Colors.orange; // Nearly complete
+    } else if (progress >= 0.5) {
+      return Colors.blue; // Good progress
+    } else {
+      return const Color(0xFF121417); // Just started/minimal progress
+    }
   }
 }

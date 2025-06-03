@@ -126,6 +126,39 @@ class _GoalsScreenState extends State<GoalsScreen> {
     }
   }
 
+  Future<void> _editGoal(Goal goal) async {
+    try {
+      // Update goal in database
+      await DatabaseHelper.instance.updateGoal(goal);
+
+      // Update local list
+      setState(() {
+        final index = _goals.indexWhere((g) => g.id == goal.id);
+        if (index != -1) {
+          _goals[index] = goal;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Goal "${goal.title}" updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating goal: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showAddGoalForm() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -134,24 +167,62 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
   }
 
+  void _showEditGoalForm(Goal goal) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddGoalForm(
+          onGoalAdded: _addGoal,
+          onGoalUpdated: _editGoal,
+          existingGoal: goal,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Goals'),
-        elevation: 0,
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Active session widget (shows only when session is running)
-                const ActiveSessionWidget(),
-
-                // Goals list
-                Expanded(
+                const Text(
+                  'Goal Manager',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _showAddGoalForm(),
+                ),
+              ],
+            ),
+          ),
+          // List of routines
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Expanded(
                   child: _goals.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
@@ -163,16 +234,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
                               goal: goal,
                               onTap: () => _toggleGoalSession(goal),
                               onDelete: (goal) => _deleteGoal(goal),
+                              onEdit: (goal) => _showEditGoalForm(goal),
                             );
                           },
                         ),
                 ),
-              ],
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddGoalForm,
-        child: const Icon(Icons.add),
-        tooltip: 'Add New Goal',
+        ],
       ),
     );
   }

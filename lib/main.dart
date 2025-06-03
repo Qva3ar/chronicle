@@ -1,3 +1,4 @@
+import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/services/database_helper.dart';
@@ -43,11 +44,13 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         fontFamily: 'Montserrat',
         primarySwatch: Colors.blue,
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white, // This is a custom color variable
+          ),
         ),
       ),
-      home: const GoalsScreen(),
+      home: HomePage(),
     );
   }
 }

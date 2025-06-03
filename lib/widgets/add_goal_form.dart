@@ -4,10 +4,14 @@ import '../models/goal.model.dart';
 
 class AddGoalForm extends StatefulWidget {
   final Function(Goal) onGoalAdded;
+  final Function(Goal)? onGoalUpdated;
+  final Goal? existingGoal; // For editing existing goals
 
   const AddGoalForm({
     Key? key,
     required this.onGoalAdded,
+    this.onGoalUpdated,
+    this.existingGoal,
   }) : super(key: key);
 
   @override
@@ -21,6 +25,22 @@ class _AddGoalFormState extends State<AddGoalForm> {
   final _minutesController = TextEditingController();
   final _sessionController = TextEditingController(text: '25');
 
+  bool get isEditing => widget.existingGoal != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // If editing, populate fields with existing goal data
+    if (isEditing) {
+      final goal = widget.existingGoal!;
+      _titleController.text = goal.title;
+      _hoursController.text = goal.hours.toString();
+      _minutesController.text = goal.minutes.toString();
+      _sessionController.text = goal.sessionMinutes.toString();
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -33,13 +53,21 @@ class _AddGoalFormState extends State<AddGoalForm> {
   void _saveGoal() {
     if (_formKey.currentState!.validate()) {
       final goal = Goal(
+        id: isEditing ? widget.existingGoal!.id : null,
         title: _titleController.text.trim(),
         hours: int.tryParse(_hoursController.text) ?? 0,
         minutes: int.tryParse(_minutesController.text) ?? 0,
         sessionMinutes: int.tryParse(_sessionController.text) ?? 25,
+        // Preserve existing time spent and active status when editing
+        timeSpentSeconds: isEditing ? widget.existingGoal!.timeSpentSeconds : 0,
+        isActive: isEditing ? widget.existingGoal!.isActive : false,
       );
 
-      widget.onGoalAdded(goal);
+      if (isEditing) {
+        widget.onGoalUpdated?.call(goal);
+      } else {
+        widget.onGoalAdded(goal);
+      }
       Navigator.of(context).pop();
     }
   }
@@ -48,7 +76,7 @@ class _AddGoalFormState extends State<AddGoalForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Goal'),
+        title: Text(isEditing ? 'Edit Goal' : 'Add New Goal'),
         actions: [
           TextButton(
             onPressed: _saveGoal,
@@ -194,51 +222,54 @@ class _AddGoalFormState extends State<AddGoalForm> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Create Goal',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Text(
+                isEditing ? 'Update Goal' : 'Create Goal',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
 
-            const SizedBox(height: 16),
+            // Only show presets when adding new goals
+            if (!isEditing) ...[
+              const SizedBox(height: 16),
 
-            // Quick presets
-            Text(
-              'Quick Presets',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+              // Quick presets
+              Text(
+                'Quick Presets',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _PresetChip(
+                    label: '30min goal',
+                    onTap: () {
+                      _hoursController.text = '0';
+                      _minutesController.text = '30';
+                      _sessionController.text = '25';
+                    },
                   ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                _PresetChip(
-                  label: '30min goal',
-                  onTap: () {
-                    _hoursController.text = '0';
-                    _minutesController.text = '30';
-                    _sessionController.text = '25';
-                  },
-                ),
-                _PresetChip(
-                  label: '1h goal',
-                  onTap: () {
-                    _hoursController.text = '1';
-                    _minutesController.text = '0';
-                    _sessionController.text = '25';
-                  },
-                ),
-                _PresetChip(
-                  label: '2h goal',
-                  onTap: () {
-                    _hoursController.text = '2';
-                    _minutesController.text = '0';
-                    _sessionController.text = '30';
-                  },
-                ),
-              ],
-            ),
+                  _PresetChip(
+                    label: '1h goal',
+                    onTap: () {
+                      _hoursController.text = '1';
+                      _minutesController.text = '0';
+                      _sessionController.text = '25';
+                    },
+                  ),
+                  _PresetChip(
+                    label: '2h goal',
+                    onTap: () {
+                      _hoursController.text = '2';
+                      _minutesController.text = '0';
+                      _sessionController.text = '30';
+                    },
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
