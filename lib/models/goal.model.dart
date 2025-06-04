@@ -7,6 +7,7 @@ class Goal {
   final int sessionMinutes;
   final bool isActive;
   final int timeSpentSeconds; // Total time spent on this goal
+  final int? sessionResumedTimestampSeconds; // Added field
 
   Goal({
     this.id,
@@ -16,6 +17,7 @@ class Goal {
     required this.sessionMinutes,
     this.isActive = false,
     this.timeSpentSeconds = 0,
+    this.sessionResumedTimestampSeconds, // Added to constructor
   });
 
   // Total goal time in seconds
@@ -63,6 +65,8 @@ class Goal {
       sessionMinutes: map['session_minutes'] ?? 25,
       isActive: (map['is_active'] ?? 0) == 1,
       timeSpentSeconds: map['time_spent_seconds'] ?? 0,
+      sessionResumedTimestampSeconds:
+          map['session_resumed_timestamp_seconds'] as int?, // Added to fromMap
     );
   }
 
@@ -76,6 +80,7 @@ class Goal {
       'session_minutes': sessionMinutes,
       'is_active': isActive ? 1 : 0,
       'time_spent_seconds': timeSpentSeconds,
+      'session_resumed_timestamp_seconds': sessionResumedTimestampSeconds, // Added to toMap
     };
   }
 
@@ -88,6 +93,8 @@ class Goal {
     int? sessionMinutes,
     bool? isActive,
     int? timeSpentSeconds,
+    int? sessionResumedTimestampSeconds, // Added parameter
+    bool clearSessionResumedTimestamp = false, // Added helper parameter
   }) {
     return Goal(
       id: id ?? this.id,
@@ -97,6 +104,10 @@ class Goal {
       sessionMinutes: sessionMinutes ?? this.sessionMinutes,
       isActive: isActive ?? this.isActive,
       timeSpentSeconds: timeSpentSeconds ?? this.timeSpentSeconds,
+      // Logic for sessionResumedTimestampSeconds with clear option
+      sessionResumedTimestampSeconds: clearSessionResumedTimestamp
+          ? null
+          : (sessionResumedTimestampSeconds ?? this.sessionResumedTimestampSeconds),
     );
   }
 

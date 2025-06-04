@@ -6,6 +6,7 @@ import '../models/goal.model.dart';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static const int _databaseVersion = 2;
 
   DatabaseHelper._init();
 
@@ -21,8 +22,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: _databaseVersion,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -35,9 +37,21 @@ class DatabaseHelper {
         minutes INTEGER NOT NULL,
         session_minutes INTEGER NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 0,
-        time_spent_seconds INTEGER NOT NULL DEFAULT 0
+        time_spent_seconds INTEGER NOT NULL DEFAULT 0,
+        session_resumed_timestamp_seconds INTEGER
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        ALTER TABLE goals
+        ADD COLUMN session_resumed_timestamp_seconds INTEGER
+      ''');
+      print(
+          'Database upgraded from version $oldVersion to $newVersion: Added session_resumed_timestamp_seconds column.');
+    }
   }
 
   // Goal CRUD operations
