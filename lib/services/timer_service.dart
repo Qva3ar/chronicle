@@ -428,21 +428,29 @@ class TimerService extends ChangeNotifier {
   }
 
   Future<void> startSession(Goal goal) async {
+    // Always get the latest state of the goal from the database before starting a session.
+    // This prevents race conditions where the UI might hold a stale goal object.
+    final latestGoal = await _db.getGoal(goal.id!);
+    if (latestGoal == null) {
+      print('❌ Cannot start session, goal with ID ${goal.id} not found in DB.');
+      return;
+    }
+
     // Stop current session if any
     await stopSession();
 
     // Clear any old completion notifications to prevent confusion
     await _clearOldNotifications();
 
-    _activeGoal = goal;
+    _activeGoal = latestGoal;
     final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000; // Store in seconds
     _sessionStartTime = currentTime;
     _goalStartTime = currentTime;
-    _baselineTimeSpent = goal.timeSpentSeconds; // Capture baseline to avoid double counting
+    _baselineTimeSpent = latestGoal.timeSpentSeconds; // Capture baseline to avoid double counting
     _isRunning = true;
 
     // Update goal as active in database and clear any sessionResumedTimestamp
-    final updatedGoal = goal.copyWith(
+    final updatedGoal = latestGoal.copyWith(
       isActive: true,
       sessionResumedTimestampSeconds: null, // Clear it
       clearSessionResumedTimestamp: true, // Explicitly clear
@@ -455,7 +463,7 @@ class TimerService extends ChangeNotifier {
     final alarmTime = DateTime.now().add(Duration(seconds: sessionDuration));
 
     // 🎯 NEW: Check if goal will be completed before session ends
-    final goalRemainingTime = goal.totalSeconds - goal.timeSpentSeconds;
+    final goalRemainingTime = latestGoal.totalSeconds - latestGoal.timeSpentSeconds;
     final willCompleteEarly = goalRemainingTime < sessionDuration;
 
     if (willCompleteEarly) {
@@ -468,12 +476,12 @@ class TimerService extends ChangeNotifier {
       final goalCompleteTime = DateTime.now().add(Duration(seconds: goalRemainingTime));
 
       print('⏰ Scheduling GOAL COMPLETION alarm for: ${goalCompleteTime.toString()}');
-      print('⏰ Goal ID: ${goal.id}, will complete in: ${formatTime(goalRemainingTime)}');
+      print('⏰ Goal ID: ${latestGoal.id}, will complete in: ${formatTime(goalRemainingTime)}');
 
       try {
         await AndroidAlarmManager.oneShotAt(
           goalCompleteTime,
-          goal.id!, // Use goal ID as alarm ID
+          latestGoal.id!, // Use goal ID as alarm ID
           sessionCompleteCallback, // Use same callback but it will complete the goal
           alarmClock: true,
           wakeup: true,
@@ -486,12 +494,12 @@ class TimerService extends ChangeNotifier {
     } else {
       print('⏰ Scheduling background alarm for: ${alarmTime.toString()}');
       print('⏰ Session duration: ${formatTime(sessionDuration)}');
-      print('⏰ Goal ID: ${goal.id}, Alarm ID will be: ${goal.id}');
+      print('⏰ Goal ID: ${latestGoal.id}, Alarm ID will be: ${latestGoal.id}');
 
       try {
         await AndroidAlarmManager.oneShotAt(
           alarmTime,
-          goal.id!, // Use goal ID as alarm ID
+          latestGoal.id!, // Use goal ID as alarm ID
           sessionCompleteCallback, // Use top-level function
           alarmClock: true, // This ensures it works even in doze mode
           wakeup: true, // Wake up device if needed
@@ -510,7 +518,7 @@ class TimerService extends ChangeNotifier {
     await _showRunningNotification();
 
     notifyListeners();
-    print('Session started for: ${goal.title} at timestamp: $currentTime');
+    print('Session started for: ${latestGoal.title} at timestamp: $currentTime');
     print('Baseline time spent: ${formatTime(_baselineTimeSpent)}');
   }
 
@@ -1055,11 +1063,21 @@ class TimerService extends ChangeNotifier {
           final sessionDuration = _getSessionDuration(); // Uses _activeGoal set above
 
           if (_activeGoal!.id != null && sessionDuration > 0) {
-            final goalRemainingTime = _activeGoal!.totalSeconds - _activeGoal!.timeSpentSeconds;
-            final willCompleteEarly = goalRemainingTime > 0 && goalRemainingTime < sessionDuration;
+            // FIX: Calculate remaining time for the current session segment
+            final sessionElapsed =
+                (DateTime.now().millisecondsSinceEpoch ~/ 1000) - _sessionStartTime;
+            final remainingSessionDuration =
+                (sessionDuration - sessionElapsed).clamp(0, sessionDuration);
+
+            // FIX: Calculate goal remaining time based on current progress, not just baseline
+            final currentTotalTime = _baselineTimeSpent + sessionElapsed;
+            final goalRemainingTime = _activeGoal!.totalSeconds - currentTotalTime;
+
+            final willCompleteEarly =
+                goalRemainingTime > 0 && goalRemainingTime < remainingSessionDuration;
 
             print(
-                '🔄 REFRESH: Scheduling alarm. Session: ${formatTime(sessionDuration)}, Goal Rem: ${formatTime(goalRemainingTime)}');
+                '🔄 REFRESH: Scheduling alarm. Session rem: ${formatTime(remainingSessionDuration)}, Goal rem: ${formatTime(goalRemainingTime)}');
 
             if (willCompleteEarly) {
               print(
@@ -1075,7 +1093,7 @@ class TimerService extends ChangeNotifier {
               }
             } else if (goalRemainingTime > 0) {
               // Only schedule if goal is not already complete
-              final alarmTime = DateTime.now().add(Duration(seconds: sessionDuration));
+              final alarmTime = DateTime.now().add(Duration(seconds: remainingSessionDuration));
               try {
                 await AndroidAlarmManager.oneShotAt(
                     alarmTime, _activeGoal!.id!, sessionCompleteCallback,

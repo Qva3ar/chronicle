@@ -13,13 +13,14 @@ class GoalsScreen extends StatefulWidget {
   State<GoalsScreen> createState() => _GoalsScreenState();
 }
 
-class _GoalsScreenState extends State<GoalsScreen> {
+class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   List<Goal> _goals = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadGoals();
     // Listen to timer service updates to refresh goal progress
     TimerService.instance.addListener(_onTimerUpdate);
@@ -28,7 +29,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   void dispose() {
     TimerService.instance.removeListener(_onTimerUpdate);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print("App resumed, reloading goals.");
+      _loadGoals();
+    }
   }
 
   void _onTimerUpdate() {
