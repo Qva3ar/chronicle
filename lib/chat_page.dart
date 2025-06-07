@@ -74,8 +74,8 @@ class _ChatPageState extends State<ChatPage> {
     } else {}
     final count = await processMessages(allRecords);
     //find model from apitokenoptions and get price
-    final model =
-        apiKeyOptions.firstWhere((element) => element.value == gptNoteBindService.getModel);
+    final model = apiKeyOptions
+        .firstWhere((element) => element.value == gptNoteBindService.getModel);
     //round to 2 digits
     String inString = (count / 1000 * model.price).toStringAsFixed(8);
 
@@ -91,7 +91,8 @@ class _ChatPageState extends State<ChatPage> {
     Match? match = regExp.firstMatch(input);
 
     if (match != null) {
-      return match.group(1)!; // group(1) contains the value within square brackets
+      return match
+          .group(1)!; // group(1) contains the value within square brackets
     } else {
       return ""; // Return an empty string if no match is found
     }
@@ -150,25 +151,27 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(
-                    "Include all user data",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  Switch(
-                    value: includeAllNote,
-                    onChanged: (newValue) {
-                      setState(() {
-                        includeAllNote = newValue;
-                        if (newValue) {
-                          getUserNotes();
-                        } else {
-                          tokenCount = 0;
-                        }
-                      });
-                    },
-                  ),
-                ]),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Include all user data",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      Switch(
+                        value: includeAllNote,
+                        onChanged: (newValue) {
+                          setState(() {
+                            includeAllNote = newValue;
+                            if (newValue) {
+                              getUserNotes();
+                            } else {
+                              tokenCount = 0;
+                            }
+                          });
+                        },
+                      ),
+                    ]),
               ],
             ),
           ),
@@ -228,8 +231,8 @@ class _ChatPageState extends State<ChatPage> {
     String accumulator = '';
 
     if (includeAllNote) {
-      _systemMessages
-          .add(ChatMessage(Instractions.useUserAllNotes(allRecords, allTags), false, true));
+      _systemMessages.add(ChatMessage(
+          Instractions.useUserAllNotes(allRecords, allTags), false, true));
       log(Instractions.useUserAllNotes(allRecords, allTags));
     }
     // _systemMessages.add(ChatMessage(Instractions.findRecords(), false, true));
@@ -238,7 +241,9 @@ class _ChatPageState extends State<ChatPage> {
       //_messages as string
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = await gptService.completionStream(_messages, _systemMessages).listen((event) {
+      stream = await gptService
+          .completionStream(_messages, _systemMessages)
+          .listen((event) {
         final content = event.choices.first.delta.content;
         //print(content);
         accumulator += content![0].text ?? '';
@@ -261,7 +266,9 @@ class _ChatPageState extends State<ChatPage> {
           // Handle other exceptions
           //print('An unexpected error occurred: $err');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+            const SnackBar(
+                content:
+                    Text('An unexpected error occurred. Please try again.')),
           );
         }
 
@@ -271,7 +278,8 @@ class _ChatPageState extends State<ChatPage> {
       }, onDone: () {
         final ids = extractValue(accumulator);
         _messages.first.recordIds = ids;
-        widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+        widget.messageService
+            .addMessage(ChatMessage(accumulator, false, false));
         setState(() {
           _awaitingResponse = false;
         });

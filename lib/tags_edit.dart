@@ -33,14 +33,17 @@ class TagsEditWidget extends StatelessWidget {
                 fillColor: Colors.white,
                 filled: true,
                 focusedBorder: OutlineInputBorder(
-                  borderSide:
-                      BorderSide(color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
+                  borderSide: BorderSide(
+                      color: const Color.fromARGB(255, 223, 234, 229),
+                      width: 2.0),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
+                  borderSide:
+                      BorderSide(color: MyColors.primaryColor, width: 1.0),
                 ),
                 hintText: 'Tag Name',
-                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               ),
               controller: controller,
               validator: (value) {
@@ -52,7 +55,8 @@ class TagsEditWidget extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ColorPickerWidget(selected: selectedTag, onColorSelected: onColorSelected),
+              child: ColorPickerWidget(
+                  selected: selectedTag, onColorSelected: onColorSelected),
             ),
             Row(
               children: [
@@ -60,7 +64,8 @@ class TagsEditWidget extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 20),
                   child: TextButton(
                     style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
+                      backgroundColor: WidgetStateProperty.all<Color>(
+                          MyColors.trecondaryColor),
                     ),
                     onPressed: () {
                       if (formKey.currentState!.validate()) {
@@ -76,7 +81,8 @@ class TagsEditWidget extends StatelessWidget {
                 selectedTag != null
                     ? TextButton(
                         style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.all<Color>(MyColors.remove),
+                          backgroundColor:
+                              WidgetStateProperty.all<Color>(MyColors.remove),
                         ),
                         onPressed: () {
                           if (formKey.currentState!.validate()) {

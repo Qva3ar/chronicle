@@ -49,7 +49,10 @@ class RecordService {
   final _tagIdsSubject = BehaviorSubject<List<int>?>.seeded([]);
   final _tags = BehaviorSubject<List<Tag>>.seeded([]);
   final gptSelectedTags = PublishSubject<String>();
+  final _recordCreatedSubject = PublishSubject<Record>();
   int? _currentRecordId;
+
+  Stream<Record> get recordCreatedStream => _recordCreatedSubject.stream;
 
   final _importSubject = BehaviorSubject<bool>();
 
@@ -59,6 +62,7 @@ class RecordService {
   // Method to call when import is successful
   void importSuccess() {
     _importSubject.sink.add(true);
+    _recordCreatedSubject.close();
   }
 
   // Dispose method to close the stream
@@ -123,6 +127,19 @@ class RecordService {
     _handleTitleAndText(updatedRow);
   }
 
+  Future<Record?> createRecord(Map<String, dynamic> row, List<int> tags) async {
+    final id = await dbHelper.insertRecord(row, tags);
+    if (id != null) {
+      final newRecords = await dbHelper.getRecordsByIds(id.toString());
+      if (newRecords.isNotEmpty) {
+        final newRecord = newRecords.first;
+        _recordCreatedSubject.sink.add(newRecord);
+        return newRecord;
+      }
+    }
+    return null;
+  }
+
   void _handleTitleAndText(Map<String, dynamic> updatedRow) async {
     if (_currentRecordId != null) {
       bool recordExists = await dbHelper.recordExists(_currentRecordId!);
@@ -131,14 +148,22 @@ class RecordService {
         await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
         //print('Record updated');
       } else {
-        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
-        _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
+        updatedRow[DatabaseColumns.recordCreatedAt] =
+            DateTime.now().millisecondsSinceEpoch;
+        final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
+        if (newRecord != null) {
+          _currentRecordId = newRecord.id;
+        }
         //print('New record created with id: $_currentRecordId');
       }
     } else {
       if (updatedRow[DatabaseColumns.recordText] != null) {
-        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
-        _currentRecordId = await dbHelper.insertRecord(updatedRow, _tagIdsSubject.value!);
+        updatedRow[DatabaseColumns.recordCreatedAt] =
+            DateTime.now().millisecondsSinceEpoch;
+        final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
+        if (newRecord != null) {
+          _currentRecordId = newRecord.id;
+        }
         //print('New record created with id: $_currentRecordId');
       }
     }
@@ -153,7 +178,8 @@ class RecordService {
     // allRows.forEach(print);
   }
 
-  Future<List<MultiSelectCard<dynamic>>> queryTags(List<int>? selectedTags) async {
+  Future<List<MultiSelectCard<dynamic>>> queryTags(
+      List<int>? selectedTags) async {
     final allTags = await dbHelper.queryAllRows();
 
     return allTags
@@ -162,11 +188,13 @@ class RecordService {
         .map((e) => MultiSelectCard(
               value: e[DatabaseColumns.id],
               label: e[DatabaseColumns.tagName],
-              selected:
-                  selectedTags != null && selectedTags.contains(e[DatabaseColumns.id]) || false,
+              selected: selectedTags != null &&
+                      selectedTags.contains(e[DatabaseColumns.id]) ||
+                  false,
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor]))
+                        .withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
                     color: Color(int.parse(e[DatabaseColumns.tagColor])),
@@ -185,7 +213,8 @@ class RecordService {
               label: e[DatabaseColumns.tagName],
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor]))
+                        .withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
                     color: Color(int.parse(e[DatabaseColumns.tagColor])),
@@ -229,7 +258,6 @@ class RecordService {
     // if (kDebugMode) {
     //   //print('inserted row id: $id');
     // }
-    // _query();
     // Navigator.push(context, MaterialPageRoute(builder: (_) => ContactList()));
   }
 

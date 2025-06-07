@@ -6,7 +6,8 @@ class ConfirmDialog extends StatelessWidget {
   final String message;
   final Function(bool) onConfirm;
 
-  ConfirmDialog({required this.title, required this.message, required this.onConfirm});
+  ConfirmDialog(
+      {required this.title, required this.message, required this.onConfirm});
 
   @override
   Widget build(BuildContext context) {

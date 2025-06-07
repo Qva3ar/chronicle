@@ -1,3 +1,5 @@
+import '../db_manager.dart';
+
 @pragma('vm:entry-point')
 class Goal {
   final int? id;
@@ -8,6 +10,7 @@ class Goal {
   final bool isActive;
   final int timeSpentSeconds; // Total time spent on this goal
   final int? sessionResumedTimestampSeconds; // Added field
+  final int? completedAt; // Added field
 
   Goal({
     this.id,
@@ -18,13 +21,16 @@ class Goal {
     this.isActive = false,
     this.timeSpentSeconds = 0,
     this.sessionResumedTimestampSeconds, // Added to constructor
+    this.completedAt, // Added to constructor
   });
 
   // Total goal time in seconds
   int get totalSeconds => (hours * 3600) + (minutes * 60);
 
   // Progress percentage (0.0 to 1.0)
-  double get progress => totalSeconds > 0 ? (timeSpentSeconds / totalSeconds).clamp(0.0, 1.0) : 0.0;
+  double get progress => totalSeconds > 0
+      ? (timeSpentSeconds / totalSeconds).clamp(0.0, 1.0)
+      : 0.0;
 
   // Check if goal is completed
   bool get isCompleted => timeSpentSeconds >= totalSeconds;
@@ -58,29 +64,32 @@ class Goal {
   // Convert from database map
   factory Goal.fromMap(Map<String, dynamic> map) {
     return Goal(
-      id: map['_id'] ?? map['id'],
-      title: map['title'] ?? '',
-      hours: map['hours'] ?? 0,
-      minutes: map['minutes'] ?? 0,
-      sessionMinutes: map['session_minutes'] ?? 25,
-      isActive: (map['is_active'] ?? 0) == 1,
-      timeSpentSeconds: map['time_spent_seconds'] ?? 0,
+      id: map[DatabaseColumns.id],
+      title: map[DatabaseColumns.goalTitle] ?? '',
+      hours: map[DatabaseColumns.goalHours] ?? 0,
+      minutes: map[DatabaseColumns.goalMinutes] ?? 0,
+      sessionMinutes: map[DatabaseColumns.goalSessionMinutes] ?? 25,
+      isActive: (map[DatabaseColumns.goalIsActive] ?? 0) == 1,
+      timeSpentSeconds: map[DatabaseColumns.goalTimeSpentSeconds] ?? 0,
       sessionResumedTimestampSeconds:
-          map['session_resumed_timestamp_seconds'] as int?, // Added to fromMap
+          map[DatabaseColumns.goalSessionResumedTimestampSeconds],
+      completedAt: map[DatabaseColumns.goalCompletedAt],
     );
   }
 
   // Convert to database map
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) '_id': id,
-      'title': title,
-      'hours': hours,
-      'minutes': minutes,
-      'session_minutes': sessionMinutes,
-      'is_active': isActive ? 1 : 0,
-      'time_spent_seconds': timeSpentSeconds,
-      'session_resumed_timestamp_seconds': sessionResumedTimestampSeconds, // Added to toMap
+      if (id != null) DatabaseColumns.id: id,
+      DatabaseColumns.goalTitle: title,
+      DatabaseColumns.goalHours: hours,
+      DatabaseColumns.goalMinutes: minutes,
+      DatabaseColumns.goalSessionMinutes: sessionMinutes,
+      DatabaseColumns.goalIsActive: isActive ? 1 : 0,
+      DatabaseColumns.goalTimeSpentSeconds: timeSpentSeconds,
+      DatabaseColumns.goalSessionResumedTimestampSeconds:
+          sessionResumedTimestampSeconds,
+      DatabaseColumns.goalCompletedAt: completedAt,
     };
   }
 
@@ -94,6 +103,7 @@ class Goal {
     bool? isActive,
     int? timeSpentSeconds,
     int? sessionResumedTimestampSeconds, // Added parameter
+    int? completedAt, // Added parameter
     bool clearSessionResumedTimestamp = false, // Added helper parameter
   }) {
     return Goal(
@@ -104,10 +114,12 @@ class Goal {
       sessionMinutes: sessionMinutes ?? this.sessionMinutes,
       isActive: isActive ?? this.isActive,
       timeSpentSeconds: timeSpentSeconds ?? this.timeSpentSeconds,
+      completedAt: completedAt ?? this.completedAt,
       // Logic for sessionResumedTimestampSeconds with clear option
       sessionResumedTimestampSeconds: clearSessionResumedTimestamp
           ? null
-          : (sessionResumedTimestampSeconds ?? this.sessionResumedTimestampSeconds),
+          : (sessionResumedTimestampSeconds ??
+              this.sessionResumedTimestampSeconds),
     );
   }
 

@@ -6,8 +6,10 @@ class Record {
   String title;
   String text;
   List<int> tagIds;
-  String createdAt;
+  int createdAt;
   String recordType;
+  int? goalId;
+  int? routineId;
 
   Record({
     required this.id,
@@ -16,6 +18,8 @@ class Record {
     required this.tagIds,
     required this.createdAt,
     this.recordType = 'regular',
+    this.goalId,
+    this.routineId,
   });
 
   // Добавьте метод для сериализации объекта в Map
@@ -27,6 +31,8 @@ class Record {
       'tagIds': tagIds.join(','), // Преобразуем список ID тегов в строку
       DatabaseColumns.recordCreatedAt: createdAt,
       DatabaseColumns.recordType: recordType,
+      DatabaseColumns.recordGoalId: goalId,
+      DatabaseColumns.recordRoutineId: routineId
     };
   }
 
@@ -43,21 +49,19 @@ class Record {
           .toList();
     }
 
-    int millisecondsSinceEpoch = map[DatabaseColumns.recordCreatedAt];
-    DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
-    String formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
-
     return Record(
       id: map[DatabaseColumns.id],
       title: map[DatabaseColumns.recordTitle] ?? '',
       text: map[DatabaseColumns.recordText] ?? '',
       tagIds: tagIds,
-      createdAt: formattedDateTime,
+      createdAt: map[DatabaseColumns.recordCreatedAt],
       recordType: map[DatabaseColumns.recordType] ?? 'regular',
+      goalId: map[DatabaseColumns.recordGoalId],
+      routineId: map[DatabaseColumns.recordRoutineId],
     );
   }
 
   DateTime get createdAtDate {
-    return DateFormat('yyyy-MM-dd HH:mm:ss').parse(createdAt);
+    return DateTime.fromMillisecondsSinceEpoch(createdAt);
   }
 }

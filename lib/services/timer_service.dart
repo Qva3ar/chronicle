@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../db_manager.dart';
 import '../models/goal.model.dart';
-import 'database_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+
+import '../record.service.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 
@@ -22,6 +24,7 @@ Future<void> sessionCompleteCallback(int alarmId) async {
   try {
     // Initialize services in background context
     final db = DatabaseHelper.instance;
+    final recordService = RecordService();
     final notificationsPlugin = FlutterLocalNotificationsPlugin();
 
     // Initialize notifications in background
@@ -37,6 +40,12 @@ Future<void> sessionCompleteCallback(int alarmId) async {
     final goalAtAlarmTime = await db.getGoal(alarmId);
     if (goalAtAlarmTime == null) {
       print('❌ BACKGROUND: Goal not found with ID: $alarmId');
+      return;
+    }
+
+    // Check if the goal has already been marked as completed
+    if (goalAtAlarmTime.completedAt != null) {
+      print('ℹ️ BACKGROUND: Goal ${goalAtAlarmTime.title} already completed. Skipping.');
       return;
     }
 
@@ -58,10 +67,23 @@ Future<void> sessionCompleteCallback(int alarmId) async {
         isActive: false,
         sessionResumedTimestampSeconds: null,
         clearSessionResumedTimestamp: true,
+        completedAt: DateTime.now().millisecondsSinceEpoch, // Mark as completed
       );
       await db.updateGoal(updatedGoal);
       print(
           '✅ BACKGROUND: Goal completed. Total time: ${_formatTimeStatic(updatedGoal.totalSeconds)}');
+
+      // Create a record for the completed goal
+      final record = {
+        DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
+        DatabaseColumns.recordText:
+            'Finished a goal session, completing the goal. Total time: ${_formatTimeStatic(updatedGoal.totalSeconds)}',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'goal',
+        DatabaseColumns.recordGoalId: updatedGoal.id,
+      };
+      await recordService.createRecord(record, []);
+      print('📝 BACKGROUND: Record created for completed goal.');
 
       // Show goal completion notifications
       await _showBackgroundGoalCompleteNotification(notificationsPlugin, updatedGoal);
@@ -355,6 +377,7 @@ class TimerService extends ChangeNotifier {
 
   final DatabaseHelper _db = DatabaseHelper.instance;
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final RecordService _recordService = RecordService();
 
   // Getters
   Goal? get activeGoal => _activeGoal;
@@ -641,6 +664,19 @@ class TimerService extends ChangeNotifier {
 
     if (_activeGoal == null) return;
 
+    // Check if the goal has already been completed in the DB
+    final latestGoal = await _db.getGoal(_activeGoal!.id!);
+    if (latestGoal?.completedAt != null) {
+      print('ℹ️ FOREGROUND: Goal ${latestGoal!.title} already marked as completed. Skipping.');
+      // It's possible the UI timer lagged behind the background callback.
+      // We should still stop the local timer and clean up.
+      _isRunning = false;
+      _updateTimer?.cancel();
+      await _hideNotification();
+      notifyListeners();
+      return;
+    }
+
     // Cancel the scheduled session alarm since we're completing early
     try {
       await AndroidAlarmManager.cancel(_activeGoal!.id!);
@@ -658,9 +694,22 @@ class TimerService extends ChangeNotifier {
       isActive: false,
       sessionResumedTimestampSeconds: null, // Clear it
       clearSessionResumedTimestamp: true,
+      completedAt: DateTime.now().millisecondsSinceEpoch, // Mark as completed
     );
 
     await _db.updateGoal(completedGoal);
+
+    // Create a record for the completed goal
+    final record = {
+      DatabaseColumns.recordTitle: 'Goal Completed: ${completedGoal.title}',
+      DatabaseColumns.recordText:
+          'Finished a goal session of ${formatTime(sessionTimeToComplete)}, completing the goal.',
+      DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+      DatabaseColumns.recordType: 'goal',
+      DatabaseColumns.recordGoalId: completedGoal.id
+    };
+    await _recordService.createRecord(record, []);
+    print('📝 Record created for completed goal.');
 
     print('✅ Goal completed exactly: ${formatTime(exactGoalTime)}');
     print('✅ Session time to complete: ${formatTime(sessionTimeToComplete)}');

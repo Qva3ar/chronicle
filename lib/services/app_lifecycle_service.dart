@@ -71,7 +71,8 @@ class AppLifecycleService extends WidgetsBindingObserver {
     // The timer service will automatically handle any background completion
     // when it calculates elapsed time based on timestamps
     if (timerService.isRunning) {
-      print('Session was running in background - time will be calculated automatically');
+      print(
+          'Session was running in background - time will be calculated automatically');
     }
   }
 
@@ -81,7 +82,8 @@ class AppLifecycleService extends WidgetsBindingObserver {
     if (timerService.isRunning && timerService.activeGoal != null) {
       // Save progress but keep session state for recovery when app restarts
       timerService.saveProgress();
-      print('Progress saved on app termination - session will be restored on restart');
+      print(
+          'Progress saved on app termination - session will be restored on restart');
     }
   }
 }

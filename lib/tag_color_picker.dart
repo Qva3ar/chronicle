@@ -68,8 +68,11 @@ class _ColorPickerWidgetState extends State<ColorPickerWidget> {
         _currentIndex = availableColors.indexOf(color[0]);
 
         _scrollController.animateTo(
-          _currentIndex * (50 + 8.0), // Calculate the position based on item width and spacing
-          duration: Duration(milliseconds: 500), // Adjust the duration as needed
+          _currentIndex *
+              (50 +
+                  8.0), // Calculate the position based on item width and spacing
+          duration:
+              Duration(milliseconds: 500), // Adjust the duration as needed
           curve: Curves.easeInOut, // Use a different curve if desired
         );
       }
@@ -80,7 +83,8 @@ class _ColorPickerWidgetState extends State<ColorPickerWidget> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-          color: const Color.fromARGB(96, 76, 76, 76), borderRadius: BorderRadius.circular(10)),
+          color: const Color.fromARGB(96, 76, 76, 76),
+          borderRadius: BorderRadius.circular(10)),
       height: 100, // Высота виджета
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -105,7 +109,9 @@ class _ColorPickerWidgetState extends State<ColorPickerWidget> {
                   color: availableColors[index],
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _currentIndex == index ? MyColors.fivyColor : Colors.transparent,
+                    color: _currentIndex == index
+                        ? MyColors.fivyColor
+                        : Colors.transparent,
                     width: 2,
                   ),
                 ),

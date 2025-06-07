@@ -23,6 +23,9 @@ import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
+import 'package:chrono/widgets/record_list_item.dart';
+
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   HomePage({Key? key, this.recordIds}) : super(key: key);
@@ -50,6 +53,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   ScrollController _scrollController = ScrollController();
   MessageService messageServie = MessageService();
   bool isLoading = false; // Add a loading flag
+  bool _needsRefresh = false;
+  bool isRefreshing = false;
+  StreamSubscription<Record>? _recordCreatedSubscription;
 
   @override
   void initState() {
@@ -78,6 +84,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     });
 
+    _recordCreatedSubscription = recordService.recordCreatedStream.listen((record) {
+      if (mounted) {
+        setState(() {
+          allRecords.insert(0, record);
+        });
+      }
+    });
+
     searchController.addListener(() {
       loadRecords(refresh: true);
     });
@@ -87,10 +101,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
+    _recordCreatedSubscription?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {
+        _needsRefresh = true;
+      });
+    }
+  }
+
   void _onScroll() {
+    if (_scrollController.position.pixels == 0 && _needsRefresh) {
+      loadRecords(refresh: true);
+      setState(() {
+        _needsRefresh = false;
+      });
+    }
+
     if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
         !isLoading) {
       // Check if not already loading
@@ -105,11 +137,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> loadRecords({bool refresh = false}) async {
-    if (isLoading) return;
+    if (isLoading || isRefreshing) return;
 
     if (refresh) {
-      allRecords = [];
-      currentPage = 0;
+      setState(() {
+        isRefreshing = true;
+      });
+      final lastTimestamp = allRecords.isNotEmpty ? allRecords.first.createdAt : 0;
+      final newRecords = await dbHelper.getNewerRecords(lastTimestamp,
+          tagId: selectedChipIndex, searchText: searchController.text);
+      if (newRecords.isNotEmpty) {
+        setState(() {
+          allRecords.insertAll(0, newRecords);
+        });
+      }
+      setState(() {
+        isRefreshing = false;
+      });
+      return;
     }
 
     setState(() {
@@ -464,9 +509,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                itemBuilder: (context, dynamic item) {
+                groupHeaderBuilder: (Record record) => SizedBox.shrink(),
+                itemBuilder: (context, item) {
                   List<Tag> tags = getTagsForRecord(item);
-                  return GestureDetector(
+                  return RecordListItem(
+                    item: item,
+                    tags: tags,
                     onTap: () {
                       FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.push(
@@ -481,118 +529,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ).then((value) => loadRecords(refresh: true));
                     },
-                    child: Card(
-                      elevation: 0,
-                      margin: EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
-                      ),
-                      color: item.recordType == 'routine'
-                          ? Color.fromARGB(255, 100, 80, 80) // Different color for routine records
-                          : Color.fromARGB(255, 80, 80, 80),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: item.recordType == 'routine'
-                            ? BorderSide(
-                                color: Colors.orange, width: 1) // Border for routine records
-                            : BorderSide.none,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (item.recordType == 'routine')
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: Colors.orange,
-                                        size: 16,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Routine Completed',
-                                        style: TextStyle(
-                                          color: Colors.orange,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                SizedBox(height: item.recordType == 'routine' ? 8 : 0),
-                                Text(
-                                  "${item.text}",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                height: 35,
-                                width: 250,
-                                child: Center(
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: tags.length,
-                                    // controller: _scrollController,
-                                    itemBuilder: (context, index) {
-                                      // Find the corresponding Tag object from allTags list
-                                      Tag tag = tags[index];
-
-                                      // Display the tag information, for example, the tag's name
-                                      return Container(
-                                        // width: 20,
-                                        // height: 10,
-                                        decoration: BoxDecoration(
-                                          color: Color(int.parse(
-                                              tag.color!)), // Convert color from int to Color
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Text(tag.name),
-                                        ),
-                                      );
-                                      // tagIds.map((tagId) {
-                                      //   Tag? tag = allTags.firstWhereOrNull(
-                                      //       (element) => element.id == tagId);
-
-                                      //   return tag != null
-
-                                      //       : Container();
-                                      // }).toList();
-                                    },
-                                  ),
-                                ),
-                              ),
-                              OverflowBar(
-                                children: [
-                                  IconButton(
-                                    onPressed: () {
-                                      _showDeleteDialog(context, item.id);
-                                    },
-                                    icon: Icon(
-                                      Icons.delete,
-                                      color: Colors.white30,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    onDelete: (id) {
+                      _showDeleteDialog(context, id);
+                    },
                   );
                 },
 
@@ -635,7 +574,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _delete(int id) async {
     // Assuming that the number of rows is the id for the last row.
     final rowsDeleted = await dbHelper.deleteContact(id);
+    setState(() {
+      allRecords.removeWhere((record) => record.id == id);
+    });
     //print('deleted $rowsDeleted row(s): row $id');
-    loadRecords();
   }
 }

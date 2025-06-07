@@ -23,7 +23,8 @@ class Routine {
     return {
       '_id': id,
       'name': name,
-      'time': '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+      'time':
+          '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
       'days_of_week': daysOfWeek.map((day) => day ? '1' : '0').join(','),
       'period_after': periodAfter,
       'interval': interval,
@@ -81,7 +82,8 @@ class Routine {
     // If the routine is active today and the time hasn't passed yet
     if (isActiveOnDay(currentDay) &&
         (currentTime.hour < time.hour ||
-            (currentTime.hour == time.hour && currentTime.minute < time.minute))) {
+            (currentTime.hour == time.hour &&
+                currentTime.minute < time.minute))) {
       return DateTime(
         now.year,
         now.month,

@@ -35,19 +35,23 @@ class GPTNoteBindService {
   String get getModel => model;
   setModel(String model) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('model', model); // Save the model to SharedPreferences
+    await prefs.setString(
+        'model', model); // Save the model to SharedPreferences
     this.model = model;
   }
 
   Future<void> loadModel() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    this.model = prefs.getString('model') ?? ''; // Load the model from SharedPreferences
-    this.key = prefs.getString('key') ?? ''; // Load the model from SharedPreferences
+    this.model =
+        prefs.getString('model') ?? ''; // Load the model from SharedPreferences
+    this.key =
+        prefs.getString('key') ?? ''; // Load the model from SharedPreferences
     OpenAI.apiKey = this.key;
   }
 
   // Create a Subject to manage the communication
-  final PublishSubject<ChatContextMessage> _messageSubject = PublishSubject<ChatContextMessage>();
+  final PublishSubject<ChatContextMessage> _messageSubject =
+      PublishSubject<ChatContextMessage>();
 
   // Stream for receiving messages from one widget to another
   Stream<ChatContextMessage> get messageStream => _messageSubject.stream;

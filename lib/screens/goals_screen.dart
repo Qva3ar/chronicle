@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../db_manager.dart';
 import '../models/goal.model.dart';
 import '../widgets/goal_card.dart';
-import '../widgets/add_goal_form.dart';
+import 'add_goal_screen.dart';
 import '../widgets/active_session_widget.dart';
-import '../services/database_helper.dart';
 import '../services/timer_service.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -16,6 +16,7 @@ class GoalsScreen extends StatefulWidget {
 class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   List<Goal> _goals = [];
   bool _isLoading = true;
+  final dbHelper = DatabaseHelper.instance;
 
   @override
   void initState() {
@@ -48,16 +49,18 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Future<void> _loadGoals() async {
     try {
-      final goals = await DatabaseHelper.instance.getAllGoals();
-      setState(() {
-        _goals = goals;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      final goals = await dbHelper.getAllGoals();
       if (mounted) {
+        setState(() {
+          _goals = goals;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading goals: $e')),
         );
@@ -67,12 +70,12 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Future<void> _addGoal(Goal goal) async {
     try {
-      final id = await DatabaseHelper.instance.insertGoal(goal);
+      final id = await dbHelper.insertGoal(goal);
       final newGoal = goal.copyWith(id: id);
-      setState(() {
-        _goals.add(newGoal);
-      });
       if (mounted) {
+        setState(() {
+          _goals.add(newGoal);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Goal added successfully!')),
         );
@@ -90,33 +93,27 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     final timerService = TimerService.instance;
 
     if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
-      // Stop the current session
       await timerService.stopSession();
     } else {
-      // Start a new session
       await timerService.startSession(goal);
     }
 
-    await _loadGoals(); // Refresh the goals list
+    await _loadGoals();
   }
 
   Future<void> _deleteGoal(Goal goal) async {
     try {
-      // If this goal is currently active, stop the session first
       final timerService = TimerService.instance;
       if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
         await timerService.stopSession();
       }
 
-      // Delete from database
-      await DatabaseHelper.instance.deleteGoal(goal.id!);
-
-      // Remove from local list
-      setState(() {
-        _goals.removeWhere((g) => g.id == goal.id);
-      });
+      await dbHelper.deleteGoal(goal.id!);
 
       if (mounted) {
+        setState(() {
+          _goals.removeWhere((g) => g.id == goal.id);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Goal "${goal.title}" deleted successfully'),
@@ -138,18 +135,14 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Future<void> _editGoal(Goal goal) async {
     try {
-      // Update goal in database
-      await DatabaseHelper.instance.updateGoal(goal);
-
-      // Update local list
-      setState(() {
-        final index = _goals.indexWhere((g) => g.id == goal.id);
-        if (index != -1) {
-          _goals[index] = goal;
-        }
-      });
-
+      await dbHelper.updateGoal(goal);
       if (mounted) {
+        setState(() {
+          final index = _goals.indexWhere((g) => g.id == goal.id);
+          if (index != -1) {
+            _goals[index] = goal;
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Goal "${goal.title}" updated successfully'),
@@ -170,21 +163,18 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   }
 
   void _showAddGoalForm() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddGoalForm(onGoalAdded: _addGoal),
-      ),
+    showDialog(
+      context: context,
+      builder: (context) => AddGoalScreen(onGoalAdded: _addGoal),
     );
   }
 
   void _showEditGoalForm(Goal goal) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddGoalForm(
-          onGoalAdded: _addGoal,
-          onGoalUpdated: _editGoal,
-          existingGoal: goal,
-        ),
+    showDialog(
+      context: context,
+      builder: (context) => AddGoalScreen(
+        onGoalUpdated: _editGoal,
+        existingGoal: goal,
       ),
     );
   }
@@ -199,7 +189,6 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       ),
       child: Column(
         children: [
-          // Handle bar
           Container(
             margin: const EdgeInsets.only(top: 8),
             width: 40,
@@ -209,7 +198,6 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Title
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -224,12 +212,11 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
-                  onPressed: () => _showAddGoalForm(),
+                  onPressed: _showAddGoalForm,
                 ),
               ],
             ),
           ),
-          // List of routines
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Expanded(
@@ -243,8 +230,8 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                             return GoalCard(
                               goal: goal,
                               onTap: () => _toggleGoalSession(goal),
-                              onDelete: (goal) => _deleteGoal(goal),
-                              onEdit: (goal) => _showEditGoalForm(goal),
+                              onDelete: _deleteGoal,
+                              onEdit: _showEditGoalForm,
                             );
                           },
                         ),

@@ -1,7 +1,7 @@
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/screens/goals_screen.dart';
-import 'package:chrono/services/database_helper.dart';
+import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
 

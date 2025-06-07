@@ -34,10 +34,11 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
     if (isDone) {
       // Create a record for the completed routine
       final record = {
-        DatabaseColumns.recordTitle: 'Completed Routine',
+        DatabaseColumns.recordTitle: 'Completed Routine: ${routine.name}',
         DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'routine', // Mark as routine record
+        DatabaseColumns.recordRoutineId: routine.id,
       };
       await _db.insertRecord(record, []); // No tags for routine records
 

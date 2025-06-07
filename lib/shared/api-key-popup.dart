@@ -14,7 +14,8 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
   String selectedModel = ''; // Default model
 
   String url1 = 'https://www.merge.dev/blog/chatgpt-api-key';
-  String url2 = 'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
+  String url2 =
+      'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
 
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 

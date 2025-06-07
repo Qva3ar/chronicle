@@ -8,7 +8,8 @@ class InstructionsBlockWidget extends StatefulWidget {
   InstructionsBlockWidget({required this.onSubmitted});
 
   @override
-  State<InstructionsBlockWidget> createState() => _InstructionsBlockWidgetState();
+  State<InstructionsBlockWidget> createState() =>
+      _InstructionsBlockWidgetState();
 }
 
 class _InstructionsBlockWidgetState extends State<InstructionsBlockWidget> {
@@ -22,7 +23,8 @@ class _InstructionsBlockWidgetState extends State<InstructionsBlockWidget> {
   }
 
   Future<void> _loadInstructions() async {
-    List<Instruction> loadedInstructions = await dbHelper.queryAllInstructions();
+    List<Instruction> loadedInstructions =
+        await dbHelper.queryAllInstructions();
     setState(() {
       instructions = loadedInstructions;
     });
@@ -66,7 +68,8 @@ class _InstructionsBlockWidgetState extends State<InstructionsBlockWidget> {
                             children: instructions.map((instruction) {
                               return ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 2, vertical: 6),
                                   minimumSize: Size.zero,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8.0),

@@ -38,8 +38,7 @@ Future<void> _dailyResetAlarmCallback(int id) async {
     await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
 
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    final tz.TZDateTime nextMidnight =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day).add(const Duration(days: 1));
+    final tz.TZDateTime nextMidnight = tz.TZDateTime(tz.local, now.year, now.month, now.day + 1);
 
     await AndroidAlarmManager.oneShotAt(
       nextMidnight,
@@ -145,8 +144,7 @@ class NotificationService {
 
     try {
       final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-      tz.TZDateTime nextMidnight =
-          tz.TZDateTime(tz.local, now.year, now.month, now.day).add(const Duration(days: 1));
+      tz.TZDateTime nextMidnight = tz.TZDateTime(tz.local, now.year, now.month, now.day + 1);
 
       await AndroidAlarmManager.cancel(_dailyResetAlarmId);
 

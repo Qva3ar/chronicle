@@ -40,11 +40,13 @@ class GoalCard extends StatelessWidget {
         final isRunning = isActiveGoal && timerService.isRunning;
 
         // Calculate real-time progress
-        final realtimeProgress = _getRealtimeProgress(timerService, isActiveGoal);
+        final realtimeProgress =
+            _getRealtimeProgress(timerService, isActiveGoal);
 
         // Don't allow swipe actions on active goals
         if (isActiveGoal || (onDelete == null && onEdit == null)) {
-          return _buildGoalCard(context, timerService, isActiveGoal, isRunning, realtimeProgress);
+          return _buildGoalCard(
+              context, timerService, isActiveGoal, isRunning, realtimeProgress);
         }
 
         return Dismissible(
@@ -116,14 +118,15 @@ class GoalCard extends StatelessWidget {
               ),
             ),
           ),
-          child: _buildGoalCard(context, timerService, isActiveGoal, isRunning, realtimeProgress),
+          child: _buildGoalCard(
+              context, timerService, isActiveGoal, isRunning, realtimeProgress),
         );
       },
     );
   }
 
-  Widget _buildGoalCard(BuildContext context, TimerService timerService, bool isActiveGoal,
-      bool isRunning, double realtimeProgress) {
+  Widget _buildGoalCard(BuildContext context, TimerService timerService,
+      bool isActiveGoal, bool isRunning, double realtimeProgress) {
     return GestureDetector(
       onTap: goal.isCompleted ? null : onTap,
       child: Container(
@@ -185,11 +188,12 @@ class GoalCard extends StatelessWidget {
                       Text(
                         isRunning
                             ? 'Running: ${timerService.formatTime(timerService.totalTimeElapsed)}'
-                            : 'Paused: ${timerService.formatTime(timerService.totalTimeElapsed)}',
+                            : 'Time spent: ${goal.formattedTimeSpent}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: isRunning ? Colors.green[600] : Colors.orange[600],
+                          color:
+                              isRunning ? Colors.green[600] : Colors.grey[600],
                           height: 1.2,
                         ),
                       ),

@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/models/record.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 19;
+  static const int databaseVersion = 22;
   static const int pageSize = 20;
 }
 
@@ -39,6 +40,8 @@ class DatabaseColumns {
   static const String recordText = 'text';
   static const String recordCreatedAt = 'created_at';
   static const String recordType = 'record_type';
+  static const String recordGoalId = 'goal_id';
+  static const String recordRoutineId = 'routine_id';
 
   // Instructions table columns
   static const String instructionText = 'text';
@@ -54,13 +57,13 @@ class DatabaseColumns {
 
   // Goal table columns
   static const String goalTitle = 'title';
-  static const String goalDailyHours = 'daily_hours';
+  static const String goalHours = 'hours';
+  static const String goalMinutes = 'minutes';
   static const String goalSessionMinutes = 'session_minutes';
   static const String goalIsActive = 'is_active';
-  static const String goalLastStartedAt = 'last_started_at';
-  static const String goalRemainingTime = 'remaining_time';
-  static const String goalSession = 'session';
-  static const String goalTotalTimeSpent = 'total_time_spent';
+  static const String goalTimeSpentSeconds = 'time_spent_seconds';
+  static const String goalSessionResumedTimestampSeconds = 'session_resumed_timestamp_seconds';
+  static const String goalCompletedAt = 'completed_at';
 }
 
 /// A singleton class that manages the SQLite database operations
@@ -123,7 +126,9 @@ class DatabaseHelper {
           ${DatabaseColumns.recordTitle} TEXT,
           ${DatabaseColumns.recordText} TEXT,
           ${DatabaseColumns.recordCreatedAt} INTEGER NOT NULL,
-          ${DatabaseColumns.recordType} TEXT DEFAULT 'regular'
+          ${DatabaseColumns.recordType} TEXT DEFAULT 'regular',
+          ${DatabaseColumns.recordGoalId} INTEGER,
+          ${DatabaseColumns.recordRoutineId} INTEGER
         )
       ''');
 
@@ -165,11 +170,13 @@ class DatabaseHelper {
         CREATE TABLE ${DatabaseTables.goals} (
           ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
           ${DatabaseColumns.goalTitle} TEXT NOT NULL,
-          ${DatabaseColumns.goalDailyHours} REAL NOT NULL,
-          ${DatabaseColumns.goalSessionMinutes} INTEGER,
+          ${DatabaseColumns.goalHours} INTEGER NOT NULL,
+          ${DatabaseColumns.goalMinutes} INTEGER NOT NULL,
+          ${DatabaseColumns.goalSessionMinutes} INTEGER NOT NULL,
           ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
-          ${DatabaseColumns.goalLastStartedAt} INTEGER,
-          ${DatabaseColumns.goalRemainingTime} INTEGER
+          ${DatabaseColumns.goalTimeSpentSeconds} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER,
+          ${DatabaseColumns.goalCompletedAt} INTEGER
         )
       ''');
 
@@ -212,11 +219,13 @@ class DatabaseHelper {
           CREATE TABLE ${DatabaseTables.goals} (
             ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DatabaseColumns.goalTitle} TEXT NOT NULL,
-            ${DatabaseColumns.goalDailyHours} REAL NOT NULL,
-            ${DatabaseColumns.goalSessionMinutes} INTEGER,
+            ${DatabaseColumns.goalHours} INTEGER NOT NULL,
+            ${DatabaseColumns.goalMinutes} INTEGER NOT NULL,
+            ${DatabaseColumns.goalSessionMinutes} INTEGER NOT NULL,
             ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
-            ${DatabaseColumns.goalLastStartedAt} INTEGER,
-            ${DatabaseColumns.goalRemainingTime} INTEGER
+            ${DatabaseColumns.goalTimeSpentSeconds} INTEGER NOT NULL DEFAULT 0,
+            ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER,
+            ${DatabaseColumns.goalCompletedAt} INTEGER
           )
         ''');
       }
@@ -224,13 +233,14 @@ class DatabaseHelper {
       if (oldVersion < 16) {
         // Check if session column exists before adding it
         final columns = await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
-        final hasSessionColumn = columns.any((col) => col['name'] == DatabaseColumns.goalSession);
+        final hasSessionColumn =
+            columns.any((col) => col['name'] == DatabaseColumns.goalSessionMinutes);
 
         if (!hasSessionColumn) {
           // Add session column to goals table only if it doesn't exist
           await db.execute('''
             ALTER TABLE ${DatabaseTables.goals}
-            ADD COLUMN ${DatabaseColumns.goalSession} INTEGER DEFAULT 0
+            ADD COLUMN ${DatabaseColumns.goalSessionMinutes} INTEGER DEFAULT 25
           ''');
         }
       }
@@ -239,19 +249,11 @@ class DatabaseHelper {
         // Add total_time_spent column to goals table
         await db.execute('''
           ALTER TABLE ${DatabaseTables.goals}
-          ADD COLUMN ${DatabaseColumns.goalTotalTimeSpent} INTEGER
+          ADD COLUMN ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER
         ''');
       }
 
       if (oldVersion < 18) {
-        // Add session_minutes column to goals table
-        await db.execute('''
-          ALTER TABLE ${DatabaseTables.goals}
-          ADD COLUMN ${DatabaseColumns.goalSessionMinutes} INTEGER DEFAULT 25
-        ''');
-      }
-
-      if (oldVersion < 19) {
         // Add sessions table
         await db.execute('''
           CREATE TABLE ${DatabaseTables.sessions} (
@@ -267,8 +269,56 @@ class DatabaseHelper {
           )
         ''');
       }
+
+      if (oldVersion < 20) {
+        // Drop the old goals table and recreate it with the correct schema.
+        // This is a destructive migration but necessary to fix the schema mismatch.
+        await db.execute('DROP TABLE IF EXISTS ${DatabaseTables.goals}');
+        await db.execute('''
+          CREATE TABLE ${DatabaseTables.goals} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.goalTitle} TEXT NOT NULL,
+            ${DatabaseColumns.goalHours} INTEGER NOT NULL,
+            ${DatabaseColumns.goalMinutes} INTEGER NOT NULL,
+            ${DatabaseColumns.goalSessionMinutes} INTEGER NOT NULL,
+            ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
+            ${DatabaseColumns.goalTimeSpentSeconds} INTEGER NOT NULL DEFAULT 0,
+            ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER,
+            ${DatabaseColumns.goalCompletedAt} INTEGER
+          )
+        ''');
+        log('Upgraded database to v20: Recreated goals table with correct schema.');
+      }
+
+      if (oldVersion < 21) {
+        // Check if the column already exists to prevent crashes on restart
+        final columns = await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasCompletedAtColumn =
+            columns.any((col) => col['name'] == DatabaseColumns.goalCompletedAt);
+
+        if (!hasCompletedAtColumn) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalCompletedAt} INTEGER
+          ''');
+          log('Upgraded database to v21: Added completed_at column to goals table.');
+        } else {
+          log('Skipping v21 migration: completed_at column already exists.');
+        }
+      }
+
+      if (oldVersion < 22) {
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.record}
+          ADD COLUMN ${DatabaseColumns.recordGoalId} INTEGER
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.record}
+          ADD COLUMN ${DatabaseColumns.recordRoutineId} INTEGER
+        ''');
+      }
     } catch (e) {
-      log('Error upgrading database: $e');
+      log('Error during database upgrade: $e');
       rethrow;
     }
   }
@@ -829,72 +879,119 @@ class DatabaseHelper {
     }
   }
 
-  // Goal operations
-  Future<int> insertGoal(Map<String, dynamic> row) async {
+  // Goal CRUD operations
+  Future<int> insertGoal(Goal goal) async {
     try {
-      final Database db = await instance.database;
-      // Remove the id field since it's auto-incrementing
-      row.remove('id');
-      return await db.insert(DatabaseTables.goals, row);
+      final db = await database;
+      return await db.insert(DatabaseTables.goals, goal.toMap());
     } catch (e) {
       log('Error inserting goal: $e');
       rethrow;
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAllGoals() async {
-    try {
-      final Database db = await instance.database;
-      return await db.query(DatabaseTables.goals, orderBy: '${DatabaseColumns.id} DESC');
-    } catch (e) {
-      log('Error getting goals: $e');
-      rethrow;
-    }
+  Future<List<Goal>> getAllGoals() async {
+    final db = await database;
+    final maps = await db.query(DatabaseTables.goals);
+    return maps.map((map) => Goal.fromMap(map)).toList();
   }
 
-  Future<int> updateGoal(Map<String, dynamic> row) async {
-    try {
-      final Database db = await instance.database;
-      final int id = row['_id'] ?? row['id']; // Handle both _id and id
-      row.remove('id'); // Remove id if it exists
-      return await db.update(
-        DatabaseTables.goals,
-        row,
-        where: '${DatabaseColumns.id} = ?',
-        whereArgs: [id],
-      );
-    } catch (e) {
-      log('Error updating goal: $e');
-      rethrow;
+  Future<Goal?> getGoal(int id) async {
+    final db = await database;
+    final maps = await db.query(
+      DatabaseTables.goals,
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) {
+      return Goal.fromMap(maps.first);
     }
+    return null;
+  }
+
+  Future<int> updateGoal(Goal goal) async {
+    final db = await database;
+    return await db.update(
+      DatabaseTables.goals,
+      goal.toMap(),
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [goal.id],
+    );
   }
 
   Future<int> deleteGoal(int id) async {
-    try {
-      final Database db = await instance.database;
-      return await db.delete(
-        DatabaseTables.goals,
-        where: '${DatabaseColumns.id} = ?',
-        whereArgs: [id],
-      );
-    } catch (e) {
-      log('Error deleting goal: $e');
-      rethrow;
-    }
+    final db = await database;
+    return await db.delete(
+      DatabaseTables.goals,
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [id],
+    );
   }
 
-  Future<Map<String, dynamic>?> getGoalById(int id) async {
-    try {
-      final Database db = await instance.database;
-      final List<Map<String, dynamic>> results = await db.query(
-        DatabaseTables.goals,
-        where: '${DatabaseColumns.id} = ?',
-        whereArgs: [id],
-      );
-      return results.isNotEmpty ? results.first : null;
-    } catch (e) {
-      log('Error getting goal by ID: $e');
-      rethrow;
+  Future<Goal?> getActiveGoal() async {
+    final db = await database;
+    final maps = await db.query(
+      DatabaseTables.goals,
+      where: '${DatabaseColumns.goalIsActive} = ?',
+      whereArgs: [1],
+    );
+    if (maps.isNotEmpty) {
+      return Goal.fromMap(maps.first);
     }
+    return null;
+  }
+
+  Future<List<Record>> getNewerRecords(int lastTimestamp, {int? tagId, String? searchText}) async {
+    final db = await database;
+    String whereClause = '${DatabaseColumns.recordCreatedAt} > ?';
+    List<dynamic> whereArgs = [lastTimestamp];
+
+    if (searchText != null && searchText.isNotEmpty) {
+      whereClause +=
+          ' AND ${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?';
+      whereArgs.add('%$searchText%');
+      whereArgs.add('%$searchText%');
+    }
+
+    List<Map<String, dynamic>> recordsData;
+
+    if (tagId != null) {
+      // If a tag is specified, we need a more complex query to join tables
+      recordsData = await db.rawQuery('''
+      SELECT T1.* FROM ${DatabaseTables.record} AS T1
+      INNER JOIN ${DatabaseTables.recordTag} AS T2 ON T1._id = T2.recordId
+      WHERE T2.tagId = ? AND T1.${DatabaseColumns.recordCreatedAt} > ?
+      ${(searchText != null && searchText.isNotEmpty) ? 'AND (T1.${DatabaseColumns.recordText} LIKE ? OR T1.${DatabaseColumns.recordTitle} LIKE ?)' : ''}
+      ORDER BY T1.${DatabaseColumns.recordCreatedAt} DESC
+    ''', [
+        tagId,
+        lastTimestamp,
+        if (searchText != null && searchText.isNotEmpty) '%$searchText%',
+        if (searchText != null && searchText.isNotEmpty) '%$searchText%'
+      ]);
+    } else {
+      // Query without tag filter
+      recordsData = await db.query(
+        DatabaseTables.record,
+        where: whereClause,
+        whereArgs: whereArgs,
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
+    }
+
+    final records = recordsData.map((data) => Record.fromMap(data)).toList();
+
+    // For each record, fetch its associated tags
+    for (var record in records) {
+      final tagsData = await db.query(
+        DatabaseTables.recordTag,
+        columns: ['tagId'],
+        where: 'recordId = ?',
+        whereArgs: [record.id],
+      );
+      record.tagIds = tagsData.map((tag) => tag['tagId'] as int).toList();
+    }
+
+    return records;
   }
 }

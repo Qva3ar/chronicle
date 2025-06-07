@@ -18,7 +18,8 @@ class _InstructionsPageState extends State<InstructionsPage> {
   }
 
   Future<void> _loadInstructions() async {
-    List<Instruction> loadedInstructions = await dbHelper.queryAllInstructions();
+    List<Instruction> loadedInstructions =
+        await dbHelper.queryAllInstructions();
     setState(() {
       instructions = loadedInstructions;
     });
@@ -42,7 +43,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Create Prompt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Create Prompt',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 SizedBox(height: 16),
                 TextField(
                   controller: textController,
@@ -61,8 +64,8 @@ class _InstructionsPageState extends State<InstructionsPage> {
                 SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () async {
-                    await dbHelper.insertInstruction(
-                        new Instruction(text: textController.text, visibility: visibility));
+                    await dbHelper.insertInstruction(new Instruction(
+                        text: textController.text, visibility: visibility));
                     Navigator.pop(context);
                     _loadInstructions();
                   },
@@ -76,7 +79,8 @@ class _InstructionsPageState extends State<InstructionsPage> {
     );
   }
 
-  Future<void> _showEditInstructionModal(int id, String text, bool visibility) async {
+  Future<void> _showEditInstructionModal(
+      int id, String text, bool visibility) async {
     TextEditingController textController = TextEditingController(text: text);
 
     await showModalBottomSheet(
@@ -93,7 +97,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Edit Prompt', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Edit Prompt',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 SizedBox(height: 16),
                 TextField(
                   controller: textController,
@@ -116,7 +122,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                     ElevatedButton(
                       onPressed: () async {
                         await dbHelper.updateInstruction(new Instruction(
-                            id: id, text: textController.text, visibility: visibility));
+                            id: id,
+                            text: textController.text,
+                            visibility: visibility));
                         Navigator.pop(context);
                         _loadInstructions();
                       },
@@ -124,7 +132,8 @@ class _InstructionsPageState extends State<InstructionsPage> {
                     ),
                     //elevated button for delete
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      style:
+                          ElevatedButton.styleFrom(backgroundColor: Colors.red),
                       onPressed: () async {
                         await dbHelper.deleteInstruction(id);
                         Navigator.pop(context);

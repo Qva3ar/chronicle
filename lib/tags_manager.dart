@@ -42,14 +42,16 @@ class TagsManager extends StatefulWidget {
   final void Function(int?) onTagSelected; //
   final int? selectedTag;
 
-  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected}) : super(key: key);
+  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected})
+      : super(key: key);
 
   @override
   _TagsManagerState createState() => _TagsManagerState();
 }
 
 class _TagsManagerState extends State<TagsManager> {
-  RecordService recordService = RecordService(); // Замените RecordService на ваш реальный сервис
+  RecordService recordService =
+      RecordService(); // Замените RecordService на ваш реальный сервис
   final dbHelper = DatabaseHelper.instance;
 
   final TextEditingController _categoryController = TextEditingController();
@@ -91,7 +93,8 @@ class _TagsManagerState extends State<TagsManager> {
 
   Future<void> saveTag() async {
     if (selectedTag != null) {
-      await recordService.updateTag(selectedTag!.id, _categoryController.text, selectedColor);
+      await recordService.updateTag(
+          selectedTag!.id, _categoryController.text, selectedColor);
     } else {
       await recordService.insertTag(_categoryController.text, selectedColor);
     }
@@ -164,7 +167,9 @@ class _TagsManagerState extends State<TagsManager> {
                   return ChoiceChip(
                     label: Text(tag.name ?? ""), // Замените на ваш текст
                     selected: selectedChipIndex == id,
-                    side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
+                    side: selectedChipIndex == id
+                        ? BorderSide(width: 2, color: white)
+                        : null,
                     backgroundColor: Color(int.parse(tag.color!)),
                     onSelected: (bool selected) {
                       setState(() {
@@ -195,7 +200,8 @@ class _TagsManagerState extends State<TagsManager> {
               ),
               isEditing
                   ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 0, vertical: 16),
                       child: Column(
                         children: [
                           TextFormField(
@@ -204,13 +210,17 @@ class _TagsManagerState extends State<TagsManager> {
                               filled: true,
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                    color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
+                                    color: const Color.fromARGB(
+                                        255, 223, 234, 229),
+                                    width: 2.0),
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
+                                borderSide: BorderSide(
+                                    color: MyColors.primaryColor, width: 1.0),
                               ),
                               hintText: 'Tag Name',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
                             ),
                             controller: _categoryController,
                             validator: (value) {
@@ -223,7 +233,8 @@ class _TagsManagerState extends State<TagsManager> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: ColorPickerWidget(
-                                selected: selectedTag, onColorSelected: onColorSelected),
+                                selected: selectedTag,
+                                onColorSelected: onColorSelected),
                           ),
                           Row(
                             children: [
@@ -232,10 +243,12 @@ class _TagsManagerState extends State<TagsManager> {
                                 child: TextButton(
                                   style: ButtonStyle(
                                     backgroundColor:
-                                        WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
+                                        WidgetStateProperty.all<Color>(
+                                            MyColors.trecondaryColor),
                                   ),
                                   onPressed: () {
-                                    if (formGlobalKey.currentState!.validate()) {
+                                    if (formGlobalKey.currentState!
+                                        .validate()) {
                                       saveTag();
                                     }
                                   },
@@ -249,10 +262,12 @@ class _TagsManagerState extends State<TagsManager> {
                                   ? TextButton(
                                       style: ButtonStyle(
                                         backgroundColor:
-                                            WidgetStateProperty.all<Color>(MyColors.remove),
+                                            WidgetStateProperty.all<Color>(
+                                                MyColors.remove),
                                       ),
                                       onPressed: () {
-                                        if (formGlobalKey.currentState!.validate()) {
+                                        if (formGlobalKey.currentState!
+                                            .validate()) {
                                           removeTag();
                                         }
                                       },
@@ -280,7 +295,8 @@ class _TagsManagerState extends State<TagsManager> {
     if (kDebugMode) {
       //print('query all rows:');
     }
-    allCategoryData = allRows.map((element) => Category(name: element["name"])).toList();
+    allCategoryData =
+        allRows.map((element) => Category(name: element["name"])).toList();
     setState(() {});
   }
 }

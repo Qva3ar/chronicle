@@ -66,16 +66,18 @@ class ActiveSessionWidget extends StatelessWidget {
                       children: [
                         Text(
                           'Goal in Progress',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange[700],
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[700],
+                                  ),
                         ),
                         Text(
                           activeGoal.title,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                         ),
                       ],
                     ),
@@ -87,7 +89,8 @@ class ActiveSessionWidget extends StatelessWidget {
 
               // Timer display - showing elapsed time instead of remaining
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -110,10 +113,11 @@ class ActiveSessionWidget extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       timerService.formatTime(timerService.totalTimeElapsed),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -133,7 +137,8 @@ class ActiveSessionWidget extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -142,14 +147,19 @@ class ActiveSessionWidget extends StatelessWidget {
                         children: [
                           Text(
                             'Session',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                  fontSize: 10,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontSize: 10,
+                                    ),
                           ),
                           Text(
-                            timerService.formatTime(timerService.sessionTimeElapsed),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            timerService
+                                .formatTime(timerService.sessionTimeElapsed),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.orange[700],
                                 ),
@@ -161,7 +171,8 @@ class ActiveSessionWidget extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -170,14 +181,19 @@ class ActiveSessionWidget extends StatelessWidget {
                         children: [
                           Text(
                             'Goal Left',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                  fontSize: 10,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontSize: 10,
+                                    ),
                           ),
                           Text(
-                            timerService.formatTime(timerService.goalTimeRemaining),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            timerService
+                                .formatTime(timerService.goalTimeRemaining),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: timerService.goalTimeRemaining <= 300
                                       ? Colors.red
@@ -219,7 +235,8 @@ class ActiveSessionWidget extends StatelessWidget {
                   LinearProgressIndicator(
                     value: activeGoal.progress,
                     backgroundColor: Colors.grey[200],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.orange),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -237,7 +254,8 @@ class ActiveSessionWidget extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: onStop ?? () => TimerService.instance.stopSession(),
+                  onPressed:
+                      onStop ?? () => TimerService.instance.stopSession(),
                   icon: const Icon(Icons.stop, size: 18),
                   label: const Text('Stop Goal'),
                   style: ElevatedButton.styleFrom(

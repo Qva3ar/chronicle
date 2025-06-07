@@ -48,8 +48,10 @@ class GPTService {
   late StreamSubscription<http.Response> streamSubscription;
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 
-  Future<OpenAIChatCompletionModel> getCompletion(String input, List<Tag> tags) async {
-    OpenAIChatCompletionModel chatCompletion = await OpenAI.instance.chat.create(
+  Future<OpenAIChatCompletionModel> getCompletion(
+      String input, List<Tag> tags) async {
+    OpenAIChatCompletionModel chatCompletion =
+        await OpenAI.instance.chat.create(
       model: gptNoteBindService.getModel,
       temperature: 0.2,
       messages: [
@@ -63,7 +65,10 @@ class GPTService {
           role: OpenAIChatMessageRole.system,
         ),
         OpenAIChatCompletionChoiceMessageModel(
-          content: [OpenAIChatCompletionChoiceMessageContentItemModel(text: input, type: 'text')],
+          content: [
+            OpenAIChatCompletionChoiceMessageContentItemModel(
+                text: input, type: 'text')
+          ],
           role: OpenAIChatMessageRole.user,
         ),
       ],
@@ -93,23 +98,25 @@ class GPTService {
     if (systemMessages.length > 0) {
       messages = messages + systemMessages;
     }
-    Stream<OpenAIStreamChatCompletionModel> chatStream = OpenAI.instance.chat.createStream(
-        model: gptNoteBindService.getModel,
-        temperature: 1,
-        messages: messages
-            .map((e) => OpenAIChatCompletionChoiceMessageModel(
-                  role: e.isSystemMessage
-                      ? OpenAIChatMessageRole.system
-                      : e.isUserMessage
-                          ? OpenAIChatMessageRole.user
-                          : OpenAIChatMessageRole.assistant,
-                  content: [
-                    OpenAIChatCompletionChoiceMessageContentItemModel(text: e.content, type: 'text')
-                  ],
-                ))
-            .toList()
-            .reversed
-            .toList());
+    Stream<OpenAIStreamChatCompletionModel> chatStream =
+        OpenAI.instance.chat.createStream(
+            model: gptNoteBindService.getModel,
+            temperature: 1,
+            messages: messages
+                .map((e) => OpenAIChatCompletionChoiceMessageModel(
+                      role: e.isSystemMessage
+                          ? OpenAIChatMessageRole.system
+                          : e.isUserMessage
+                              ? OpenAIChatMessageRole.user
+                              : OpenAIChatMessageRole.assistant,
+                      content: [
+                        OpenAIChatCompletionChoiceMessageContentItemModel(
+                            text: e.content, type: 'text')
+                      ],
+                    ))
+                .toList()
+                .reversed
+                .toList());
 
     return chatStream;
     // .listen((streamChatCompletion) {

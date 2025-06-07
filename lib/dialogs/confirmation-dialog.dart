@@ -10,18 +10,20 @@ Future<void> showDeleteConfirmationDialog(BuildContext context) async {
           builder: (BuildContext context) {
             return AlertDialog(
               title: Text('Confirm Delete'),
-              content:
-                  Text('Are you sure you want to delete all notes? This action cannot be undone.'),
+              content: Text(
+                  'Are you sure you want to delete all notes? This action cannot be undone.'),
               actions: <Widget>[
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(false); // Dismisses the dialog and returns false
+                    Navigator.of(context)
+                        .pop(false); // Dismisses the dialog and returns false
                   },
                   child: Text('Cancel'),
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(true); // Dismisses the dialog and returns true
+                    Navigator.of(context)
+                        .pop(true); // Dismisses the dialog and returns true
                   },
                   child: Text('Delete'),
                 ),
@@ -35,11 +37,11 @@ Future<void> showDeleteConfirmationDialog(BuildContext context) async {
     try {
       await DatabaseHelper.instance.deleteAllNotes();
       recordService.importSuccess();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('All notes have been deleted successfully.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('All notes have been deleted successfully.')));
     } catch (error) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to delete notes: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete notes: $error')));
     }
   }
 }

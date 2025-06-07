@@ -50,7 +50,8 @@ class _ChatPageNoteState extends State<ChatPageNote> {
     if (widget.messageService.getLast20Messages().isNotEmpty) {
       _messages.addAll(widget.messageService.getLast20Messages());
     } else {
-      _messages.add(ChatMessage('Hello, how can I help?', false, false, isMockMessage: true));
+      _messages.add(ChatMessage('Hello, how can I help?', false, false,
+          isMockMessage: true));
     }
   }
 
@@ -62,7 +63,8 @@ class _ChatPageNoteState extends State<ChatPageNote> {
         Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5),
             // height: 200,
             child: ListView.builder(
               shrinkWrap: true,
@@ -158,18 +160,21 @@ class _ChatPageNoteState extends State<ChatPageNote> {
     String accumulator = '';
     try {
       if (includeNoteText) {
-        _systemMessages
-            .add(ChatMessage(Instractions.useUserNoteText(widget.noteText ?? ''), false, true));
+        _systemMessages.add(ChatMessage(
+            Instractions.useUserNoteText(widget.noteText ?? ''), false, true));
       }
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = await gptService.completionStream(_messages, _systemMessages).listen((event) {
+      stream = await gptService
+          .completionStream(_messages, _systemMessages)
+          .listen((event) {
         final content = event.choices.first.delta.content;
         // //print(content);
         accumulator += content![0].text ?? '';
 
         if (event.choices.first.finishReason == 'stop') {
-          widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+          widget.messageService
+              .addMessage(ChatMessage(accumulator, false, false));
         }
         setState(() {
           _messages.first.content = accumulator; // Вставка в начало списка
@@ -194,7 +199,9 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           // Handle other exceptions
           //print('An unexpected error occurred: $err');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+            const SnackBar(
+                content:
+                    Text('An unexpected error occurred. Please try again.')),
           );
         }
 

@@ -15,7 +15,8 @@ class UndoRedoTextFieldWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _UndoRedoTextFieldWidgetState createState() => _UndoRedoTextFieldWidgetState();
+  _UndoRedoTextFieldWidgetState createState() =>
+      _UndoRedoTextFieldWidgetState();
 }
 
 class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
@@ -36,9 +37,11 @@ class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
 
     // Добавляем слушатель изменений текста
     _internalController.addListener(() {
-      if (_internalController.text != (undoStack.isEmpty ? '' : undoStack.last)) {
+      if (_internalController.text !=
+          (undoStack.isEmpty ? '' : undoStack.last)) {
         undoStack.add(_internalController.text);
-        redoStack.clear(); // Очищаем redoStack, если появляется новое состояние текста
+        redoStack
+            .clear(); // Очищаем redoStack, если появляется новое состояние текста
         setState(() {});
       }
     });
@@ -49,8 +52,8 @@ class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
       setState(() {
         redoStack.add(undoStack.removeLast());
         _internalController.text = undoStack.last;
-        _internalController.selection =
-            TextSelection.fromPosition(TextPosition(offset: _internalController.text.length));
+        _internalController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _internalController.text.length));
       });
     }
   }
@@ -61,8 +64,8 @@ class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
         String restoredText = redoStack.removeLast();
         undoStack.add(restoredText);
         _internalController.text = restoredText;
-        _internalController.selection =
-            TextSelection.fromPosition(TextPosition(offset: _internalController.text.length));
+        _internalController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _internalController.text.length));
       });
     }
   }
@@ -75,7 +78,8 @@ class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
           child: TextField(
             controller: _internalController,
             maxLines: null,
-            decoration: widget.inputDecoration ?? InputDecoration(hintText: 'Enter some text...'),
+            decoration: widget.inputDecoration ??
+                InputDecoration(hintText: 'Enter some text...'),
             style: widget.textStyle,
           ),
         ),
