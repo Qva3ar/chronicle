@@ -76,8 +76,7 @@ Future<void> sessionCompleteCallback(int alarmId) async {
       // Create a record for the completed goal
       final record = {
         DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
-        DatabaseColumns.recordText:
-            'Finished a goal session, completing the goal. Total time: ${_formatTimeStatic(updatedGoal.totalSeconds)}',
+        DatabaseColumns.recordText: 'Goal is completed: ${updatedGoal.title}',
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'goal',
         DatabaseColumns.recordGoalId: updatedGoal.id,
@@ -233,8 +232,8 @@ Future<void> _showBackgroundRunningNotification(
       'timer_channel', // Same channel as the foreground running notification
       'Timer Notifications',
       channelDescription: 'Notifications for goal timer sessions',
-      importance: Importance.low,
-      priority: Priority.low,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
       ongoing: true,
       autoCancel: false,
       showWhen: false,
@@ -702,8 +701,7 @@ class TimerService extends ChangeNotifier {
     // Create a record for the completed goal
     final record = {
       DatabaseColumns.recordTitle: 'Goal Completed: ${completedGoal.title}',
-      DatabaseColumns.recordText:
-          'Finished a goal session of ${formatTime(sessionTimeToComplete)}, completing the goal.',
+      DatabaseColumns.recordText: 'Goal is completed: ${completedGoal.title}',
       DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
       DatabaseColumns.recordType: 'goal',
       DatabaseColumns.recordGoalId: completedGoal.id
@@ -861,8 +859,8 @@ class TimerService extends ChangeNotifier {
         'timer_channel', // Use the same channel we created
         'Timer Notifications',
         channelDescription: 'Notifications for goal timer sessions',
-        importance: Importance.low,
-        priority: Priority.low,
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
         ongoing: true,
         autoCancel: false,
         showWhen: false,
@@ -1008,7 +1006,7 @@ class TimerService extends ChangeNotifier {
             'timer_channel',
             'Timer Notifications',
             description: 'Notifications for goal timer sessions',
-            importance: Importance.low,
+            importance: Importance.defaultImportance,
             enableVibration: false,
             playSound: false,
           );
