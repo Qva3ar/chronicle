@@ -100,6 +100,14 @@ class RecordListItem extends StatelessWidget {
                       ),
                     ),
                   if (tags.isEmpty) const Spacer(),
+                  Text(
+                    'Created: ${DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(item.createdAt))}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                   IconButton(
                     onPressed: () => onDelete(item.id),
                     icon: const Icon(

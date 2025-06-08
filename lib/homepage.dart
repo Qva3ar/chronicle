@@ -488,27 +488,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Expanded(
             child: Form(
               key: formGlobalKey,
-              child: GroupedListView<Record, DateTime>(
+              child: GroupedListView<Record, String>(
                 controller: _scrollController,
                 elements: allRecords,
-                groupBy: (record) => DateTime(
-                  record.createdAtDate.year,
-                  record.createdAtDate.month,
-                  record.createdAtDate.day,
-                ),
-                groupSeparatorBuilder: (DateTime date) => Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child:
-                        //align Text by center
-                        Text(
-                      DateFormat('dd MMM yyyy').format(date),
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                groupBy: (record) {
+                  String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
+                  return groupDate;
+                },
+                groupSeparatorBuilder: (String dateString) {
+                  DateTime date = DateFormat('yyyy-MM-dd').parse(dateString);
+                  debugPrint(
+                      'Building group separator for date: ${DateFormat('dd MMM yyyy').format(date)}');
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child:
+                          //align Text by center
+                          Text(
+                        DateFormat('dd MMM yyyy').format(date),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
                 groupHeaderBuilder: (Record record) => SizedBox.shrink(),
                 itemBuilder: (context, item) {
                   List<Tag> tags = getTagsForRecord(item);
