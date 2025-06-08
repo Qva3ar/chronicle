@@ -32,22 +32,33 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
     final isDone = !routine.isDone;
     await _db.toggleRoutineDone(routine.id!, isDone);
     if (isDone) {
-      // Create a record for the completed routine
-      final record = {
-        DatabaseColumns.recordTitle: 'Completed Routine: ${routine.name}',
-        DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
-        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-        DatabaseColumns.recordType: 'routine', // Mark as routine record
-        DatabaseColumns.recordRoutineId: routine.id,
-      };
-      await _db.insertRecord(record, []); // No tags for routine records
+      try {
+        // Create a record for the completed routine
+        final record = {
+          DatabaseColumns.recordTitle: 'Completed Routine: ${routine.name}',
+          DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+          DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+          DatabaseColumns.recordType: 'routine', // Mark as routine record
+          DatabaseColumns.recordRoutineId: routine.id,
+        };
 
-      await _notifications.markRoutineDone(routine.id!);
-      await _notifications.cancelRoutineNotification(routine.id!);
+        await _db.insertRecord(record, []); // No tags for routine records
 
-      // Notify parent to refresh records
-      if (mounted) {
-        Navigator.pop(context, true); // Pop with true to indicate records need refresh
+        await _notifications.markRoutineDone(routine.id!);
+        await _notifications.cancelRoutineNotification(routine.id!);
+
+        // Notify parent to refresh records
+        if (mounted) {
+          Navigator.pop(context, true); // Pop with true to indicate records need refresh
+        }
+      } catch (e) {
+        print('ERROR: Failed to create routine record: $e');
+        // Show error to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error creating routine record: $e')),
+          );
+        }
       }
     } else {
       // Reschedule notification if routine is marked as undone

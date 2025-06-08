@@ -521,26 +521,42 @@ class DatabaseHelper {
     try {
       final Database db = await instance.database;
       final List<dynamic> queryParams = [];
-      String query = '''
-        SELECT 
-          ${DatabaseTables.record}.*,
-          GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
-        FROM ${DatabaseTables.record}
-        LEFT JOIN ${DatabaseTables.recordTag} ON ${DatabaseTables.record}.${DatabaseColumns.id} = ${DatabaseTables.recordTag}.recordId
-        LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
-        WHERE 
-          (${tagId != null ? "${DatabaseTables.recordTag}.tagId = ?" : "1=1"}) 
-          ${searchText != null && searchText.isNotEmpty ? "AND (${DatabaseColumns.recordText} LIKE ?)" : ""}
-        GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
-        ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
-        LIMIT ? OFFSET ?
-      ''';
 
+      String query;
       if (tagId != null) {
+        // When filtering by specific tag
+        query = '''
+          SELECT 
+            ${DatabaseTables.record}.*,
+            GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
+          FROM ${DatabaseTables.record}
+          INNER JOIN ${DatabaseTables.recordTag} ON ${DatabaseTables.record}.${DatabaseColumns.id} = ${DatabaseTables.recordTag}.recordId
+          LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
+          WHERE ${DatabaseTables.recordTag}.tagId = ?
+            ${searchText != null && searchText.isNotEmpty ? "AND (${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)" : ""}
+          GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
+          ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
+          LIMIT ? OFFSET ?
+        ''';
         queryParams.add(tagId);
+      } else {
+        // When showing all records (including those without tags)
+        query = '''
+          SELECT 
+            ${DatabaseTables.record}.*,
+            GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
+          FROM ${DatabaseTables.record}
+          LEFT JOIN ${DatabaseTables.recordTag} ON ${DatabaseTables.record}.${DatabaseColumns.id} = ${DatabaseTables.recordTag}.recordId
+          LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
+          ${searchText != null && searchText.isNotEmpty ? "WHERE (${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)" : ""}
+          GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
+          ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
+          LIMIT ? OFFSET ?
+        ''';
       }
 
       if (searchText != null && searchText.isNotEmpty) {
+        queryParams.add('%$searchText%');
         queryParams.add('%$searchText%');
       }
 
