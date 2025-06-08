@@ -142,16 +142,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (refresh) {
       setState(() {
         isRefreshing = true;
+        allRecords.clear(); // Clear all records when refreshing to properly apply tag filter
+        currentPage = 0; // Reset page counter
       });
-      final lastTimestamp = allRecords.isNotEmpty ? allRecords.first.createdAt : 0;
-      final newRecords = await dbHelper.getNewerRecords(lastTimestamp,
-          tagId: selectedChipIndex, searchText: searchController.text);
-      if (newRecords.isNotEmpty) {
-        setState(() {
-          allRecords.insertAll(0, newRecords);
-        });
-      }
+
+      getAllTags();
+
+      // Load records with the current tag filter from the beginning
+      final newRecords = await dbHelper.getRecordsWithTag(selectedChipIndex, pageSize, 0,
+          searchText: searchController.text);
+
       setState(() {
+        allRecords = newRecords;
+        if (newRecords.isNotEmpty) {
+          currentPage = 1; // Set to 1 since we loaded the first page
+        }
         isRefreshing = false;
       });
       return;
