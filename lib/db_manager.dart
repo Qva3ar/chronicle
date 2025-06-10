@@ -719,18 +719,36 @@ class DatabaseHelper {
 
         if (data['notes'] != null) {
           for (final note in data['notes']) {
-            String noteText = note['text'];
-            if (note.containsKey('title') && note['title'] != null && note['title'].isNotEmpty) {
-              noteText = '${note['title']}\n\n$noteText';
+            // Use text field only (don't combine with title as per user request)
+            String noteText = note['text'] ?? '';
+
+            // Prepare the record data with all available fields
+            Map<String, dynamic> recordData = {
+              DatabaseColumns.id: note['id'],
+              DatabaseColumns.recordText: noteText,
+              DatabaseColumns.recordCreatedAt: _parseDateToTimestamp(note['created_at']),
+            };
+
+            // Preserve additional fields if they exist
+            if (note.containsKey('record_type')) {
+              recordData[DatabaseColumns.recordType] = note['record_type'];
+              print('DEBUG: Importing record with type: ${note['record_type']}');
+            } else {
+              print('DEBUG: No record_type found in note: ${note.keys.toList()}');
+            }
+            if (note.containsKey('title')) {
+              recordData[DatabaseColumns.recordTitle] = note['title'];
+            }
+            if (note.containsKey('routine_id')) {
+              recordData[DatabaseColumns.recordRoutineId] = note['routine_id'];
+            }
+            if (note.containsKey('goal_id')) {
+              recordData[DatabaseColumns.recordGoalId] = note['goal_id'];
             }
 
             final int noteId = await txn.insert(
               DatabaseTables.record,
-              {
-                DatabaseColumns.id: note['id'],
-                DatabaseColumns.recordText: noteText,
-                DatabaseColumns.recordCreatedAt: _parseDateToTimestamp(note['created_at']),
-              },
+              recordData,
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
 
@@ -851,6 +869,17 @@ class DatabaseHelper {
     }
   }
 
+  /// Delete all routines
+  Future<int> deleteAllRoutines() async {
+    try {
+      final Database db = await instance.database;
+      return await db.delete(DatabaseTables.routines);
+    } catch (e) {
+      log('Error deleting all routines: $e');
+      rethrow;
+    }
+  }
+
   /// Get all routines
   Future<List<Map<String, dynamic>>> getAllRoutines() async {
     try {
@@ -942,6 +971,17 @@ class DatabaseHelper {
       where: '${DatabaseColumns.id} = ?',
       whereArgs: [id],
     );
+  }
+
+  /// Delete all goals
+  Future<int> deleteAllGoals() async {
+    try {
+      final db = await database;
+      return await db.delete(DatabaseTables.goals);
+    } catch (e) {
+      log('Error deleting all goals: $e');
+      rethrow;
+    }
   }
 
   Future<Goal?> getActiveGoal() async {

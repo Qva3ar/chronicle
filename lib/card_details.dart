@@ -75,8 +75,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       gptNoteBindService.messageStream.listen((event) {
         switch (event.action) {
           case ContextActions.paste:
-            _descriptionController.text =
-                _descriptionController.text + '\n' + event.content;
+            _descriptionController.text = _descriptionController.text + '\n' + event.content;
             break;
           case ContextActions.replace:
             _descriptionController.text = event.content;
@@ -97,17 +96,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
   undoRedoListen() {
     // Добавляем начальный текст в стек undo
     undoStack.add(_descriptionController.text);
-
-    // Добавляем слушатель изменений текста
-    _descriptionController.addListener(() {
-      if (_descriptionController.text !=
-          (undoStack.isEmpty ? '' : undoStack.last)) {
-        undoStack.add(_descriptionController.text);
-        redoStack
-            .clear(); // Очищаем redoStack, если появляется новое состояние текста
-        setState(() {});
-      }
-    });
   }
 
   askGpt() async {
@@ -127,8 +115,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
         // Преобразуем dynamicList в List<int>
         List<int> myList = dynamicList.map((item) => item as int).toList();
-        gptTags =
-            allTags.where((element) => myList.contains(element.value)).toList();
+        gptTags = allTags.where((element) => myList.contains(element.value)).toList();
         setState(() {});
       }
     });
@@ -171,10 +158,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
       setState(() {
         redoStack.add(undoStack.removeLast());
         _descriptionController.text = undoStack.last;
-        _descriptionController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _descriptionController.text.length));
+        _descriptionController.selection =
+            TextSelection.fromPosition(TextPosition(offset: _descriptionController.text.length));
       });
-      handleText(_descriptionController.text);
     }
   }
 
@@ -184,16 +170,15 @@ class _CardDetailPageState extends State<CardDetailPage> {
         String restoredText = redoStack.removeLast();
         undoStack.add(restoredText);
         _descriptionController.text = restoredText;
-        _descriptionController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _descriptionController.text.length));
+        _descriptionController.selection =
+            TextSelection.fromPosition(TextPosition(offset: _descriptionController.text.length));
       });
-      handleText(_descriptionController.text);
     }
   }
 
   @override
   void dispose() {
-    // TODO: implement dispose
+    recordService.dispose();
     super.dispose();
   }
 
@@ -204,8 +189,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
         isScrollControlled: true,
         builder: (context) {
           return Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
             child: Container(
               width: MediaQuery.of(context).size.width,
               child: Card(
@@ -278,13 +262,11 @@ class _CardDetailPageState extends State<CardDetailPage> {
                                 )),
                             items: allRecordTags,
                             // itemsDecoration: MultiSelectDecorations(decoration: InputDecoration( contentPadding: 10)),
-                            textStyles: MultiSelectTextStyles(
-                                textStyle: TextStyle(fontSize: 16)),
+                            textStyles: MultiSelectTextStyles(textStyle: TextStyle(fontSize: 16)),
                             onChange: (allSelectedItems, selectedItem) {
                               // var selected = selectedItem as MultiSelectCard;
                               selectedTags = allSelectedItems
-                                  .whereType<
-                                      int>() // Отфильтровать только целые числа
+                                  .whereType<int>() // Отфильтровать только целые числа
                                   .toList();
                               ;
                               setTagIds();
@@ -311,8 +293,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
         builder: (context) {
           return SingleChildScrollView(
               child: Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
             child: ChatPageNote(
               noteText: _descriptionController.text,
               messageService: messageServie,
@@ -445,12 +426,19 @@ class _CardDetailPageState extends State<CardDetailPage> {
                 border: InputBorder.none,
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3))),
             controller: _descriptionController,
-            onChanged: handleText,
+            onChanged: (text) {
+              // Handle undo/redo stack
+              if (text != (undoStack.isEmpty ? '' : undoStack.last)) {
+                undoStack.add(text);
+                redoStack.clear(); // Clear redo stack when new text is entered
+                setState(() {});
+              }
+
+              // Handle text saving to record service
+              handleText(text);
+            },
             style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                height: 1.5,
-                color: Colors.white),
+                fontWeight: FontWeight.w500, fontSize: 14, height: 1.5, color: Colors.white),
           ),
         ),
       ),
@@ -527,10 +515,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       width: size.width,
       height: 80,
       decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-              color: black.withOpacity(0.2), spreadRadius: 1, blurRadius: 3)
-        ],
+        boxShadow: [BoxShadow(color: black.withOpacity(0.2), spreadRadius: 1, blurRadius: 3)],
         color: cardColor,
       ),
       child: Padding(

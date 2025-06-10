@@ -68,6 +68,7 @@ class RecordService {
   // Dispose method to close the stream
   void dispose() {
     _importSubject.close();
+    _currentRecordId = null;
   }
 
   List<Record> allRecords = [];
@@ -148,8 +149,7 @@ class RecordService {
         await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
         //print('Record updated');
       } else {
-        updatedRow[DatabaseColumns.recordCreatedAt] =
-            DateTime.now().millisecondsSinceEpoch;
+        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
         final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
         if (newRecord != null) {
           _currentRecordId = newRecord.id;
@@ -158,8 +158,7 @@ class RecordService {
       }
     } else {
       if (updatedRow[DatabaseColumns.recordText] != null) {
-        updatedRow[DatabaseColumns.recordCreatedAt] =
-            DateTime.now().millisecondsSinceEpoch;
+        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
         final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
         if (newRecord != null) {
           _currentRecordId = newRecord.id;
@@ -178,8 +177,7 @@ class RecordService {
     // allRows.forEach(print);
   }
 
-  Future<List<MultiSelectCard<dynamic>>> queryTags(
-      List<int>? selectedTags) async {
+  Future<List<MultiSelectCard<dynamic>>> queryTags(List<int>? selectedTags) async {
     final allTags = await dbHelper.queryAllRows();
 
     return allTags
@@ -188,13 +186,11 @@ class RecordService {
         .map((e) => MultiSelectCard(
               value: e[DatabaseColumns.id],
               label: e[DatabaseColumns.tagName],
-              selected: selectedTags != null &&
-                      selectedTags.contains(e[DatabaseColumns.id]) ||
-                  false,
+              selected:
+                  selectedTags != null && selectedTags.contains(e[DatabaseColumns.id]) || false,
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor]))
-                        .withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
                     color: Color(int.parse(e[DatabaseColumns.tagColor])),
@@ -213,8 +209,7 @@ class RecordService {
               label: e[DatabaseColumns.tagName],
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor]))
-                        .withAlpha(150),
+                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
                     color: Color(int.parse(e[DatabaseColumns.tagColor])),
