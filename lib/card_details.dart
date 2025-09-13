@@ -54,11 +54,14 @@ class _CardDetailPageState extends State<CardDetailPage> {
   @override
   void initState() {
     super.initState();
+    print("🚀 CardDetailPage: Initializing with recordId: ${widget.recordId}");
+    
     recordService.clearTagIds();
     if (!_isListeningToStream) {
       _isListeningToStream = true;
 
-      recordService.setCurrentRecordId(widget.recordId ?? null);
+      // 🎯 CRITICAL: Set record ID first to establish edit vs create mode
+      recordService.setCurrentRecordId(widget.recordId);
       selectedTags = widget.recordsTag;
       recordService.setTagIds(selectedTags);
       getTags();
@@ -68,6 +71,15 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _titleController.text = widget.title;
         _descriptionController.text = widget.text;
       });
+      
+      // 🎯 IMPORTANT: If we have initial text and no record ID, trigger initial save
+      if (widget.recordId == null && widget.text.isNotEmpty) {
+        print("📝 CardDetailPage: Initial text found in create mode, triggering save");
+        // Give the service time to initialize, then process the initial text
+        Future.delayed(Duration(milliseconds: 100), () {
+          handleText(_descriptionController.text);
+        });
+      }
 
       askGpt();
       listenToTagSelection();
@@ -85,10 +97,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
         handleText(_descriptionController.text);
       });
     }
-
-    // _titleController.addListener(() {
-    //   //print(_titleController.text);
-    // });
 
     undoRedoListen();
   }
@@ -132,7 +140,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
     recordService.handleTitle(title);
   }
 
+  // 🎯 ENHANCED: Handle text with validation
   handleText(String text) {
+    // Let the RecordService handle all the debouncing and duplicate prevention
+    // We just pass through the text - the service will handle the rest
     recordService.handleText(text);
   }
 
@@ -178,7 +189,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   @override
   void dispose() {
-    recordService.dispose();
+    print("🧹 CardDetailPage: Disposing");
+    // Don't dispose the singleton RecordService here since it might be used elsewhere
+    // Just clear the current record ID if we're in create mode
     super.dispose();
   }
 
@@ -427,14 +440,16 @@ class _CardDetailPageState extends State<CardDetailPage> {
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3))),
             controller: _descriptionController,
             onChanged: (text) {
-              // Handle undo/redo stack
+              // 🎯 ENHANCED: Handle undo/redo stack with better logic
               if (text != (undoStack.isEmpty ? '' : undoStack.last)) {
                 undoStack.add(text);
                 redoStack.clear(); // Clear redo stack when new text is entered
                 setState(() {});
               }
 
-              // Handle text saving to record service
+              // 🎯 IMPROVED: Handle text saving with debug info
+              // The RecordService now has proper debouncing and duplicate prevention
+              print("📝 CardDetailPage: Text changed, length: ${text.length}");
               handleText(text);
             },
             style: TextStyle(

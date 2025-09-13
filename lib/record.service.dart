@@ -12,18 +12,23 @@ import 'models/tag.dart';
 class RecordService {
   static final RecordService _singleton = RecordService._internal();
   GPTService gptService = GPTService();
-  // Приватный конструктор
+  // 🎯 FIXED: Private constructor with proper debouncing and state management
   RecordService._internal() {
-    //print("Конструктор RecordService вызван");
+    print("🔧 RecordService: Initializing with enhanced debouncing");
+    
+    // Debounce title changes (keep original timing)
     _titleSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
       prepareTitle(event);
     });
-    _textSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
+    
+    // 🎯 CRITICAL FIX: Increase debounce time for text to reduce frequent saves
+    _textSubject.debounceTime(Duration(milliseconds: 1000)).listen((event) {
       prepareText(event);
     });
 
-    _textSubject.debounceTime(Duration(milliseconds: 500)).listen((event) {
-      if (event.isNotEmpty) {
+    // Keep GPT recommendations with separate debouncing
+    _textSubject.debounceTime(Duration(milliseconds: 1500)).listen((event) {
+      if (event.isNotEmpty && event.length > 10) { // Only get recommendations for substantial text
         getRecomendations(event);
       }
     });
@@ -51,6 +56,8 @@ class RecordService {
   final gptSelectedTags = PublishSubject<String>();
   final _recordCreatedSubject = PublishSubject<Record>();
   int? _currentRecordId;
+  bool _isCreatingRecord = false; // 🎯 NEW: Prevent concurrent record creation
+  String _lastProcessedText = ''; // 🎯 NEW: Track last processed text to prevent duplicates
 
   Stream<Record> get recordCreatedStream => _recordCreatedSubject.stream;
 
@@ -65,10 +72,13 @@ class RecordService {
     _recordCreatedSubject.close();
   }
 
-  // Dispose method to close the stream
+  // 🎯 ENHANCED: Dispose method with proper cleanup
   void dispose() {
+    print("🧹 RecordService: Disposing and cleaning up");
     _importSubject.close();
     _currentRecordId = null;
+    _isCreatingRecord = false;
+    _lastProcessedText = '';
   }
 
   List<Record> allRecords = [];
@@ -102,8 +112,11 @@ class RecordService {
   void setCurrentRecordId(int? recordId) {
     if (recordId != null) {
       _currentRecordId = recordId;
+      print("🎯 RecordService: Set current record ID to $recordId (edit mode)");
     } else {
       _currentRecordId = null;
+      _lastProcessedText = ''; // Reset when starting new note
+      print("🎯 RecordService: Cleared record ID (create mode)");
     }
   }
 
@@ -119,9 +132,21 @@ class RecordService {
   }
 
   void prepareText(String text) {
-    if (text.isEmpty) {
+    // 🎯 ENHANCED: Skip empty text and prevent duplicate processing
+    if (text.isEmpty || text.trim().isEmpty) {
+      print("⏭️ RecordService: Skipping empty text");
       return;
     }
+    
+    // 🎯 CRITICAL FIX: Prevent processing the same text multiple times
+    if (text == _lastProcessedText) {
+      print("⏭️ RecordService: Skipping duplicate text: '${text.substring(0, text.length > 20 ? 20 : text.length)}...'");
+      return;
+    }
+    
+    _lastProcessedText = text;
+    print("📝 RecordService: Processing text change: '${text.substring(0, text.length > 30 ? 30 : text.length)}...'");
+    
     Map<String, dynamic> updatedRow = {
       DatabaseColumns.recordText: text,
     };
@@ -141,33 +166,58 @@ class RecordService {
     return null;
   }
 
+  // 🎯 COMPLETELY REWRITTEN: Fixed record creation logic to prevent duplicates
   void _handleTitleAndText(Map<String, dynamic> updatedRow) async {
-    if (_currentRecordId != null) {
-      bool recordExists = await dbHelper.recordExists(_currentRecordId!);
-      if (recordExists) {
-        updatedRow[DatabaseColumns.id] = _currentRecordId;
-        await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
-        //print('Record updated');
-      } else {
-        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
-        final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
-        if (newRecord != null) {
-          _currentRecordId = newRecord.id;
-        }
-        //print('New record created with id: $_currentRecordId');
-      }
-    } else {
-      if (updatedRow[DatabaseColumns.recordText] != null) {
-        updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
-        final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
-        if (newRecord != null) {
-          _currentRecordId = newRecord.id;
-        }
-        //print('New record created with id: $_currentRecordId');
-      }
+    // 🎯 CRITICAL FIX: Prevent concurrent operations
+    if (_isCreatingRecord) {
+      print("⏸️ RecordService: Already creating/updating record, skipping");
+      return;
     }
-
-    // _queryRecords();
+    
+    _isCreatingRecord = true;
+    
+    try {
+      if (_currentRecordId != null) {
+        // 📝 EDIT MODE: Update existing record
+        print("✏️ RecordService: Updating existing record ID: $_currentRecordId");
+        
+        bool recordExists = await dbHelper.recordExists(_currentRecordId!);
+        if (recordExists) {
+          updatedRow[DatabaseColumns.id] = _currentRecordId;
+          await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
+          print("✅ RecordService: Record $_currentRecordId updated successfully");
+        } else {
+          print("⚠️ RecordService: Record $_currentRecordId doesn't exist, creating new one");
+          updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+          final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
+          if (newRecord != null) {
+            _currentRecordId = newRecord.id;
+            print("✅ RecordService: New record created with ID: $_currentRecordId");
+          }
+        }
+      } else {
+        // 🆕 CREATE MODE: Create new record only if we don't have one yet
+        if (updatedRow[DatabaseColumns.recordText] != null) {
+          print("🆕 RecordService: Creating new record (current ID is null)");
+          
+          updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
+          final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
+          if (newRecord != null) {
+            _currentRecordId = newRecord.id;
+            print("✅ RecordService: New record created successfully with ID: $_currentRecordId");
+            print("🔄 RecordService: Switching to EDIT MODE for subsequent changes");
+          } else {
+            print("❌ RecordService: Failed to create new record");
+          }
+        } else {
+          print("⏭️ RecordService: No text content to save, skipping record creation");
+        }
+      }
+    } catch (e) {
+      print("❌ RecordService: Error in _handleTitleAndText: $e");
+    } finally {
+      _isCreatingRecord = false;
+    }
   }
 
   Future<List<Record>> queryRecords() async {
