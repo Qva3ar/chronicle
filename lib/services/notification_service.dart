@@ -28,21 +28,71 @@ Future<void> _dailyResetAlarmCallback(int id) async {
   final notificationService = NotificationService();
 
   try {
+    debugPrint('🌅 DAILY RESET: Starting daily reset at ${DateTime.now()}');
+    
+    // Add tolerance check to prevent multiple resets on the same day
+    final prefs = await SharedPreferences.getInstance();
+    final lastResetDateStr = prefs.getString('last_daily_reset_date');
+    final today = DateTime.now();
+    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    
+    if (lastResetDateStr == todayStr) {
+      debugPrint('⚠️ DAILY RESET: Already performed today ($todayStr), skipping');
+      return;
+    }
+    
     final dbManager = DatabaseHelper.instance;
     final routineService = RoutineService(dbManager);
     final goalService = GoalService(dbManager);
 
+    // Reset routines and goals
     final routines = await routineService.getAllRoutines();
     for (final routine in routines) {
       await routineService.resetRoutine(routine.id);
     }
     await goalService.resetAllGoals();
+    
+    // Mark that we've done the reset for today
+    await prefs.setString('last_daily_reset_date', todayStr);
+    debugPrint('✅ DAILY RESET: Completed successfully for $todayStr');
 
     await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
 
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    final tz.TZDateTime nextMidnight = tz.TZDateTime(tz.local, now.year, now.month, now.day + 1);
+    // Schedule next reset with improved timing
+    await _scheduleNextDailyReset();
+  } catch (e, stackTrace) {
+    debugPrint('❌ DAILY RESET ERROR: $e');
+    debugPrint('Stack trace: $stackTrace');
+  }
+}
 
+@pragma('vm:entry-point')
+Future<void> _scheduleNextDailyReset() async {
+  try {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    
+    // Calculate next midnight with timezone awareness
+    tz.TZDateTime nextMidnight = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day + 1,
+      0, // hour
+      0, // minute
+      0, // second
+    );
+    
+    // Ensure we're scheduling for the future
+    if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
+      nextMidnight = nextMidnight.add(const Duration(days: 1));
+    }
+    
+    debugPrint('⏰ DAILY RESET: Scheduling next reset for ${nextMidnight} (local timezone: ${tz.local.name})');
+    
+    // Cancel existing alarm first
+    await AndroidAlarmManager.cancel(NotificationService._dailyResetAlarmId);
+    
+    // Use setExactAndAllowWhileIdle for critical timing
     await AndroidAlarmManager.oneShotAt(
       nextMidnight,
       NotificationService._dailyResetAlarmId,
@@ -51,8 +101,10 @@ Future<void> _dailyResetAlarmCallback(int id) async {
       wakeup: true,
       rescheduleOnReboot: true,
     );
+    
+    debugPrint('✅ DAILY RESET: Next reset scheduled successfully');
   } catch (e, stackTrace) {
-    debugPrint('Error in daily reset: $e');
+    debugPrint('❌ DAILY RESET SCHEDULE ERROR: $e');
     debugPrint('Stack trace: $stackTrace');
   }
 }
@@ -147,7 +199,25 @@ class NotificationService {
 
     try {
       final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-      tz.TZDateTime nextMidnight = tz.TZDateTime(tz.local, now.year, now.month, now.day + 1);
+      
+      // Calculate next midnight with precise timezone handling
+      tz.TZDateTime nextMidnight = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day + 1,
+        0, // hour = 0 (midnight)
+        0, // minute = 0
+        0, // second = 0
+        0, // millisecond = 0
+      );
+      
+      // Handle edge cases where we might be exactly at midnight
+      if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
+        nextMidnight = nextMidnight.add(const Duration(days: 1));
+      }
+      
+      debugPrint('⏰ INITIAL DAILY RESET: Scheduling first reset for $nextMidnight (timezone: ${tz.local.name})');
 
       await AndroidAlarmManager.cancel(_dailyResetAlarmId);
 
@@ -159,8 +229,10 @@ class NotificationService {
         wakeup: true,
         rescheduleOnReboot: true,
       );
+      
+      debugPrint('✅ INITIAL DAILY RESET: Scheduled successfully');
     } catch (e, stackTrace) {
-      debugPrint('Error scheduling daily reset: $e');
+      debugPrint('❌ INITIAL DAILY RESET ERROR: $e');
       debugPrint('Stack trace: $stackTrace');
     }
   }

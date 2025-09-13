@@ -20,7 +20,9 @@ Future<void> sessionCompleteCallback(int alarmId) async {
   // Ensure Flutter bindings are initialized for background isolates.
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('🔔 BACKGROUND CALLBACK: Session completion alarm fired for goal ID: $alarmId');
+  final completionTime = DateTime.now();
+  print('🔔 BACKGROUND CALLBACK: Session completion alarm fired for goal ID: $alarmId at $completionTime');
+  
   try {
     // Initialize services in background context
     final db = DatabaseHelper.instance;
@@ -36,48 +38,63 @@ Future<void> sessionCompleteCallback(int alarmId) async {
     );
     await notificationsPlugin.initialize(initSettings);
 
-    // Get the goal from database (alarmId is the goalId)
+    // 🎯 ENHANCED: Get the goal with better error handling
     final goalAtAlarmTime = await db.getGoal(alarmId);
     if (goalAtAlarmTime == null) {
-      print('❌ BACKGROUND: Goal not found with ID: $alarmId');
+      print('❌ BACKGROUND: Goal not found with ID: $alarmId - may have been deleted');
       return;
     }
 
-    // Check if the goal has already been marked as completed
+    // 🎯 ENHANCED: More comprehensive completion check
     if (goalAtAlarmTime.completedAt != null) {
-      print('ℹ️ BACKGROUND: Goal ${goalAtAlarmTime.title} already completed. Skipping.');
+      print('ℹ️ BACKGROUND: Goal "${goalAtAlarmTime.title}" already completed at ${DateTime.fromMillisecondsSinceEpoch(goalAtAlarmTime.completedAt!)}. Skipping.');
+      return;
+    }
+    
+    // Check if goal is already inactive (might have been stopped by user)
+    if (!goalAtAlarmTime.isActive) {
+      print('ℹ️ BACKGROUND: Goal "${goalAtAlarmTime.title}" is no longer active. User may have stopped it.');
       return;
     }
 
-    print('📊 BACKGROUND: Processing session completion for: ${goalAtAlarmTime.title}');
+    print('📊 BACKGROUND: Processing session completion for: "${goalAtAlarmTime.title}"');
+    print('   - Current time spent: ${_formatTimeStatic(goalAtAlarmTime.timeSpentSeconds)}/${_formatTimeStatic(goalAtAlarmTime.totalSeconds)}');
 
-    // This is the duration for which this session was scheduled and has now completed.
-    final int sessionDurationForThisAlarm =
-        goalAtAlarmTime.title.contains('Test Goal') ? 10 : (goalAtAlarmTime.sessionMinutes * 60);
+    // 🎯 ENHANCED: Better session duration calculation
+    final int sessionDurationForThisAlarm = _getStaticSessionDurationForGoal(goalAtAlarmTime);
+    print('   - Session duration: ${_formatTimeStatic(sessionDurationForThisAlarm)}');
 
-    // Calculate new time spent and check for goal completion
-    final newTimeSpentAfterThisSession =
-        goalAtAlarmTime.timeSpentSeconds + sessionDurationForThisAlarm;
+    // 🎯 ENHANCED: More precise completion calculation
+    final newTimeSpentAfterThisSession = goalAtAlarmTime.timeSpentSeconds + sessionDurationForThisAlarm;
     final isGoalNowActuallyComplete = newTimeSpentAfterThisSession >= goalAtAlarmTime.totalSeconds;
+    
+    print('   - Time after session: ${_formatTimeStatic(newTimeSpentAfterThisSession)}');
+    print('   - Will complete goal: $isGoalNowActuallyComplete');
 
     if (isGoalNowActuallyComplete) {
       print('🎉 BACKGROUND: This session completes the goal!');
+      
+      // Use exact completion time, not more than the goal requires
+      final exactCompletionTime = goalAtAlarmTime.totalSeconds;
+      final actualSessionTimeUsed = exactCompletionTime - goalAtAlarmTime.timeSpentSeconds;
+      
       final updatedGoal = goalAtAlarmTime.copyWith(
-        timeSpentSeconds: goalAtAlarmTime.totalSeconds, // Complete exactly to goal's total
+        timeSpentSeconds: exactCompletionTime, // Complete exactly to goal's total
         isActive: false,
         sessionResumedTimestampSeconds: null,
         clearSessionResumedTimestamp: true,
-        completedAt: DateTime.now().millisecondsSinceEpoch, // Mark as completed
+        completedAt: completionTime.millisecondsSinceEpoch, // Use precise completion time
       );
+      
       await db.updateGoal(updatedGoal);
-      print(
-          '✅ BACKGROUND: Goal completed. Total time: ${_formatTimeStatic(updatedGoal.totalSeconds)}');
+      print('✅ BACKGROUND: Goal completed exactly at: ${_formatTimeStatic(exactCompletionTime)}');
+      print('   - Actual session time used: ${_formatTimeStatic(actualSessionTimeUsed)}');
 
       // Create a record for the completed goal
       final record = {
         DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
-        DatabaseColumns.recordText: 'Goal is completed: ${updatedGoal.title}',
-        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordText: 'Goal completed after ${_formatTimeStatic(exactCompletionTime)} of focused work!',
+        DatabaseColumns.recordCreatedAt: completionTime.millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'goal',
         DatabaseColumns.recordGoalId: updatedGoal.id,
       };
@@ -86,27 +103,28 @@ Future<void> sessionCompleteCallback(int alarmId) async {
 
       // Show goal completion notifications
       await _showBackgroundGoalCompleteNotification(notificationsPlugin, updatedGoal);
-      // Also show a session completion, indicating the session that finished it
       await _showBackgroundCompletionNotification(
-          notificationsPlugin, updatedGoal, sessionDurationForThisAlarm);
+          notificationsPlugin, updatedGoal, actualSessionTimeUsed);
     } else {
       print('📝 BACKGROUND: Session completed, goal continues.');
       final updatedGoal = goalAtAlarmTime.copyWith(
-        timeSpentSeconds: newTimeSpentAfterThisSession, // Save the new total time spent
-        isActive: false,
+        timeSpentSeconds: newTimeSpentAfterThisSession,
+        isActive: false, // Mark as inactive after session
         sessionResumedTimestampSeconds: null,
         clearSessionResumedTimestamp: true,
       );
       await db.updateGoal(updatedGoal);
-      print(
-          '✅ BACKGROUND: Goal updated. Time spent now: ${_formatTimeStatic(updatedGoal.timeSpentSeconds)}');
+      print('✅ BACKGROUND: Goal updated. Progress: ${_formatTimeStatic(updatedGoal.timeSpentSeconds)}/${_formatTimeStatic(updatedGoal.totalSeconds)}');
 
       // Show session completion notification
       await _showBackgroundCompletionNotification(
           notificationsPlugin, updatedGoal, sessionDurationForThisAlarm);
     }
-  } catch (e) {
+    
+    print('✅ BACKGROUND CALLBACK: Completed successfully for goal "${goalAtAlarmTime.title}"');
+  } catch (e, stackTrace) {
     print('❌ BACKGROUND ERROR: $e');
+    print('❌ BACKGROUND STACK: $stackTrace');
   }
 }
 
@@ -382,24 +400,52 @@ class TimerService extends ChangeNotifier {
   Goal? get activeGoal => _activeGoal;
   bool get isRunning => _isRunning;
 
-  // Calculate session elapsed time based on timestamps
+  // 🎯 ENHANCED: Calculate session elapsed time with better precision and validation
   int get sessionTimeElapsed {
     if (!_isRunning || _sessionStartTime == 0) return 0;
+    
     final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000; // Convert to seconds
+    
+    // Validate that current time is reasonable (not in the past)
+    if (currentTime < _sessionStartTime) {
+      print('⚠️ TIMING WARNING: Current time ($currentTime) is before session start ($_sessionStartTime)');
+      return 0;
+    }
+    
     final elapsed = currentTime - _sessionStartTime;
+    
+    // Validate elapsed time is reasonable (not negative or extremely large)
+    if (elapsed < 0) {
+      print('⚠️ TIMING ERROR: Negative elapsed time: $elapsed');
+      return 0;
+    }
+    
+    if (elapsed > 86400) { // More than 24 hours
+      print('⚠️ TIMING WARNING: Extremely long session: ${formatTime(elapsed)}');
+    }
 
-    // Debug logging every 30 seconds to track timing issues
+    // Debug logging every 30 seconds with more context
     if (elapsed % 30 == 0 && elapsed > 0) {
-      print('🕐 TIMING DEBUG: Start: $_sessionStartTime, Current: $currentTime, Elapsed: $elapsed');
+      print('🕐 TIMING DEBUG: Goal "${_activeGoal?.title}" - Start: $_sessionStartTime, Current: $currentTime, Elapsed: ${formatTime(elapsed)}');
     }
 
     return elapsed;
   }
 
-  // 🎯 NEW: Total time elapsed including baseline (what user should see)
+  // 🎯 ENHANCED: Total time elapsed including baseline with validation
   int get totalTimeElapsed {
     if (_activeGoal == null) return 0;
-    return _baselineTimeSpent + sessionTimeElapsed;
+    
+    final sessionTime = sessionTimeElapsed;
+    final total = _baselineTimeSpent + sessionTime;
+    
+    // Validate total doesn't exceed goal target by too much (allow small buffer for precision)
+    final goalTarget = _activeGoal!.totalSeconds;
+    if (total > goalTarget + 10) { // 10 second buffer
+      print('⚠️ TOTAL TIME WARNING: Total time ($total) exceeds goal ($goalTarget) by ${total - goalTarget} seconds');
+    }
+    
+    return total;
   }
 
   // Remaining time in total goal (not just current session)
@@ -425,19 +471,246 @@ class TimerService extends ChangeNotifier {
     return (sessionTimeElapsed / sessionDuration).clamp(0.0, 1.0);
   }
 
-  // Get the effective session duration (10 seconds for test goals)
+  // 🎯 ENHANCED: Get session duration with validation
   int _getSessionDuration() {
     if (_activeGoal == null) return 0;
-    // Use 10 seconds for test goals
+    
+    // Special handling for test goals
     if (_activeGoal!.title.contains('Test Goal')) {
       return 10; // 10 seconds for testing
     }
-    return _activeGoal!.sessionMinutes * 60; // Normal duration
+    
+    // Validate session duration is reasonable
+    final sessionMinutes = _activeGoal!.sessionMinutes;
+    if (sessionMinutes <= 0) {
+      print('⚠️ SESSION DURATION: Invalid session minutes: $sessionMinutes, using default 25');
+      return 25 * 60; // Default to 25 minutes
+    }
+    
+    if (sessionMinutes > 240) { // More than 4 hours
+      print('⚠️ SESSION DURATION: Very long session: $sessionMinutes minutes, capping at 240');
+      return 240 * 60; // Cap at 4 hours
+    }
+    
+    return sessionMinutes * 60;
   }
 
+  // 🎯 ENHANCED: Initialize with comprehensive state recovery and validation
   Future<void> initialize() async {
-    // Check if there was an active goal that might have been completed while app was closed
-    await _refreshStateFromDatabase();
+    print('🚀 TIMER SERVICE: Initializing...');
+    
+    try {
+      // Validate database is accessible
+      final db = await _db.database;
+      print('✅ TIMER SERVICE: Database connection verified');
+      
+      // Check for any orphaned alarms from previous app runs
+      await _cleanupOrphanedAlarms();
+      
+      // Restore any active sessions that were running when app was terminated
+      await _restoreActiveSession();
+      
+      // Refresh state from database for any remaining active goals
+      await _refreshStateFromDatabase();
+      
+      print('✅ TIMER SERVICE: Initialization completed successfully');
+    } catch (e, stackTrace) {
+      print('❌ TIMER SERVICE: Initialization failed: $e');
+      print('❌ TIMER SERVICE STACK: $stackTrace');
+      
+      // On initialization failure, ensure clean state
+      _resetSessionState();
+    }
+  }
+  
+  // 🎯 NEW: Clean up any orphaned alarms from previous app runs
+  Future<void> _cleanupOrphanedAlarms() async {
+    try {
+      print('🧩 CLEANUP: Checking for orphaned alarms...');
+      
+      // Get all goals from database
+      final allGoals = await _db.getAllGoals();
+      
+      for (final goal in allGoals) {
+        // Cancel alarms for any goal that shouldn't have them
+        if (!goal.isActive || goal.completedAt != null || goal.timeSpentSeconds >= goal.totalSeconds) {
+          try {
+            await AndroidAlarmManager.cancel(goal.id!);
+            print('🧩 CLEANUP: Cancelled orphaned alarm for "${goal.title}" (active: ${goal.isActive}, completed: ${goal.completedAt != null})');
+          } catch (e) {
+            // It's okay if the alarm doesn't exist
+          }
+        }
+      }
+      
+      print('✅ CLEANUP: Orphaned alarm cleanup completed');
+    } catch (e) {
+      print('❌ CLEANUP: Failed to cleanup orphaned alarms: $e');
+    }
+  }
+  
+  // 🎯 NEW: Restore active session that was running when app was terminated
+  Future<void> _restoreActiveSession() async {
+    try {
+      print('🔄 RESTORE: Checking for active session to restore...');
+      
+      final activeGoal = await _db.getActiveGoal();
+      if (activeGoal == null) {
+        print('ℹ️ RESTORE: No active goal found');
+        return;
+      }
+      
+      print('🔄 RESTORE: Found active goal "${activeGoal.title}"');
+      print('   - Time spent: ${formatTime(activeGoal.timeSpentSeconds)}/${formatTime(activeGoal.totalSeconds)}');
+      print('   - Completed at: ${activeGoal.completedAt}');
+      print('   - Resume timestamp: ${activeGoal.sessionResumedTimestampSeconds}');
+      
+      // Check if goal was completed while app was closed
+      if (activeGoal.completedAt != null || activeGoal.timeSpentSeconds >= activeGoal.totalSeconds) {
+        print('🎉 RESTORE: Goal was completed while app was closed');
+        
+        // Mark as inactive and clean up
+        final cleanedGoal = activeGoal.copyWith(
+          isActive: false,
+          sessionResumedTimestampSeconds: null,
+          clearSessionResumedTimestamp: true,
+        );
+        await _db.updateGoal(cleanedGoal);
+        
+        // Show completion notification if not already shown
+        if (activeGoal.completedAt != null) {
+          await _showGoalCompleteNotification();
+        }
+        return;
+      }
+      
+      // Check if session was interrupted and needs recovery
+      if (activeGoal.sessionResumedTimestampSeconds != null) {
+        await _recoverInterruptedSession(activeGoal);
+      } else {
+        print('ℹ️ RESTORE: Goal is active but no session to recover');
+        // Just mark as inactive since there's no session timing to recover
+        final cleanedGoal = activeGoal.copyWith(
+          isActive: false,
+          sessionResumedTimestampSeconds: null,
+          clearSessionResumedTimestamp: true,
+        );
+        await _db.updateGoal(cleanedGoal);
+      }
+      
+    } catch (e, stackTrace) {
+      print('❌ RESTORE: Failed to restore active session: $e');
+      print('❌ RESTORE STACK: $stackTrace');
+    }
+  }
+  
+  // 🎯 NEW: Recover interrupted session with time validation
+  Future<void> _recoverInterruptedSession(Goal activeGoal) async {
+    final resumeTimestamp = activeGoal.sessionResumedTimestampSeconds!;
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final sessionElapsed = currentTime - resumeTimestamp;
+    
+    print('🔄 RECOVER: Recovering interrupted session');
+    print('   - Resume timestamp: $resumeTimestamp');
+    print('   - Current time: $currentTime');
+    print('   - Elapsed time: ${formatTime(sessionElapsed)}');
+    
+    // Validate elapsed time is reasonable
+    if (sessionElapsed < 0) {
+      print('❌ RECOVER: Invalid negative elapsed time, cannot recover');
+      await _cleanupGoalState(activeGoal);
+      return;
+    }
+    
+    if (sessionElapsed > 86400) { // More than 24 hours
+      print('⚠️ RECOVER: Session was interrupted more than 24 hours ago, cannot recover reliably');
+      await _cleanupGoalState(activeGoal);
+      return;
+    }
+    
+    // Calculate session duration that was originally planned
+    final sessionDuration = _getStaticSessionDurationForGoal(activeGoal);
+    
+    if (sessionElapsed >= sessionDuration) {
+      // Session should have completed while app was closed
+      print('🎉 RECOVER: Session completed while app was closed (${formatTime(sessionElapsed)} >= ${formatTime(sessionDuration)})');
+      await _completeInterruptedSession(activeGoal, sessionDuration);
+    } else {
+      // Session was still running when app was closed
+      print('🔄 RECOVER: Session was still running when app closed (${formatTime(sessionElapsed)} < ${formatTime(sessionDuration)})');
+      
+      // Save the elapsed time and mark as inactive
+      final newTimeSpent = activeGoal.timeSpentSeconds + sessionElapsed;
+      final goalTarget = activeGoal.totalSeconds;
+      final clampedTimeSpent = newTimeSpent > goalTarget ? goalTarget : newTimeSpent;
+      
+      final updatedGoal = activeGoal.copyWith(
+        timeSpentSeconds: clampedTimeSpent,
+        isActive: false,
+        sessionResumedTimestampSeconds: null,
+        clearSessionResumedTimestamp: true,
+        completedAt: clampedTimeSpent >= goalTarget ? DateTime.now().millisecondsSinceEpoch : null,
+      );
+      
+      await _db.updateGoal(updatedGoal);
+      print('✅ RECOVER: Partial session time saved: ${formatTime(sessionElapsed)}, total now: ${formatTime(clampedTimeSpent)}');
+      
+      if (clampedTimeSpent >= goalTarget) {
+        print('🎉 RECOVER: Goal completed during recovery!');
+        await _showGoalCompleteNotification();
+      }
+    }
+  }
+  
+  // 🎯 NEW: Complete session that finished while app was closed
+  Future<void> _completeInterruptedSession(Goal activeGoal, int sessionDuration) async {
+    final newTimeSpent = activeGoal.timeSpentSeconds + sessionDuration;
+    final goalTarget = activeGoal.totalSeconds;
+    final isGoalComplete = newTimeSpent >= goalTarget;
+    
+    final finalTimeSpent = isGoalComplete ? goalTarget : newTimeSpent;
+    
+    final updatedGoal = activeGoal.copyWith(
+      timeSpentSeconds: finalTimeSpent,
+      isActive: false,
+      sessionResumedTimestampSeconds: null,
+      clearSessionResumedTimestamp: true,
+      completedAt: isGoalComplete ? DateTime.now().millisecondsSinceEpoch : null,
+    );
+    
+    await _db.updateGoal(updatedGoal);
+    
+    if (isGoalComplete) {
+      print('🎉 RECOVER COMPLETE: Goal completed while app was closed!');
+      
+      // Create completion record
+      final record = {
+        DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
+        DatabaseColumns.recordText: 'Goal completed while app was in background after ${formatTime(finalTimeSpent)} of focused work!',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'goal',
+        DatabaseColumns.recordGoalId: updatedGoal.id,
+      };
+      
+      final recordService = RecordService();
+      await recordService.createRecord(record, []);
+      
+      await _showGoalCompleteNotification();
+      print('✅ RECOVER COMPLETE: Goal completion processed');
+    } else {
+      print('✅ RECOVER COMPLETE: Session completed, goal continues with ${formatTime(finalTimeSpent)} total');
+    }
+  }
+  
+  // 🎯 NEW: Clean up goal state that cannot be recovered
+  Future<void> _cleanupGoalState(Goal goal) async {
+    final cleanedGoal = goal.copyWith(
+      isActive: false,
+      sessionResumedTimestampSeconds: null,
+      clearSessionResumedTimestamp: true,
+    );
+    await _db.updateGoal(cleanedGoal);
+    print('🧩 CLEANUP: Cleaned up unrecoverable goal state for "${goal.title}"');
   }
 
   Future<void> _initializeAlarmManager() async {
@@ -449,162 +722,141 @@ class TimerService extends ChangeNotifier {
     }
   }
 
+  // 🎯 ENHANCED: Start session with improved precision and validation
   Future<void> startSession(Goal goal) async {
-    // Always get the latest state of the goal from the database before starting a session.
-    // This prevents race conditions where the UI might hold a stale goal object.
+    print('🚀 START SESSION: Initiating session for "${goal.title}"');
+    
+    // Get the latest state and validate
     final latestGoal = await _db.getGoal(goal.id!);
     if (latestGoal == null) {
-      print('❌ Cannot start session, goal with ID ${goal.id} not found in DB.');
+      print('❌ START SESSION: Goal with ID ${goal.id} not found in DB.');
+      return;
+    }
+    
+    // Validate goal is not already completed
+    if (latestGoal.completedAt != null || latestGoal.timeSpentSeconds >= latestGoal.totalSeconds) {
+      print('⚠️ START SESSION: Goal "${latestGoal.title}" is already completed');
       return;
     }
 
     // Stop current session if any
     await stopSession();
-
-    // Clear any old completion notifications to prevent confusion
     await _clearOldNotifications();
 
+    // 🎯 ENHANCED: Initialize session with precise timing
     _activeGoal = latestGoal;
-    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000; // Store in seconds
-    _sessionStartTime = currentTime;
-    _goalStartTime = currentTime;
-    _baselineTimeSpent = latestGoal.timeSpentSeconds; // Capture baseline to avoid double counting
+    final preciseStartTime = DateTime.now();
+    _sessionStartTime = preciseStartTime.millisecondsSinceEpoch ~/ 1000;
+    _goalStartTime = _sessionStartTime;
+    _baselineTimeSpent = latestGoal.timeSpentSeconds;
     _isRunning = true;
+    
+    print('🚀 START SESSION: Session initialized');
+    print('   - Start time: ${preciseStartTime.toIso8601String()}');
+    print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
+    print('   - Goal target: ${formatTime(latestGoal.totalSeconds)}');
+    print('   - Remaining: ${formatTime(latestGoal.totalSeconds - latestGoal.timeSpentSeconds)}');
 
-    // Update goal as active in database and clear any sessionResumedTimestamp
+    // Update goal as active in database
     final updatedGoal = latestGoal.copyWith(
       isActive: true,
-      sessionResumedTimestampSeconds: null, // Clear it
-      clearSessionResumedTimestamp: true, // Explicitly clear
+      sessionResumedTimestampSeconds: null,
+      clearSessionResumedTimestamp: true,
     );
     await _db.updateGoal(updatedGoal);
     _activeGoal = updatedGoal;
 
-    // Schedule background alarm for session completion
-    final sessionDuration = _getSessionDuration();
-    final alarmTime = DateTime.now().add(Duration(seconds: sessionDuration));
-
-    // 🎯 NEW: Check if goal will be completed before session ends
-    final goalRemainingTime = latestGoal.totalSeconds - latestGoal.timeSpentSeconds;
-    final willCompleteEarly = goalRemainingTime < sessionDuration;
-
-    if (willCompleteEarly) {
-      print('⚠️ SMART SCHEDULING: Goal will complete early!');
-      print('   Goal remaining: ${formatTime(goalRemainingTime)}');
-      print('   Session duration: ${formatTime(sessionDuration)}');
-      print('   Scheduling alarm for goal completion instead of full session');
-
-      // Schedule alarm for when goal will be completed, not full session
-      final goalCompleteTime = DateTime.now().add(Duration(seconds: goalRemainingTime));
-
-      print('⏰ Scheduling GOAL COMPLETION alarm for: ${goalCompleteTime.toString()}');
-      print('⏰ Goal ID: ${latestGoal.id}, will complete in: ${formatTime(goalRemainingTime)}');
-
-      try {
-        await AndroidAlarmManager.oneShotAt(
-          goalCompleteTime,
-          latestGoal.id!, // Use goal ID as alarm ID
-          sessionCompleteCallback, // Use same callback but it will complete the goal
-          alarmClock: true,
-          wakeup: true,
-          rescheduleOnReboot: false,
-        );
-        print('✅ Goal completion alarm scheduled successfully');
-      } catch (e) {
-        print('❌ FAILED to schedule goal completion alarm: $e');
-      }
-    } else {
-      print('⏰ Scheduling background alarm for: ${alarmTime.toString()}');
-      print('⏰ Session duration: ${formatTime(sessionDuration)}');
-      print('⏰ Goal ID: ${latestGoal.id}, Alarm ID will be: ${latestGoal.id}');
-
-      try {
-        await AndroidAlarmManager.oneShotAt(
-          alarmTime,
-          latestGoal.id!, // Use goal ID as alarm ID
-          sessionCompleteCallback, // Use top-level function
-          alarmClock: true, // This ensures it works even in doze mode
-          wakeup: true, // Wake up device if needed
-          rescheduleOnReboot: false, // Don't persist across reboots
-        );
-        print('✅ Background alarm scheduled successfully');
-      } catch (e) {
-        print('❌ FAILED to schedule background alarm: $e');
-      }
-    }
-
-    // Start UI update timer (for display only)
+    // 🎯 ENHANCED: Smart scheduling with precision
+    await _scheduleSessionAlarm();
+    
+    // Start UI update timer and show notification
     _startUpdateTimer();
-
-    // Show notification
     await _showRunningNotification();
-
     notifyListeners();
-    print('Session started for: ${latestGoal.title} at timestamp: $currentTime');
-    print('Baseline time spent: ${formatTime(_baselineTimeSpent)}');
+    
+    print('✅ START SESSION: Session started successfully for "${latestGoal.title}"');
   }
 
+  // 🎯 ENHANCED: Stop session with better progress preservation and validation
   Future<void> stopSession() async {
     if (_activeGoal == null) return;
 
     final goalTitle = _activeGoal!.title;
+    final goalId = _activeGoal!.id;
     final currentSessionTime = sessionTimeElapsed;
-    print('Manually stopping session for: $goalTitle');
-    print('Saving partial session time: ${formatTime(currentSessionTime)}');
+    
+    print('🛑 STOP SESSION: Manually stopping session for "$goalTitle"');
+    print('   - Session time elapsed: ${formatTime(currentSessionTime)}');
+    print('   - Session start time: $_sessionStartTime');
 
     _isRunning = false;
     _updateTimer?.cancel();
 
     // Cancel the background alarm
-    if (_activeGoal?.id != null) {
+    if (goalId != null) {
       try {
-        await AndroidAlarmManager.cancel(_activeGoal!.id!);
-        print('🚫 Background alarm cancelled for goal ID: ${_activeGoal!.id}');
+        await AndroidAlarmManager.cancel(goalId);
+        print('🚫 STOP SESSION: Background alarm cancelled for goal ID: $goalId');
       } catch (e) {
-        print('❌ Failed to cancel background alarm: $e');
+        print('❌ STOP SESSION: Failed to cancel background alarm: $e');
       }
     }
 
-    // ALWAYS save current progress before stopping - even partial sessions count!
-    if (_sessionStartTime > 0 && currentSessionTime > 0) {
-      print('Preserving ${formatTime(currentSessionTime)} of session time...');
-
-      // Calculate and save the total time including this partial session
-      final totalTimeSpent = _baselineTimeSpent + currentSessionTime;
+    // 🎯 ENHANCED: Save progress with validation and precision
+    if (_sessionStartTime > 0 && currentSessionTime >= 0) {
+      // Validate session time is reasonable
+      final validSessionTime = currentSessionTime.clamp(0, 86400); // Max 24 hours
+      if (validSessionTime != currentSessionTime) {
+        print('⚠️ STOP SESSION: Clamped session time from ${formatTime(currentSessionTime)} to ${formatTime(validSessionTime)}');
+      }
+      
+      final totalTimeSpent = _baselineTimeSpent + validSessionTime;
+      final goalTarget = _activeGoal!.totalSeconds;
+      
+      // Clamp total to not exceed goal (with precision buffer)
+      final clampedTotal = totalTimeSpent > goalTarget ? goalTarget : totalTimeSpent;
+      
+      print('💾 STOP SESSION: Saving progress');
+      print('   - Valid session time: ${formatTime(validSessionTime)}');
+      print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
+      print('   - Total time: ${formatTime(clampedTotal)}');
+      print('   - Goal target: ${formatTime(goalTarget)}');
 
       final updatedGoal = _activeGoal!.copyWith(
-        timeSpentSeconds: totalTimeSpent,
+        timeSpentSeconds: clampedTotal,
         isActive: false,
-        sessionResumedTimestampSeconds: null, // Clear it
+        sessionResumedTimestampSeconds: null,
         clearSessionResumedTimestamp: true,
       );
 
       await _db.updateGoal(updatedGoal);
       _activeGoal = updatedGoal;
 
-      print('✅ Partial session time saved: ${formatTime(currentSessionTime)}');
-      print('✅ Total time is now: ${formatTime(totalTimeSpent)}');
+      print('✅ STOP SESSION: Progress saved - ${formatTime(validSessionTime)} session, ${formatTime(clampedTotal)} total');
+      
+      // Check if this stop completed the goal
+      if (clampedTotal >= goalTarget) {
+        print('🎉 STOP SESSION: Goal completed by manual stop!');
+        // Note: Could trigger completion notification here if desired
+      }
     } else {
-      // Just mark as inactive if no time elapsed
+      print('💾 STOP SESSION: No time to save (start: $_sessionStartTime, elapsed: $currentSessionTime)');
+      // Just mark as inactive
       final updatedGoal = _activeGoal!.copyWith(
         isActive: false,
-        sessionResumedTimestampSeconds: null, // Clear it
+        sessionResumedTimestampSeconds: null,
         clearSessionResumedTimestamp: true,
       );
       await _db.updateGoal(updatedGoal);
       _activeGoal = updatedGoal;
     }
 
-    // Hide notification
+    // Clean up UI and state
     await _hideNotification();
-
-    _activeGoal = null;
-    _sessionStartTime = 0;
-    _goalStartTime = 0;
-    _baselineTimeSpent = 0;
-
+    _resetSessionState();
     notifyListeners();
-    print('Session stopped for: $goalTitle - All time preserved, timer is now inactive');
+    
+    print('✅ STOP SESSION: Session stopped for "$goalTitle" - All progress preserved');
   }
 
   void _startUpdateTimer() {
@@ -615,28 +867,53 @@ class TimerService extends ChangeNotifier {
       final sessionElapsed = sessionTimeElapsed;
       final sessionDuration = _getSessionDuration();
 
-      // Check if the goal is still active in database (background callback might have completed it)
+      // 🎯 CRITICAL: Check if the goal is still active in database (background callback might have completed it)
       if (_activeGoal != null) {
         final currentGoalInDb = await _db.getGoal(_activeGoal!.id!);
-        if (currentGoalInDb == null || !currentGoalInDb.isActive) {
+        
+        // 🎯 ENHANCED: Detect background completion with better synchronization
+        if (currentGoalInDb == null) {
+          print('🔄 UI TIMER: Goal deleted from DB - stopping UI timer');
+          await _handleBackgroundCompletion();
+          return;
+        }
+        
+        // Background completion detection: goal marked inactive or completed
+        if (!currentGoalInDb.isActive || currentGoalInDb.completedAt != null) {
           print('🔄 UI TIMER: Background completion detected - stopping UI timer');
+          print('   - Active in DB: ${currentGoalInDb.isActive}');
+          print('   - CompletedAt: ${currentGoalInDb.completedAt}');
           await _handleBackgroundCompletion();
           return;
         }
 
-        // Debug: Check if goal data changed unexpectedly
+        // 🎯 ENHANCED: Detect if time spent was updated by background
         if (currentGoalInDb.timeSpentSeconds != _activeGoal!.timeSpentSeconds) {
-          print(
-              '🔄 TIMER DEBUG: Goal time changed in DB: ${formatTime(_activeGoal!.timeSpentSeconds)} -> ${formatTime(currentGoalInDb.timeSpentSeconds)}');
+          final oldTime = _activeGoal!.timeSpentSeconds;
+          final newTime = currentGoalInDb.timeSpentSeconds;
+          print('🔄 TIMER SYNC: Goal time updated by background: ${formatTime(oldTime)} -> ${formatTime(newTime)}');
+          
+          // Update our local state but recalculate baseline to maintain consistency
+          _activeGoal = currentGoalInDb;
+          _baselineTimeSpent = newTime; // Adjust baseline since background updated progress
+          
+          // Check if this background update completed the goal
+          if (newTime >= currentGoalInDb.totalSeconds) {
+            print('🎉 BACKGROUND COMPLETION: Goal completed by background update');
+            await _handleBackgroundCompletion();
+            return;
+          }
+        } else {
+          // Normal sync - just update the goal object
           _activeGoal = currentGoalInDb;
         }
 
-        // 🎯 NEW: Check if goal has been completed during this session
-        final currentTotalTime = totalTimeElapsed; // Use new getter
+        // 🎯 ENHANCED: Check if goal has been completed during this session (foreground)
+        final currentTotalTime = totalTimeElapsed;
         final goalTotalSeconds = _activeGoal!.totalSeconds;
 
         if (currentTotalTime >= goalTotalSeconds) {
-          print('🎉 GOAL COMPLETED! Stopping session early.');
+          print('🎉 FOREGROUND COMPLETION: Goal completed during this session');
           print('   Current total time: ${formatTime(currentTotalTime)}');
           print('   Goal target: ${formatTime(goalTotalSeconds)}');
           await _handleGoalCompletion();
@@ -645,11 +922,12 @@ class TimerService extends ChangeNotifier {
       }
 
       // Just update UI and notifications - alarm handles the actual completion
-      print(
-          'UI Update: Session time: ${formatTime(sessionElapsed)}/${formatTime(sessionDuration)}');
+      if (sessionElapsed % 10 == 0) { // Reduce log frequency
+        print('UI Update: Session time: ${formatTime(sessionElapsed)}/${formatTime(sessionDuration)}');
+      }
 
-      // Update notifications periodically
-      if (sessionElapsed % 60 == 0 && sessionElapsed > 0) {
+      // Update notifications periodically (every 30 seconds instead of 60)
+      if (sessionElapsed % 30 == 0 && sessionElapsed > 0) {
         await _showRunningNotification();
       }
 
@@ -776,32 +1054,50 @@ class TimerService extends ChangeNotifier {
     }
   }
 
-  // Handle when background callback has completed the session
+  // 🎯 ENHANCED: Handle when background callback has completed the session with better synchronization
   Future<void> _handleBackgroundCompletion() async {
     print('🎉 BG COMPLETION UI: Detected background completion via UI timer.');
+
+    // Cancel the background alarm since we're handling completion now
+    if (_activeGoal?.id != null) {
+      try {
+        await AndroidAlarmManager.cancel(_activeGoal!.id!);
+        print('🚫 BG COMPLETION: Cancelled remaining alarm for goal ${_activeGoal!.id}');
+      } catch (e) {
+        print('❌ BG COMPLETION: Failed to cancel alarm: $e');
+      }
+    }
 
     _isRunning = false;
     _updateTimer?.cancel();
     await _hideNotification();
 
-    // Refresh our local state from the database, which was updated by the background callback.
-    // Store the ID before potentially nullifying _activeGoal
+    // 🎯 ENHANCED: More robust state refresh with validation
     final currentActiveGoalId = _activeGoal?.id;
+    final previousTitle = _activeGoal?.title;
 
     if (currentActiveGoalId != null) {
       final updatedGoalFromDb = await _db.getGoal(currentActiveGoalId);
       if (updatedGoalFromDb != null) {
         _activeGoal = updatedGoalFromDb;
-        print(
-            '✅ BG COMPLETION UI: Goal state refreshed from DB: "${_activeGoal!.title}", Time: ${formatTime(_activeGoal!.timeSpentSeconds)}, Active: ${_activeGoal!.isActive}');
+        print('✅ BG COMPLETION UI: Goal state refreshed from DB:');
+        print('   - Title: "${_activeGoal!.title}"');
+        print('   - Time spent: ${formatTime(_activeGoal!.timeSpentSeconds)}/${formatTime(_activeGoal!.totalSeconds)}');
+        print('   - Active: ${_activeGoal!.isActive}');
+        print('   - Completed at: ${_activeGoal!.completedAt}');
+        
+        // Trigger immediate notification if goal was completed
+        if (_activeGoal!.completedAt != null && _activeGoal!.timeSpentSeconds >= _activeGoal!.totalSeconds) {
+          print('🎉 BG COMPLETION: Goal was completed by background! Showing notification...');
+          // Note: Background already showed notifications, but ensure UI reflects completion
+        }
       } else {
-        print(
-            '⚠️ BG COMPLETION UI: Goal $currentActiveGoalId not found in DB for refresh. Clearing local _activeGoal.');
+        print('⚠️ BG COMPLETION UI: Goal $currentActiveGoalId not found in DB. Goal may have been deleted.');
         _activeGoal = null;
       }
     } else {
-      print('ℹ️ BG COMPLETION UI: No local _activeGoal ID was set. Clearing local _activeGoal.');
-      _activeGoal = null; // Ensure it's cleared if there wasn't one locally
+      print('ℹ️ BG COMPLETION UI: No active goal ID to refresh.');
+      _activeGoal = null;
     }
 
     // Clear session-specific running state variables
@@ -810,27 +1106,55 @@ class TimerService extends ChangeNotifier {
     _baselineTimeSpent = 0;
 
     notifyListeners();
-    print(
-        '✅ BG COMPLETION UI: UI timer stopped & state refreshed. Session completion primarily handled by background.');
+    print('✅ BG COMPLETION UI: State synchronized. Previous session for "$previousTitle" handled by background.');
   }
 
-  // Save current session progress to database
+  // 🎯 ENHANCED: Save current session progress with validation and robustness
   Future<void> _saveProgressToDatabase() async {
     if (_activeGoal == null || _sessionStartTime == 0) return;
 
     try {
       final currentSessionTime = sessionTimeElapsed;
+      
+      // Validate session time is reasonable
+      if (currentSessionTime < 0) {
+        print('⚠️ SAVE PROGRESS: Invalid negative session time: $currentSessionTime');
+        return;
+      }
+      
+      if (currentSessionTime > 86400) { // More than 24 hours
+        print('⚠️ SAVE PROGRESS: Extremely long session time: ${formatTime(currentSessionTime)} - capping at 24 hours');
+        // Cap at reasonable maximum
+        final cappedSessionTime = 86400;
+        final totalTimeSpent = _baselineTimeSpent + cappedSessionTime;
+        final updatedGoal = _activeGoal!.copyWith(timeSpentSeconds: totalTimeSpent);
+        await _db.updateGoal(updatedGoal);
+        _activeGoal = updatedGoal;
+        return;
+      }
 
-      // Calculate total time: baseline when session started + current session time
+      // Calculate total time with validation
       final totalTimeSpent = _baselineTimeSpent + currentSessionTime;
+      
+      // Ensure we don't exceed the goal (with small buffer for precision)
+      final goalTarget = _activeGoal!.totalSeconds;
+      final clampedTotal = totalTimeSpent > goalTarget ? goalTarget : totalTimeSpent;
+      
+      if (totalTimeSpent != clampedTotal) {
+        print('⚠️ SAVE PROGRESS: Clamped total time from ${formatTime(totalTimeSpent)} to ${formatTime(clampedTotal)}');
+      }
 
-      final updatedGoal = _activeGoal!.copyWith(timeSpentSeconds: totalTimeSpent);
+      final updatedGoal = _activeGoal!.copyWith(timeSpentSeconds: clampedTotal);
       await _db.updateGoal(updatedGoal);
-
       _activeGoal = updatedGoal;
 
-      print(
-          'Progress saved: ${formatTime(currentSessionTime)} session time, total: ${formatTime(totalTimeSpent)} (baseline: ${formatTime(_baselineTimeSpent)})');
+      print('Progress saved: ${formatTime(currentSessionTime)} session time, total: ${formatTime(clampedTotal)} (baseline: ${formatTime(_baselineTimeSpent)})');
+      
+      // Update baseline if we had to clamp (maintains consistency for next calculation)
+      if (clampedTotal != totalTimeSpent) {
+        _baselineTimeSpent = clampedTotal;
+        print('   - Baseline adjusted to: ${formatTime(_baselineTimeSpent)}');
+      }
     } catch (e) {
       print('Error saving progress: $e');
     }
@@ -1042,140 +1366,169 @@ class TimerService extends ChangeNotifier {
     }
   }
 
-  // Refresh timer state from database (call when app resumes)
+  // 🎯 ENHANCED: Refresh timer state with robust validation and error recovery
   Future<void> _refreshStateFromDatabase() async {
     try {
+      print('🔄 REFRESH: Starting state refresh from database');
       final activeGoalFromDb = await _db.getActiveGoal();
 
       if (activeGoalFromDb == null) {
-        // No active goals in database - clear our state if something was running
+        // No active goals in database - clean up local state
         if (_isRunning) {
           print('🔄 REFRESH: No active goal found in database, stopping local timer.');
-          _isRunning = false;
-          _updateTimer?.cancel();
-          await _hideNotification();
-          _activeGoal = null; // Clear our local reference
-          _sessionStartTime = 0;
-          _goalStartTime = 0;
-          _baselineTimeSpent = 0;
-          notifyListeners();
+          await _cleanupSession('No active goal in DB');
         } else {
-          // Ensure local state is clean if nothing was running and no active goal in DB
-          if (_activeGoal != null || _sessionStartTime != 0 || _baselineTimeSpent != 0) {
-            _activeGoal = null;
-            _sessionStartTime = 0;
-            _goalStartTime = 0;
-            _baselineTimeSpent = 0;
-            // notifyListeners(); // Only if state actually changed and UI needs update
-          }
+          // Ensure local state is completely clean
+          _resetSessionState();
         }
       } else {
-        // An active goal exists in the database.
+        print('🔄 REFRESH: Found active goal "${activeGoalFromDb.title}" in database');
+        print('   - Goal progress: ${formatTime(activeGoalFromDb.timeSpentSeconds)}/${formatTime(activeGoalFromDb.totalSeconds)}');
+        print('   - Is active: ${activeGoalFromDb.isActive}');
+        print('   - Completed at: ${activeGoalFromDb.completedAt}');
+        print('   - Resume timestamp: ${activeGoalFromDb.sessionResumedTimestampSeconds}');
+        
+        // Check if goal is actually complete
+        if (activeGoalFromDb.completedAt != null || activeGoalFromDb.timeSpentSeconds >= activeGoalFromDb.totalSeconds) {
+          print('🎉 REFRESH: Goal is already completed, cleaning up');
+          await _cleanupSession('Goal already completed');
+          return;
+        }
+
+        // An active goal exists in the database
         if (!_isRunning || _activeGoal?.id != activeGoalFromDb.id) {
-          // Case 1: Timer wasn't running locally, OR it's a *different* active goal in DB.
-          // This handles:
-          //   a) App startup/resume finding an already active goal.
-          //   b) "Continue" action making a previously inactive goal active again.
-          print(
-              '🔄 REFRESH: Starting/Resuming session for "${activeGoalFromDb.title}" from DB (was running: $_isRunning, current local goal ID: ${_activeGoal?.id})');
-
-          _activeGoal = activeGoalFromDb; // Essential: Use the goal from DB
-          _baselineTimeSpent = activeGoalFromDb.timeSpentSeconds; // Crucial for accurate timing
-
-          if (activeGoalFromDb.sessionResumedTimestampSeconds != null &&
-              activeGoalFromDb.sessionResumedTimestampSeconds! > 0) {
-            _sessionStartTime = activeGoalFromDb.sessionResumedTimestampSeconds!;
-            print(
-                '🔄 REFRESH: Session start time set from resumedTimestamp: ${formatTime(_sessionStartTime)}');
-            // Clear the timestamp in the database as it has been consumed
-            final goalUpdate = activeGoalFromDb.copyWith(
-                sessionResumedTimestampSeconds: null,
-                clearSessionResumedTimestamp:
-                    true); // Assumes clearSessionResumedTimestamp clears it
-            await _db.updateGoal(goalUpdate);
-            _activeGoal = goalUpdate; // Keep our local _activeGoal in sync
-          } else {
-            _sessionStartTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-            print('🔄 REFRESH: Session start time set to NOW: ${formatTime(_sessionStartTime)}');
-          }
-
-          _goalStartTime = _sessionStartTime; // Reset goal start for this new session segment
-          _isRunning = true;
-
-          // Clear any old completion notifications as we are starting/resuming a session
-          await _clearOldNotifications();
-
-          // Schedule/Re-schedule background alarm for this new session.
-          // This is vital if app was terminated or if "Continue" action started a new session.
-          final sessionDuration = _getSessionDuration(); // Uses _activeGoal set above
-
-          if (_activeGoal!.id != null && sessionDuration > 0) {
-            // FIX: Calculate remaining time for the current session segment
-            final sessionElapsed =
-                (DateTime.now().millisecondsSinceEpoch ~/ 1000) - _sessionStartTime;
-            final remainingSessionDuration =
-                (sessionDuration - sessionElapsed).clamp(0, sessionDuration);
-
-            // FIX: Calculate goal remaining time based on current progress, not just baseline
-            final currentTotalTime = _baselineTimeSpent + sessionElapsed;
-            final goalRemainingTime = _activeGoal!.totalSeconds - currentTotalTime;
-
-            final willCompleteEarly =
-                goalRemainingTime > 0 && goalRemainingTime < remainingSessionDuration;
-
-            print(
-                '🔄 REFRESH: Scheduling alarm. Session rem: ${formatTime(remainingSessionDuration)}, Goal rem: ${formatTime(goalRemainingTime)}');
-
-            if (willCompleteEarly) {
-              print(
-                  '⚠️ REFRESH SMART SCHEDULING: Goal "${_activeGoal?.title}" will complete early!');
-              final goalCompleteTime = DateTime.now().add(Duration(seconds: goalRemainingTime));
-              try {
-                await AndroidAlarmManager.oneShotAt(
-                    goalCompleteTime, _activeGoal!.id!, sessionCompleteCallback,
-                    alarmClock: true, wakeup: true, rescheduleOnReboot: false);
-                print('✅ REFRESH: Goal completion alarm (early) scheduled for ${goalCompleteTime}');
-              } catch (e) {
-                print('❌ REFRESH: FAILED to schedule early goal completion alarm: $e');
-              }
-            } else if (goalRemainingTime > 0) {
-              // Only schedule if goal is not already complete
-              final alarmTime = DateTime.now().add(Duration(seconds: remainingSessionDuration));
-              try {
-                await AndroidAlarmManager.oneShotAt(
-                    alarmTime, _activeGoal!.id!, sessionCompleteCallback,
-                    alarmClock: true, wakeup: true, rescheduleOnReboot: false);
-                print('✅ REFRESH: Session alarm scheduled for ${alarmTime}');
-              } catch (e) {
-                print('❌ REFRESH: FAILED to schedule session alarm: $e');
-              }
-            } else {
-              print(
-                  'ℹ️ REFRESH: Goal "${_activeGoal?.title}" already complete or invalid remaining time. No alarm scheduled.');
-            }
-          } else {
-            print(
-                'ℹ️ REFRESH: Not scheduling alarm (Goal ID: ${_activeGoal!.id}, Session Duration: $sessionDuration)');
-          }
-
-          _startUpdateTimer(); // Start UI updates
-          await _showRunningNotification(); // Show running state
-          notifyListeners();
+          print('🔄 REFRESH: Starting/Resuming session (was running: $_isRunning, current goal: ${_activeGoal?.id})');
+          await _resumeSessionFromDatabase(activeGoalFromDb);
         } else if (_isRunning && _activeGoal?.id == activeGoalFromDb.id) {
-          // Case 2: Timer *was* running locally for the *same* goal.
-          // The goal in DB is active. Sync our local _activeGoal instance for any other data changes.
-          // The timer, baseline, and alarm should theoretically be in a correct state already.
-          print(
-              '🔄 REFRESH: Active goal "${activeGoalFromDb.title}" already running locally. Syncing data.');
-          _activeGoal = activeGoalFromDb; // Sync any minor data changes (e.g. title if editable)
-
-          // Ensure UI timer is running, especially if app was backgrounded and it stopped.
-          _startUpdateTimer();
-          notifyListeners(); // Update UI if any goal data changed
+          print('🔄 REFRESH: Same goal already running, syncing data');
+          await _syncRunningSession(activeGoalFromDb);
         }
       }
+    } catch (e, stackTrace) {
+      print('❌ REFRESH ERROR: Failed to refresh state: $e');
+      print('❌ REFRESH STACK: $stackTrace');
+      // On error, stop current session to prevent inconsistent state
+      await _cleanupSession('Refresh error: $e');
+    }
+  }
+  
+  // 🎯 NEW: Clean session state helper
+  void _resetSessionState() {
+    _activeGoal = null;
+    _sessionStartTime = 0;
+    _goalStartTime = 0;
+    _baselineTimeSpent = 0;
+    _isRunning = false;
+  }
+  
+  // 🎯 NEW: Clean up session with reason logging
+  Future<void> _cleanupSession(String reason) async {
+    print('🧩 CLEANUP: Cleaning up session - $reason');
+    
+    _isRunning = false;
+    _updateTimer?.cancel();
+    await _hideNotification();
+    
+    // Cancel any pending alarms
+    if (_activeGoal?.id != null) {
+      try {
+        await AndroidAlarmManager.cancel(_activeGoal!.id!);
+      } catch (e) {
+        print('⚠️ CLEANUP: Failed to cancel alarm: $e');
+      }
+    }
+    
+    _resetSessionState();
+    notifyListeners();
+  }
+  
+  // 🎯 NEW: Resume session from database state
+  Future<void> _resumeSessionFromDatabase(Goal activeGoal) async {
+    _activeGoal = activeGoal;
+    _baselineTimeSpent = activeGoal.timeSpentSeconds;
+    
+    // Calculate session start time
+    if (activeGoal.sessionResumedTimestampSeconds != null && activeGoal.sessionResumedTimestampSeconds! > 0) {
+      _sessionStartTime = activeGoal.sessionResumedTimestampSeconds!;
+      print('🔄 RESUME: Using resume timestamp: ${_sessionStartTime}');
+      
+      // Clear the resume timestamp
+      final goalUpdate = activeGoal.copyWith(
+        sessionResumedTimestampSeconds: null,
+        clearSessionResumedTimestamp: true,
+      );
+      await _db.updateGoal(goalUpdate);
+      _activeGoal = goalUpdate;
+    } else {
+      _sessionStartTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      print('🔄 RESUME: Starting new session at: ${_sessionStartTime}');
+    }
+    
+    _goalStartTime = _sessionStartTime;
+    _isRunning = true;
+    
+    await _clearOldNotifications();
+    await _scheduleSessionAlarm();
+    _startUpdateTimer();
+    await _showRunningNotification();
+    notifyListeners();
+  }
+  
+  // 🎯 NEW: Sync currently running session
+  Future<void> _syncRunningSession(Goal activeGoal) async {
+    final oldTimeSpent = _activeGoal?.timeSpentSeconds ?? 0;
+    _activeGoal = activeGoal;
+    
+    // If time spent changed externally, adjust baseline
+    if (activeGoal.timeSpentSeconds != oldTimeSpent) {
+      print('🔄 SYNC: Time spent changed externally: ${formatTime(oldTimeSpent)} -> ${formatTime(activeGoal.timeSpentSeconds)}');
+      _baselineTimeSpent = activeGoal.timeSpentSeconds;
+    }
+    
+    _startUpdateTimer(); // Ensure timer is running
+    notifyListeners();
+  }
+  
+  // 🎯 NEW: Schedule session alarm with smart completion detection
+  Future<void> _scheduleSessionAlarm() async {
+    if (_activeGoal?.id == null) return;
+    
+    final sessionDuration = _getSessionDuration();
+    if (sessionDuration <= 0) return;
+    
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final sessionElapsed = currentTime - _sessionStartTime;
+    final remainingSessionDuration = (sessionDuration - sessionElapsed).clamp(0, sessionDuration);
+    
+    final currentTotalTime = _baselineTimeSpent + sessionElapsed;
+    final goalRemainingTime = (_activeGoal!.totalSeconds - currentTotalTime).clamp(0, _activeGoal!.totalSeconds);
+    
+    print('🔄 SCHEDULE: Session remaining: ${formatTime(remainingSessionDuration)}, Goal remaining: ${formatTime(goalRemainingTime)}');
+    
+    // Smart scheduling: complete when goal is done or session ends
+    final willCompleteEarly = goalRemainingTime > 0 && goalRemainingTime < remainingSessionDuration;
+    final timeUntilCompletion = willCompleteEarly ? goalRemainingTime : remainingSessionDuration;
+    
+    if (timeUntilCompletion <= 0) {
+      print('ℹ️ SCHEDULE: Nothing to schedule (time: $timeUntilCompletion)');
+      return;
+    }
+    
+    final alarmTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
+    print('⏰ SCHEDULE: Alarm for ${alarmTime} (${willCompleteEarly ? "goal completion" : "session end"})');
+    
+    try {
+      await AndroidAlarmManager.oneShotAt(
+        alarmTime,
+        _activeGoal!.id!,
+        sessionCompleteCallback,
+        alarmClock: true,
+        wakeup: true,
+        rescheduleOnReboot: false,
+      );
+      print('✅ SCHEDULE: Alarm scheduled successfully');
     } catch (e) {
-      print('❌ REFRESH ERROR: Failed to refresh state from database: $e');
+      print('❌ SCHEDULE: Failed to schedule alarm: $e');
     }
   }
 
