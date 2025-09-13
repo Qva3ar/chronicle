@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 // Assuming these are your project's files
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/routine_service.dart'; // Ensure this path is correct
+import 'package:chrono/services/goal_service.dart';
 
 // Top-level or static callback function for the daily reset alarm
 @pragma('vm:entry-point')
@@ -29,11 +30,13 @@ Future<void> _dailyResetAlarmCallback(int id) async {
   try {
     final dbManager = DatabaseHelper.instance;
     final routineService = RoutineService(dbManager);
+    final goalService = GoalService(dbManager);
 
     final routines = await routineService.getAllRoutines();
     for (final routine in routines) {
       await routineService.resetRoutine(routine.id);
     }
+    await goalService.resetAllGoals();
 
     await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
 

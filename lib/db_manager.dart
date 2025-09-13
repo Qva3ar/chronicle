@@ -924,6 +924,25 @@ class DatabaseHelper {
     }
   }
 
+  /// Reset all goals' progress for the day
+  Future<void> resetGoalsStatus() async {
+    try {
+      final Database db = await instance.database;
+      await db.update(
+        DatabaseTables.goals,
+        {
+          DatabaseColumns.goalTimeSpentSeconds: 0,
+          DatabaseColumns.goalIsActive: 0,
+          DatabaseColumns.goalSessionResumedTimestampSeconds: null,
+          DatabaseColumns.goalCompletedAt: null,
+        },
+      );
+    } catch (e) {
+      log('Error resetting goals status: $e');
+      rethrow;
+    }
+  }
+
   // Goal CRUD operations
   Future<int> insertGoal(Goal goal) async {
     try {
