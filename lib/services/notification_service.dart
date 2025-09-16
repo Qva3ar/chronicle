@@ -87,7 +87,7 @@ Future<void> _scheduleNextDailyReset() async {
       nextMidnight = nextMidnight.add(const Duration(days: 1));
     }
     
-    debugPrint('⏰ DAILY RESET: Scheduling next reset for ${nextMidnight} (local timezone: ${tz.local.name})');
+    debugPrint('⏰ DAILY RESET: Scheduling next reset for $nextMidnight (local timezone: ${tz.local.name})');
     
     // Cancel existing alarm first
     await AndroidAlarmManager.cancel(NotificationService._dailyResetAlarmId);
@@ -186,7 +186,7 @@ class NotificationService {
       }
 
       _isInitialized = true;
-    } catch (e, stackTrace) {
+    } catch (e) {
       _isInitialized = false;
     } finally {
       _isInitializing = false;
@@ -421,7 +421,11 @@ class NotificationService {
       final bool isDone = prefs.getBool('routine_${routineId}_done') ?? false;
 
       if (isDone) {
-        debugPrint('✅ Routine $routineId ($routineName) already marked done. No retry needed.');
+        debugPrint('✅ Routine $routineId ($routineName) already marked done. Cancelling all remaining notifications and alarms.');
+
+        // Extra safety: Cancel all related alarms and notifications when we discover routine is done
+        final notifications = NotificationService();
+        await notifications.cancelRoutineNotification(routineId);
         return;
       }
 
@@ -455,7 +459,7 @@ class NotificationService {
       await localNotifications.show(
         _getRetryNotificationId(routineId, currentRetry), // Unique ID for this retry notification
         'Reminder: $routineName',
-        'It\'s time for your routine: $routineName (Retry ${currentRetry + 1}/${numberOfRetries})',
+        'It\'s time for your routine: $routineName (Retry ${currentRetry + 1}/$numberOfRetries)',
         const NotificationDetails(
           android: AndroidNotificationDetails(
             _routineChannelId,
@@ -512,8 +516,12 @@ class NotificationService {
   Future<void> markRoutineDone(int routineId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('routine_${routineId}_done', true);
+
     // Cancel future notifications and alarms for this routine as it's now done
     await cancelRoutineNotification(routineId);
+
+    // Additional safety: Cancel any pending notifications in the system
+    await _cancelAllPendingNotificationsForRoutine(routineId);
   }
 
   // This method is not called by the daily reset in the provided snippet.
@@ -527,6 +535,32 @@ class NotificationService {
       if (key.startsWith('routine_') && key.endsWith('_done')) {
         await prefs.remove(key);
       }
+    }
+  }
+
+  Future<void> _cancelAllPendingNotificationsForRoutine(int routineId) async {
+    try {
+      // Get all pending notification requests
+      final pendingRequests = await _notifications.pendingNotificationRequests();
+
+      // Find and cancel any notifications related to this routine
+      for (final request in pendingRequests) {
+        // Check if this notification belongs to our routine
+        if (request.id == _getMainNotificationId(routineId)) {
+          await _notifications.cancel(request.id);
+          debugPrint('🚫 Cancelled pending main notification ${request.id} for routine $routineId');
+        }
+
+        // Check retry notifications
+        for (int i = 0; i < _maxRetries; i++) {
+          if (request.id == _getRetryNotificationId(routineId, i)) {
+            await _notifications.cancel(request.id);
+            debugPrint('🚫 Cancelled pending retry notification ${request.id} for routine $routineId (retry $i)');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error cancelling pending notifications for routine $routineId: $e');
     }
   }
 }

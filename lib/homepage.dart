@@ -24,6 +24,7 @@ import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
+import 'package:chrono/services/filter_service.dart';
 
 import 'dart:async';
 
@@ -56,6 +57,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _needsRefresh = false;
   bool isRefreshing = false;
   StreamSubscription<Record>? _recordCreatedSubscription;
+  FilterService filterService = FilterService.instance;
+  FilterSettings? currentFilterSettings;
 
   @override
   void initState() {
@@ -63,18 +66,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     recordService.getCountOfRecords();
     getAllTags();
     super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // Load filter settings first, then load records
+    await _loadFilterSettings();
+
     if (widget.recordIds != null && widget.recordIds!.isNotEmpty) {
       //print("SEARCH FOR NOTES" + widget.recordIds.toString());
       getRecordsById(widget.recordIds!);
     } else {
       loadRecords();
     }
+
+    _setupListeners();
+  }
+
+  void _setupListeners() {
     _scrollController.addListener(_onScroll);
     // _scrollController.addListener(() {
     //   if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
     //     _loadMoreData();
     //   }
     // });
+
+    searchController.addListener(() {
+      loadRecords(refresh: true);
+    });
 
     recordService.importStream.listen((success) {
       if (success) {
@@ -92,10 +111,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     });
 
-    searchController.addListener(() {
-      loadRecords(refresh: true);
-    });
-    // saveFakeRecord();
   }
 
   @override
@@ -149,8 +164,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       getAllTags();
 
       // Load records with the current tag filter from the beginning
-      final newRecords = await dbHelper.getRecordsWithTag(selectedChipIndex, pageSize, 0,
-          searchText: searchController.text);
+      final newRecords = await dbHelper.getRecordsWithTag(
+        selectedChipIndex,
+        pageSize,
+        0,
+        searchText: searchController.text,
+        showGoalRecords: currentFilterSettings?.showGoalRecords,
+        showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+      );
 
       setState(() {
         allRecords = newRecords;
@@ -171,8 +192,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Calculate offset correctly:
     final offset = currentPage * pageSize; // Offset should be 0 for the initial load and refresh
 
-    final newRecords = await dbHelper.getRecordsWithTag(selectedChipIndex, pageSize, offset,
-        searchText: searchController.text);
+    final newRecords = await dbHelper.getRecordsWithTag(
+      selectedChipIndex,
+      pageSize,
+      offset,
+      searchText: searchController.text,
+      showGoalRecords: currentFilterSettings?.showGoalRecords,
+      showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+    );
 
     setState(() {
       if (newRecords.isNotEmpty) {
@@ -186,7 +213,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _loadMoreData() async {
     final nextPage = currentPage + 1;
     final offset = nextPage * pageSize;
-    final newRecords = await dbHelper.getRecordsWithTag(selectedChipIndex, pageSize, offset);
+    final newRecords = await dbHelper.getRecordsWithTag(
+      selectedChipIndex,
+      pageSize,
+      offset,
+      showGoalRecords: currentFilterSettings?.showGoalRecords,
+      showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+    );
 
     if (newRecords.isNotEmpty) {
       allRecords.addAll(newRecords);
@@ -259,22 +292,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   //dialog for delete
+  Future<void> _loadFilterSettings() async {
+    currentFilterSettings = await filterService.getFilterSettings();
+    debugPrint('🔍 Filter settings loaded: showGoals=${currentFilterSettings?.showGoalRecords}, showRoutines=${currentFilterSettings?.showRoutineRecords}');
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _showFilterDialog() async {
+    if (currentFilterSettings == null) {
+      await _loadFilterSettings();
+    }
+
+    if (!mounted) return;
+
+    final FilterSettings? result = await showDialog<FilterSettings>(
+      context: context,
+      builder: (BuildContext context) {
+        return FilterDialog(initialSettings: currentFilterSettings!);
+      },
+    );
+
+    if (result != null && mounted) {
+      await filterService.saveFilterSettings(result);
+      currentFilterSettings = result;
+      loadRecords(refresh: true);
+    }
+  }
+
   Future<void> _showDeleteDialog(BuildContext context, int id) async {
     return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Delete record"),
-          content: Text("Are you sure you want to delete this record?"),
+          title: const Text("Delete record"),
+          content: const Text("Are you sure you want to delete this record?"),
           actions: [
             TextButton(
-              child: Text("Cancel"),
+              child: const Text("Cancel"),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text("Delete"),
+              child: const Text("Delete"),
               onPressed: () {
                 _delete(id);
 
@@ -349,6 +411,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       bottomNavigationBar: BottomAppBar(
         //bottom navigation bar on scaffold
         color: MyColors.trecondaryColor,
+        height: 60, // Устанавливаем фиксированную высоту
         shape: const AutomaticNotchedShape(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
@@ -362,13 +425,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         // notchMargin:
         //     5, //notche margin between floating button and bottom appbar
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: Row(
             //children inside bottom appbar
-            mainAxisSize: MainAxisSize.max,
+            // mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
-              ElevatedButton.icon(
+              IconButton(
                 onPressed: () {
                   FocusManager.instance.primaryFocus?.unfocus();
 
@@ -387,12 +450,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         );
                       });
                 },
-                icon: Icon(
+                icon: const Icon(
                   // <-- Icon
+                  color: Colors.white,
                   Icons.category,
                   size: 24.0,
                 ),
-                label: Text('Tags'), // <-- Text
               ),
               IconButton(
                   onPressed: () {
@@ -409,7 +472,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       }
                     });
                   },
-                  icon: Icon(
+                  icon: const Icon(
                     // <-- Icon
                     Icons.arrow_upward_rounded,
                     color: Colors.white,
@@ -430,19 +493,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       }
                     });
                   },
-                  icon: Icon(
+                  icon: const Icon(
                     // <-- Icon
                     Icons.flag,
                     color: Colors.white,
                     size: 24.0,
                   )),
-              ElevatedButton.icon(
+              IconButton(
                 icon: SvgPicture.asset(
                   'assets/icons/chat.svg', // Replace with the path to your SVG file
-                  width: 30, // Specify the width
-                  height: 30,
-                  colorFilter: // <-- Use the color filter property to specify the
-                      ColorFilter.mode(Color.fromARGB(255, 67, 0, 79), BlendMode.srcIn),
+                  width: 28, // Specify the width
+                  height: 28,
+                  // colorFilter: // <-- Use the color filter property to specify the
+                  //     ColorFilter.mode(Color.fromARGB(255, 67, 0, 79), BlendMode.srcIn),
                 ),
                 onPressed: () {
                   FocusManager.instance.primaryFocus?.unfocus();
@@ -457,7 +520,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     _showApiKeyPopup(context);
                   }
                 },
-                label: Text('GPT'), // <-- Text
               ),
             ],
           ),
@@ -467,27 +529,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              // focusNode: FocusNode(canRequestFocus: false),
-              decoration: InputDecoration(
-                labelText: 'Search',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
-                suffixIcon: searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            searchController.clear();
-                          });
-                        },
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    // focusNode: FocusNode(canRequestFocus: false),
+                    decoration: InputDecoration(
+                      labelText: 'Search',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.search),
+                      suffixIcon: searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  searchController.clear();
+                                });
+                              },
+                            ),
+                    ),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        height: 1.5,
+                        color: Colors.white),
+                    // onChanged: filterRecords,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.filter_list, color: Colors.white),
+                      onPressed: () => _showFilterDialog(),
+                      tooltip: 'Filter records',
+                    ),
+                    if (currentFilterSettings != null &&
+                        (!currentFilterSettings!.showGoalRecords ||
+                            !currentFilterSettings!.showRoutineRecords))
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
-              ),
-              style: TextStyle(
-                  fontWeight: FontWeight.w500, fontSize: 14, height: 1.5, color: Colors.white),
-              // onChanged: filterRecords,
+                  ],
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -587,5 +683,100 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       allRecords.removeWhere((record) => record.id == id);
     });
     //print('deleted $rowsDeleted row(s): row $id');
+  }
+}
+
+class FilterDialog extends StatefulWidget {
+  final FilterSettings initialSettings;
+
+  const FilterDialog({Key? key, required this.initialSettings}) : super(key: key);
+
+  @override
+  State<FilterDialog> createState() => _FilterDialogState();
+}
+
+class _FilterDialogState extends State<FilterDialog> {
+  late FilterSettings settings;
+
+  @override
+  void initState() {
+    super.initState();
+    settings = widget.initialSettings;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: MyColors.primaryColor,
+      title: const Text(
+        'Filter Records',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Select which types of records to show:',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text(
+              'Show records from Goals',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              'Include records created from goal sessions',
+              style: TextStyle(color: Colors.white60),
+            ),
+            value: settings.showGoalRecords,
+            activeColor: MyColors.secondaryColor,
+            onChanged: (value) {
+              setState(() {
+                settings = settings.copyWith(showGoalRecords: value);
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text(
+              'Show records from Routines',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              'Include records created from completed routines',
+              style: TextStyle(color: Colors.white60),
+            ),
+            value: settings.showRoutineRecords,
+            activeColor: MyColors.secondaryColor,
+            onChanged: (value) {
+              setState(() {
+                settings = settings.copyWith(showRoutineRecords: value);
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Colors.white70),
+          ),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        TextButton(
+          child: const Text(
+            'Apply',
+            style: TextStyle(color: MyColors.secondaryColor),
+          ),
+          onPressed: () {
+            Navigator.of(context).pop(settings);
+          },
+        ),
+      ],
+    );
   }
 }

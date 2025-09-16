@@ -1,14 +1,17 @@
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
-import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
+import 'package:chrono/services/gpt-note-bind.service.dart';
 
 void main() async {
   try {
     print('Starting app initialization...');
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Load persisted OpenAI API key and model
+    await GPTNoteBindService().loadModel();
 
     // Initialize database
     print('Initializing database...');

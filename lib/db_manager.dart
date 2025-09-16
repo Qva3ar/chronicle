@@ -593,16 +593,33 @@ class DatabaseHelper {
     int limit,
     int offset, {
     String? searchText,
+    bool? showGoalRecords,
+    bool? showRoutineRecords,
   }) async {
     try {
       final Database db = await instance.database;
       final List<dynamic> queryParams = [];
 
+      // Build type filter conditions
+      List<String> typeFilters = [];
+      if (showGoalRecords == false && showRoutineRecords == false) {
+        // If both are false, show only regular records (no goal_id and no routine_id)
+        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordGoalId} IS NULL");
+        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordRoutineId} IS NULL");
+      } else if (showGoalRecords == false) {
+        // Hide goal records
+        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordGoalId} IS NULL");
+      } else if (showRoutineRecords == false) {
+        // Hide routine records
+        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordRoutineId} IS NULL");
+      }
+      // If both are true or null, show all records (no additional filtering)
+
       String query;
       if (tagId != null) {
         // When filtering by specific tag
         query = '''
-          SELECT 
+          SELECT
             ${DatabaseTables.record}.*,
             GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
           FROM ${DatabaseTables.record}
@@ -610,6 +627,7 @@ class DatabaseHelper {
           LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
           WHERE ${DatabaseTables.recordTag}.tagId = ?
             ${searchText != null && searchText.isNotEmpty ? "AND (${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)" : ""}
+            ${typeFilters.isNotEmpty ? "AND (${typeFilters.join(" AND ")})" : ""}
           GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
           ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
           LIMIT ? OFFSET ?
@@ -617,14 +635,24 @@ class DatabaseHelper {
         queryParams.add(tagId);
       } else {
         // When showing all records (including those without tags)
+        final whereConditions = <String>[];
+
+        if (searchText != null && searchText.isNotEmpty) {
+          whereConditions.add("(${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)");
+        }
+
+        if (typeFilters.isNotEmpty) {
+          whereConditions.add("(${typeFilters.join(" AND ")})");
+        }
+
         query = '''
-          SELECT 
+          SELECT
             ${DatabaseTables.record}.*,
             GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
           FROM ${DatabaseTables.record}
           LEFT JOIN ${DatabaseTables.recordTag} ON ${DatabaseTables.record}.${DatabaseColumns.id} = ${DatabaseTables.recordTag}.recordId
           LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
-          ${searchText != null && searchText.isNotEmpty ? "WHERE (${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)" : ""}
+          ${whereConditions.isNotEmpty ? "WHERE ${whereConditions.join(" AND ")}" : ""}
           GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
           ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
           LIMIT ? OFFSET ?
@@ -639,6 +667,7 @@ class DatabaseHelper {
       queryParams.addAll([limit, offset]);
 
       final List<Map<String, dynamic>> recordsData = await db.rawQuery(query, queryParams);
+      log('🔍 Filter applied - showGoals: $showGoalRecords, showRoutines: $showRoutineRecords, results: ${recordsData.length}');
       return recordsData.map((data) => Record.fromMap(data)).toList();
     } catch (e) {
       log('Error getting records with tag: $e');
