@@ -78,21 +78,97 @@ class DatabaseHelper {
   /// Get the database instance, initializing it if necessary
   Future<Database> get database async => _database ??= await _initDatabase();
 
-  /// Initialize the database
+  /// Initialize the database with backup verification
   Future<Database> _initDatabase() async {
     try {
       final Directory documentsDirectory = await getApplicationDocumentsDirectory();
       final String path = join(documentsDirectory.path, DatabaseConfig.databaseName);
+      
+      // 🎯 DATA PROTECTION: Log database info for debugging
+      log('📍 Database path: $path');
+      
+      // Check if database file exists and log its size
+      final File dbFile = File(path);
+      if (await dbFile.exists()) {
+        final int size = await dbFile.length();
+        final DateTime modified = await dbFile.lastModified();
+        log('📊 Existing database found: ${size} bytes, last modified: $modified');
+      } else {
+        log('🆕 Creating new database at: $path');
+      }
 
-      return await openDatabase(
+      final database = await openDatabase(
         path,
         version: DatabaseConfig.databaseVersion,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
+        onOpen: _onOpen,
       );
+      
+      // 🎯 VERIFICATION: Check data integrity after opening
+      await _verifyDataIntegrity(database);
+      
+      return database;
     } catch (e) {
-      log('Error initializing database: $e');
+      log('❌ Error initializing database: $e');
       rethrow;
+    }
+  }
+  
+  /// Verify data integrity when opening database
+  Future<void> _onOpen(Database db) async {
+    log('🔓 Database opened successfully');
+  }
+  
+  /// Verify data integrity and log recent records
+  Future<void> _verifyDataIntegrity(Database db) async {
+    try {
+      // Count records
+      final List<Map<String, dynamic>> recordCount = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseTables.record}'
+      );
+      final int totalRecords = recordCount.first['count'] as int;
+      
+      // Get most recent records
+      final List<Map<String, dynamic>> recentRecords = await db.rawQuery(
+        'SELECT ${DatabaseColumns.recordCreatedAt}, ${DatabaseColumns.recordTitle} '
+        'FROM ${DatabaseTables.record} '
+        'ORDER BY ${DatabaseColumns.recordCreatedAt} DESC LIMIT 5'
+      );
+      
+      log('📊 DATABASE VERIFICATION:');
+      log('   Total records: $totalRecords');
+      
+      if (recentRecords.isNotEmpty) {
+        log('   Recent records:');
+        for (final record in recentRecords) {
+          final DateTime created = DateTime.fromMillisecondsSinceEpoch(
+            record[DatabaseColumns.recordCreatedAt] as int
+          );
+          final String title = record[DatabaseColumns.recordTitle] ?? 'No title';
+          log('     - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(created)}: ${title.substring(0, title.length > 30 ? 30 : title.length)}${title.length > 30 ? '...' : ''}');
+        }
+      } else {
+        log('   No records found');
+      }
+      
+      // Check for recent data (within last 7 days)
+      final DateTime sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final List<Map<String, dynamic>> recentCount = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseTables.record} '
+        'WHERE ${DatabaseColumns.recordCreatedAt} > ?',
+        [sevenDaysAgo.millisecondsSinceEpoch]
+      );
+      final int recentRecordCount = recentCount.first['count'] as int;
+      
+      log('   Records from last 7 days: $recentRecordCount');
+      
+      if (recentRecordCount == 0 && totalRecords > 0) {
+        log('⚠️  WARNING: No recent records found but old records exist - possible backup restore!');
+      }
+      
+    } catch (e) {
+      log('❌ Error during data verification: $e');
     }
   }
 
