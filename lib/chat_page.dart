@@ -241,12 +241,14 @@ class _ChatPageState extends State<ChatPage> {
       //_messages as string
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = await gptService
+      stream = gptService
           .completionStream(_messages, _systemMessages)
           .listen((event) {
         final content = event.choices.first.delta.content;
         //print(content);
-        accumulator += content![0].text ?? '';
+        if (content != null && content.isNotEmpty) {
+          accumulator += content[0].text ?? '';
+        }
 
         if (event.choices.first.finishReason == 'stop') {}
         _messages.first.content = accumulator;
@@ -265,11 +267,13 @@ class _ChatPageState extends State<ChatPage> {
         } else {
           // Handle other exceptions
           //print('An unexpected error occurred: $err');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('An unexpected error occurred. Please try again.')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content:
+                      Text('An unexpected error occurred. Please try again.')),
+            );
+          }
         }
 
         setState(() {
@@ -285,9 +289,11 @@ class _ChatPageState extends State<ChatPage> {
         });
       });
     } catch (err) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An error occurred. Please try again.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred. Please try again.')),
+        );
+      }
       setState(() {
         _awaitingResponse = false;
       });

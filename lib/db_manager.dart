@@ -837,9 +837,9 @@ class DatabaseHelper {
             // Preserve additional fields if they exist
             if (note.containsKey('record_type')) {
               recordData[DatabaseColumns.recordType] = note['record_type'];
-              print('DEBUG: Importing record with type: ${note['record_type']}');
+              log('DEBUG: Importing record with type: ${note['record_type']}');
             } else {
-              print('DEBUG: No record_type found in note: ${note.keys.toList()}');
+              log('DEBUG: No record_type found in note: ${note.keys.toList()}');
             }
             if (note.containsKey('title')) {
               recordData[DatabaseColumns.recordTitle] = note['title'];

@@ -14,8 +14,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
   String selectedModel = ''; // Default model
 
   String url1 = 'https://www.merge.dev/blog/chatgpt-api-key';
-  String url2 =
-      'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
+  String url2 = 'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
 
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 
@@ -37,6 +36,8 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedOption = apiKeyOptions.firstWhere((item) => item.value == selectedModel,
+        orElse: () => apiKeyOptions.first);
     return AlertDialog(
       title: Text('Enter GPT API Key'),
       //width fit content
@@ -68,6 +69,18 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               },
               decoration: InputDecoration(labelText: 'Select Model'),
             ),
+            if (selectedOption.tpm != null) ...[
+              SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Token limit: ${selectedOption.tpm}'),
+                  ],
+                ),
+              ),
+            ],
             SizedBox(
               height: 16,
             ),
