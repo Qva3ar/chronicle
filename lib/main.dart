@@ -4,6 +4,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/services/notification_service.dart';
 
 void main() async {
   try {
@@ -27,6 +28,11 @@ void main() async {
     print('Initializing app lifecycle service...');
     AppLifecycleService.instance.initialize();
     print('App lifecycle service initialized');
+
+    // Initialize notification service for daily resets
+    print('Initializing notification service...');
+    await NotificationService().initialize();
+    print('Notification service initialized');
 
     print('Starting app...');
     runApp(const MyApp());

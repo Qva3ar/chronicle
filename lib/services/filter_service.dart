@@ -20,12 +20,12 @@ class FilterService {
 
   Future<bool> getShowGoalRecords() async {
     await _initPrefs();
-    return _prefs!.getBool(_showGoalRecordsKey) ?? true;
+    return _prefs!.getBool(_showGoalRecordsKey) ?? false;
   }
 
   Future<bool> getShowRoutineRecords() async {
     await _initPrefs();
-    return _prefs!.getBool(_showRoutineRecordsKey) ?? true;
+    return _prefs!.getBool(_showRoutineRecordsKey) ?? false;
   }
 
   Future<void> setShowGoalRecords(bool value) async {

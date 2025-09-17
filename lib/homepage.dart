@@ -707,7 +707,7 @@ class _FilterDialogState extends State<FilterDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: MyColors.primaryColor,
+      backgroundColor: cardColor,
       title: const Text(
         'Filter Records',
         style: TextStyle(color: Colors.white),
