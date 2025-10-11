@@ -157,7 +157,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (refresh) {
       setState(() {
         isRefreshing = true;
-        allRecords.clear(); // Clear all records when refreshing to properly apply tag filter
         currentPage = 0; // Reset page counter
       });
 
@@ -174,7 +173,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
 
       setState(() {
-        allRecords = newRecords;
+        allRecords = newRecords; // Replace all records in one atomic operation
         if (newRecords.isNotEmpty) {
           currentPage = 1; // Set to 1 since we loaded the first page
         }
