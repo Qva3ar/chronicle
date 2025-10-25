@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
@@ -73,11 +70,11 @@ Future<void> sessionCompleteCallback(int alarmId) async {
 
     if (isGoalNowActuallyComplete) {
       print('🎉 BACKGROUND: This session completes the goal!');
-      
+
       // Use exact completion time, not more than the goal requires
       final exactCompletionTime = goalAtAlarmTime.totalSeconds;
       final actualSessionTimeUsed = exactCompletionTime - goalAtAlarmTime.timeSpentSeconds;
-      
+
       final updatedGoal = goalAtAlarmTime.copyWith(
         timeSpentSeconds: exactCompletionTime, // Complete exactly to goal's total
         isActive: false,
@@ -85,7 +82,7 @@ Future<void> sessionCompleteCallback(int alarmId) async {
         clearSessionResumedTimestamp: true,
         completedAt: completionTime.millisecondsSinceEpoch, // Use precise completion time
       );
-      
+
       await db.updateGoal(updatedGoal);
       print('✅ BACKGROUND: Goal completed exactly at: ${_formatTimeStatic(exactCompletionTime)}');
       print('   - Actual session time used: ${_formatTimeStatic(actualSessionTimeUsed)}');
@@ -101,6 +98,10 @@ Future<void> sessionCompleteCallback(int alarmId) async {
       await recordService.createRecord(record, []);
       print('📝 BACKGROUND: Record created for completed goal.');
 
+      // Cancel the running notification before showing completion notifications
+      await notificationsPlugin.cancel(1);
+      print('🚫 BACKGROUND: Cancelled running notification (ID: 1)');
+
       // Show goal completion notifications
       await _showBackgroundGoalCompleteNotification(notificationsPlugin, updatedGoal);
       await _showBackgroundCompletionNotification(
@@ -115,6 +116,10 @@ Future<void> sessionCompleteCallback(int alarmId) async {
       );
       await db.updateGoal(updatedGoal);
       print('✅ BACKGROUND: Goal updated. Progress: ${_formatTimeStatic(updatedGoal.timeSpentSeconds)}/${_formatTimeStatic(updatedGoal.totalSeconds)}');
+
+      // Cancel the running notification before showing completion notification
+      await notificationsPlugin.cancel(1);
+      print('🚫 BACKGROUND: Cancelled running notification (ID: 1)');
 
       // Show session completion notification
       await _showBackgroundCompletionNotification(
@@ -346,12 +351,29 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
       // Show running notification from background
       await _showBackgroundRunningNotification(notificationsPlugin, updatedGoal);
 
-      // Schedule new session alarm
+      // Schedule new session alarm with smart completion detection
       final nextSessionDuration = _getStaticSessionDurationForGoal(updatedGoal);
-      final alarmTime = DateTime.now().add(Duration(seconds: nextSessionDuration));
+      final goalRemainingTime = updatedGoal.totalSeconds - updatedGoal.timeSpentSeconds;
 
-      print(
-          '⏰ BACKGROUND ACTION: Scheduling next session alarm for: ${alarmTime.toString()} in ${nextSessionDuration}s');
+      // Smart scheduling: complete when goal is done or session ends
+      final willCompleteEarly = goalRemainingTime > 0 && goalRemainingTime < nextSessionDuration;
+      final timeUntilCompletion = willCompleteEarly ? goalRemainingTime : nextSessionDuration;
+
+      print('⏰ BACKGROUND ACTION: Smart scheduling');
+      print('   - Session duration: ${_formatTimeStatic(nextSessionDuration)}');
+      print('   - Goal remaining: ${_formatTimeStatic(goalRemainingTime)}');
+      print('   - Will complete early: $willCompleteEarly');
+      print('   - Time until completion: ${_formatTimeStatic(timeUntilCompletion)}');
+
+      if (timeUntilCompletion <= 0) {
+        print('⚠️ BACKGROUND ACTION: Goal already complete or no time remaining!');
+        await notificationsPlugin.cancel(2);
+        return;
+      }
+
+      final alarmTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
+      print('⏰ BACKGROUND ACTION: Scheduling alarm for: ${alarmTime.toString()} (${willCompleteEarly ? "goal completion" : "session end"})');
+
       try {
         await AndroidAlarmManager.oneShotAt(
           alarmTime,
@@ -388,7 +410,6 @@ class TimerService extends ChangeNotifier {
   Timer? _updateTimer; // Only for UI updates, not for actual timing
   Goal? _activeGoal;
   int _sessionStartTime = 0; // Session start timestamp in seconds
-  int _goalStartTime = 0; // Goal session start timestamp in seconds
   int _baselineTimeSpent = 0; // Time spent when session started (to avoid double counting)
   bool _isRunning = false;
 
@@ -435,17 +456,19 @@ class TimerService extends ChangeNotifier {
   // 🎯 ENHANCED: Total time elapsed including baseline with validation
   int get totalTimeElapsed {
     if (_activeGoal == null) return 0;
-    
+
     final sessionTime = sessionTimeElapsed;
     final total = _baselineTimeSpent + sessionTime;
-    
-    // Validate total doesn't exceed goal target by too much (allow small buffer for precision)
+
+    // Clamp total to not exceed goal target
     final goalTarget = _activeGoal!.totalSeconds;
-    if (total > goalTarget + 10) { // 10 second buffer
-      print('⚠️ TOTAL TIME WARNING: Total time ($total) exceeds goal ($goalTarget) by ${total - goalTarget} seconds');
+    final clampedTotal = total > goalTarget ? goalTarget : total;
+
+    if (total > goalTarget) {
+      print('⚠️ TOTAL TIME: Clamped from ${formatTime(total)} to ${formatTime(clampedTotal)} (goal target)');
     }
-    
-    return total;
+
+    return clampedTotal;
   }
 
   // Remaining time in total goal (not just current session)
@@ -498,10 +521,10 @@ class TimerService extends ChangeNotifier {
   // 🎯 ENHANCED: Initialize with comprehensive state recovery and validation
   Future<void> initialize() async {
     print('🚀 TIMER SERVICE: Initializing...');
-    
+
     try {
       // Validate database is accessible
-      final db = await _db.database;
+      await _db.database;
       print('✅ TIMER SERVICE: Database connection verified');
       
       // Check for any orphaned alarms from previous app runs
@@ -747,7 +770,6 @@ class TimerService extends ChangeNotifier {
     _activeGoal = latestGoal;
     final preciseStartTime = DateTime.now();
     _sessionStartTime = preciseStartTime.millisecondsSinceEpoch ~/ 1000;
-    _goalStartTime = _sessionStartTime;
     _baselineTimeSpent = latestGoal.timeSpentSeconds;
     _isRunning = true;
     
@@ -1004,7 +1026,6 @@ class TimerService extends ChangeNotifier {
     // Clear session state
     _activeGoal = completedGoal;
     _sessionStartTime = 0;
-    _goalStartTime = 0;
     _baselineTimeSpent = 0;
 
     notifyListeners();
@@ -1102,7 +1123,6 @@ class TimerService extends ChangeNotifier {
 
     // Clear session-specific running state variables
     _sessionStartTime = 0;
-    _goalStartTime = 0;
     _baselineTimeSpent = 0;
 
     notifyListeners();
@@ -1219,11 +1239,6 @@ class TimerService extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateNotification() async {
-    if (_activeGoal == null || !_isRunning) return;
-    await _showRunningNotification();
-  }
-
   Future<void> _hideNotification() async {
     print('🚫 NOTIFICATION: Hiding running notification (ID: 1)');
     try {
@@ -1232,11 +1247,6 @@ class TimerService extends ChangeNotifier {
     } catch (e) {
       print('❌ NOTIFICATION ERROR: Failed to hide notification: $e');
     }
-  }
-
-  Future<void> _showSessionNotification() async {
-    if (_activeGoal == null) return;
-    await _showRunningNotification();
   }
 
   Future<void> _showGoalCompleteNotification() async {
@@ -1416,7 +1426,6 @@ class TimerService extends ChangeNotifier {
   void _resetSessionState() {
     _activeGoal = null;
     _sessionStartTime = 0;
-    _goalStartTime = 0;
     _baselineTimeSpent = 0;
     _isRunning = false;
   }
@@ -1463,8 +1472,7 @@ class TimerService extends ChangeNotifier {
       _sessionStartTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       print('🔄 RESUME: Starting new session at: ${_sessionStartTime}');
     }
-    
-    _goalStartTime = _sessionStartTime;
+
     _isRunning = true;
     
     await _clearOldNotifications();
