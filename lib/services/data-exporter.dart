@@ -23,12 +23,28 @@ class DataExporter {
 
     if (includeRoutines) {
       List<Map<String, dynamic>> routines = await _dbHelper.getAllRoutines();
-      exportData['routines'] = routines;
+      // Reset routine state: set is_done to false
+      exportData['routines'] = routines.map((routine) {
+        return {
+          ...routine,
+          'is_done': 0, // false in SQLite
+        };
+      }).toList();
     }
 
     if (includeGoals) {
       List<Goal> goals = await _dbHelper.getAllGoals();
-      exportData['goals'] = goals.map((goal) => goal.toMap()).toList();
+      // Reset goal state to initial values
+      exportData['goals'] = goals.map((goal) {
+        return goal
+            .copyWith(
+              isActive: false,
+              timeSpentSeconds: 0,
+              completedAt: null,
+              clearSessionResumedTimestamp: true,
+            )
+            .toMap();
+      }).toList();
     }
 
     var exportDataJson = jsonEncode(exportData);
