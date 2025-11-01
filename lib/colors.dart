@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class MyColors {
-  static const primaryColor = Color(0x0d2196f3);
+  static const primaryColor = Color.fromARGB(255, 29, 29, 29);
   static const secondaryColor = Color.fromARGB(255, 48, 51, 54);
   static const trecondaryColor = Color.fromARGB(255, 93, 97, 100);
   static const forthyColor = Color.fromARGB(255, 126, 130, 135);

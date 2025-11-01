@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/colors.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
   const RoutineManagerScreen({super.key});
@@ -120,7 +121,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -131,7 +132,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: MyColors.forthyColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -146,10 +147,11 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    color: white,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, color: white),
                   onPressed: () => _showRoutineForm(),
                 ),
               ],
@@ -157,52 +159,64 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
           ),
           // List of routines
           Expanded(
-            child: ListView.builder(
-              itemCount: _routines.length,
-              itemBuilder: (context, index) {
-                final routine = _routines[index];
-                return Dismissible(
-                  key: Key(routine.id.toString()),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (_) => _deleteRoutine(routine),
-                  child: ListTile(
-                    leading: Checkbox(
-                      value: routine.isDone,
-                      onChanged: (_) => _toggleRoutineDone(routine),
-                    ),
-                    title: Text(
-                      routine.name,
-                      style: TextStyle(
-                        color: routine.isDone ? Colors.grey : null,
-                        decoration: routine.isDone ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${routine.time.format(context)} - ${_formatDaysOfWeek(routine.daysOfWeek)}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => _showRoutineForm(routine),
+            child: _routines.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    itemCount: _routines.length,
+                    itemBuilder: (context, index) {
+                      final routine = _routines[index];
+                      return Dismissible(
+                        key: Key(routine.id.toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          color: MyColors.remove,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 16),
+                          child: const Icon(Icons.delete, color: white),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteRoutine(routine),
+                        onDismissed: (_) => _deleteRoutine(routine),
+                        child: ListTile(
+                          leading: Checkbox(
+                            value: routine.isDone,
+                            onChanged: (_) => _toggleRoutineDone(routine),
+                            checkColor: MyColors.secondaryColor,
+                            fillColor: WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return MyColors.fivyColor;
+                              }
+                              return MyColors.forthyColor;
+                            }),
+                          ),
+                          title: Text(
+                            routine.name,
+                            style: TextStyle(
+                              color: routine.isDone ? MyColors.forthyColor : white,
+                              decoration: routine.isDone ? TextDecoration.lineThrough : null,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${routine.time.format(context)} - ${_formatDaysOfWeek(routine.daysOfWeek)}',
+                            style: TextStyle(
+                              color: routine.isDone ? MyColors.trecondaryColor : MyColors.fivyColor,
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: white),
+                                onPressed: () => _showRoutineForm(routine),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: MyColors.remove),
+                                onPressed: () => _deleteRoutine(routine),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -218,6 +232,58 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
       }
     }
     return activeDays.join(', ');
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.schedule_outlined,
+                size: 80,
+                color: MyColors.forthyColor,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No Routines Yet',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Create your first routine to build consistent daily habits and stay organized.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: MyColors.fivyColor,
+                    ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => _showRoutineForm(),
+                icon: const Icon(Icons.add),
+                label: const Text('Create Your First Routine'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

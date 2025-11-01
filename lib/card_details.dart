@@ -55,7 +55,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   void initState() {
     super.initState();
     print("🚀 CardDetailPage: Initializing with recordId: ${widget.recordId}");
-    
+
     recordService.clearTagIds();
     if (!_isListeningToStream) {
       _isListeningToStream = true;
@@ -71,7 +71,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _titleController.text = widget.title;
         _descriptionController.text = widget.text;
       });
-      
+
       // 🎯 IMPORTANT: If we have initial text and no record ID, trigger initial save
       if (widget.recordId == null && widget.text.isNotEmpty) {
         print("📝 CardDetailPage: Initial text found in create mode, triggering save");
@@ -172,6 +172,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _descriptionController.selection =
             TextSelection.fromPosition(TextPosition(offset: _descriptionController.text.length));
       });
+      // Save the undone text to database
+      handleText(_descriptionController.text);
     }
   }
 
@@ -184,14 +186,15 @@ class _CardDetailPageState extends State<CardDetailPage> {
         _descriptionController.selection =
             TextSelection.fromPosition(TextPosition(offset: _descriptionController.text.length));
       });
+      // Save the redone text to database
+      handleText(_descriptionController.text);
     }
   }
 
   @override
   void dispose() {
     print("🧹 CardDetailPage: Disposing");
-    // Don't dispose the singleton RecordService here since it might be used elsewhere
-    // Just clear the current record ID if we're in create mode
+    // Note: Save is handled by PopScope, no need to save here
     super.dispose();
   }
 
@@ -326,56 +329,70 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: cardColor,
-      appBar: getAppBar(),
-      body: getBody(),
-      resizeToAvoidBottomInset: true,
-      // bottomSheet: getFooter(),
-      // bottomNavigationBar: BottomAppBar(
-      //   //bottom navigation bar on scaffold
-      //   color: Color.fromARGB(255, 80, 80, 80),
-      //   shape: CircularNotchedRectangle(), //shape of notch
-      //   notchMargin: 5, //notche margin between floating button and bottom appbar
-      //   child: Padding(
-      //     padding: const EdgeInsets.symmetric(horizontal: 16),
-      //     child: Row(
-      //       //children inside bottom appbar
-      //       mainAxisSize: MainAxisSize.max,
-      //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      //       children: <Widget>[
-      //         ElevatedButton.icon(
-      //           onPressed: () {
-      //             showTagsModal();
-      //           },
-      //           icon: Icon(
-      //             // <-- Icon
-      //             Icons.category,
-      //             size: 24.0,
-      //           ),
-      //           label: Text('Tags'), // <-- Text
-      //         ),
-      //         ElevatedButton.icon(
-      //           icon: SvgPicture.asset(
-      //             'assets/icons/chat.svg', // Replace with the path to your SVG file
-      //             width: 30, // Specify the width
-      //             height: 30,
-      //             colorFilter: // <-- Use the color filter property to specify the
-      //                 ColorFilter.mode(Colors.grey, BlendMode.srcIn),
-      //           ),
-      //           onPressed: () {
-      //             if (gptNoteBindService.isKeyProvided()) {
-      //               showChatModal();
-      //             } else {
-      //               _showApiKeyPopup(context);
-      //             }
-      //           },
-      //           label: Text('GPT'), // <-- Text
-      //         ),
-      //       ],
-      //     ),
-      //   ),
-      // ),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          // Force save any pending changes before leaving
+          if (_descriptionController.text.isNotEmpty) {
+            print("💾 CardDetailPage: Forcing save on pop");
+            recordService.handleText(_descriptionController.text);
+            // Give time for save to process (match debounce timing)
+            await Future.delayed(Duration(milliseconds: 600));
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: cardColor,
+        appBar: getAppBar(),
+        body: getBody(),
+        resizeToAvoidBottomInset: true,
+        // bottomSheet: getFooter(),
+        // bottomNavigationBar: BottomAppBar(
+        //   //bottom navigation bar on scaffold
+        //   color: Color.fromARGB(255, 80, 80, 80),
+        //   shape: CircularNotchedRectangle(), //shape of notch
+        //   notchMargin: 5, //notche margin between floating button and bottom appbar
+        //   child: Padding(
+        //     padding: const EdgeInsets.symmetric(horizontal: 16),
+        //     child: Row(
+        //       //children inside bottom appbar
+        //       mainAxisSize: MainAxisSize.max,
+        //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        //       children: <Widget>[
+        //         ElevatedButton.icon(
+        //           onPressed: () {
+        //             showTagsModal();
+        //           },
+        //           icon: Icon(
+        //             // <-- Icon
+        //             Icons.category,
+        //             size: 24.0,
+        //           ),
+        //           label: Text('Tags'), // <-- Text
+        //         ),
+        //         ElevatedButton.icon(
+        //           icon: SvgPicture.asset(
+        //             'assets/icons/chat.svg', // Replace with the path to your SVG file
+        //             width: 30, // Specify the width
+        //             height: 30,
+        //             colorFilter: // <-- Use the color filter property to specify the
+        //                 ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+        //           ),
+        //           onPressed: () {
+        //             if (gptNoteBindService.isKeyProvided()) {
+        //               showChatModal();
+        //             } else {
+        //               _showApiKeyPopup(context);
+        //             }
+        //           },
+        //           label: Text('GPT'), // <-- Text
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
+      ),
     );
   }
 
@@ -433,11 +450,25 @@ class _CardDetailPageState extends State<CardDetailPage> {
             autofocus: true,
             scrollController: _scrollController,
             textCapitalization: TextCapitalization.sentences,
+            cursorColor: MyColors.fivyColor,
+            cursorWidth: 2.0,
             decoration: InputDecoration(
-                helperStyle: TextStyle(color: Colors.white),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Colors.transparent, width: 0),
+                ),
+                enabledBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Colors.transparent, width: 0),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Colors.transparent, width: 0),
+                ),
+                helperStyle: const TextStyle(color: Colors.white),
                 hintText: "Write your note",
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3))),
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                counterStyle: TextStyle(color: MyColors.forthyColor)),
             controller: _descriptionController,
             onChanged: (text) {
               // 🎯 ENHANCED: Handle undo/redo stack with better logic
@@ -472,7 +503,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
             IconButton(
               icon: Icon(Icons.redo),
               disabledColor: Colors.white30, // Цвет для неактивной иконки
-              color: undoStack.length > 1 ? Colors.white70 : Colors.white30,
+              color: redoStack.isNotEmpty ? Colors.white70 : Colors.white30,
               onPressed: redoStack.isNotEmpty
                   ? redo
                   : null, // Кнопка redo активна, если есть отмененные изменения

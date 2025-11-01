@@ -3,8 +3,8 @@ import '../db_manager.dart';
 import '../models/goal.model.dart';
 import '../widgets/goal_card.dart';
 import 'add_goal_screen.dart';
-import '../widgets/active_session_widget.dart';
 import '../services/timer_service.dart';
+import '../colors.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({Key? key}) : super(key: key);
@@ -68,26 +68,6 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _addGoal(Goal goal) async {
-    try {
-      final id = await dbHelper.insertGoal(goal);
-      final newGoal = goal.copyWith(id: id);
-      if (mounted) {
-        setState(() {
-          _goals.add(newGoal);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Goal added successfully!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding goal: $e')),
-        );
-      }
-    }
-  }
 
   Future<void> _toggleGoalSession(Goal goal) async {
     final timerService = TimerService.instance;
@@ -133,50 +113,31 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _editGoal(Goal goal) async {
-    try {
-      await dbHelper.updateGoal(goal);
-      if (mounted) {
-        setState(() {
-          final index = _goals.indexWhere((g) => g.id == goal.id);
-          if (index != -1) {
-            _goals[index] = goal;
-          }
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Goal "${goal.title}" updated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating goal: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+
+  Future<void> _showAddGoalForm() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddGoalScreen(),
+      ),
+    );
+
+    if (result == true) {
+      await _loadGoals();
     }
   }
 
-  void _showAddGoalForm() {
-    showDialog(
-      context: context,
-      builder: (context) => AddGoalScreen(onGoalAdded: _addGoal),
-    );
-  }
-
-  void _showEditGoalForm(Goal goal) {
-    showDialog(
-      context: context,
-      builder: (context) => AddGoalScreen(
-        onGoalUpdated: _editGoal,
-        existingGoal: goal,
+  Future<void> _showEditGoalForm(Goal goal) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddGoalScreen(existingGoal: goal),
       ),
     );
+
+    if (result == true) {
+      await _loadGoals();
+    }
   }
 
   @override
@@ -184,7 +145,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -194,7 +155,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: MyColors.forthyColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -208,10 +169,11 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    color: white,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, color: white),
                   onPressed: _showAddGoalForm,
                 ),
               ],
@@ -243,48 +205,51 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.track_changes_outlined,
-              size: 80,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No Goals Yet',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.track_changes_outlined,
+                size: 80,
+                color: MyColors.forthyColor,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No Goals Yet',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Create your first goal to start tracking your progress and building better habits.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: MyColors.fivyColor,
+                    ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _showAddGoalForm,
+                icon: const Icon(Icons.add),
+                label: const Text('Create Your First Goal'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
                   ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Create your first goal to start tracking your progress and building better habits.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _showAddGoalForm,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Your First Goal'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

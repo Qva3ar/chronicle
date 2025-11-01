@@ -15,14 +15,14 @@ class RecordService {
   // 🎯 FIXED: Private constructor with proper debouncing and state management
   RecordService._internal() {
     print("🔧 RecordService: Initializing with enhanced debouncing");
-    
+
     // Debounce title changes (keep original timing)
     _titleSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
       prepareTitle(event);
     });
-    
-    // 🎯 CRITICAL FIX: Increase debounce time for text to reduce frequent saves
-    _textSubject.debounceTime(Duration(milliseconds: 1000)).listen((event) {
+
+    // 🎯 FIXED: Reduced debounce time for faster auto-save while typing
+    _textSubject.debounceTime(Duration(milliseconds: 500)).listen((event) {
       prepareText(event);
     });
 

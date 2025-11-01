@@ -23,8 +23,7 @@ class MessageComposer extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       // color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.05),
       child: Card(
-        color:
-            Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.05),
+        color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.05),
         child: Container(
           padding: const EdgeInsets.only(left: 8, right: 8),
           child: SafeArea(
@@ -44,6 +43,14 @@ class MessageComposer extends StatelessWidget {
                               onSubmitted: onSubmitted,
                               style: TextStyle(color: Colors.white),
                               decoration: const InputDecoration(
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                                    borderSide: BorderSide(color: Colors.transparent, width: 0),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                                    borderSide: BorderSide(color: Colors.transparent, width: 0),
+                                  ),
                                   hintText: 'Write your message here...',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
@@ -65,15 +72,12 @@ class MessageComposer extends StatelessWidget {
                               child: Text('Fetching response...'),
                             ),
                             IconButton(
-                                onPressed: onStop,
-                                icon: Icon(Icons.stop, color: Colors.white)),
+                                onPressed: onStop, icon: Icon(Icons.stop, color: Colors.white)),
                           ],
                         ),
                 ),
                 IconButton(
-                  onPressed: !awaitingResponse
-                      ? () => onSubmitted(_messageController.text)
-                      : null,
+                  onPressed: !awaitingResponse ? () => onSubmitted(_messageController.text) : null,
                   icon: const Icon(Icons.send),
                   color: Colors.white,
                 ),

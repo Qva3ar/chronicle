@@ -64,7 +64,7 @@ class _TagsManagerState extends State<TagsManager> {
   Tag addTag = Tag(
     id: -1,
     name: "Add/Remove",
-    color: Colors.white.value.toString(),
+    color: cardColor2.value.toString(),
   );
   Tag? selectedTag;
   bool isEditing = false;
@@ -157,47 +157,68 @@ class _TagsManagerState extends State<TagsManager> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Search by Tag"),
-              Wrap(
-                spacing: 8.0, // Расстояние между чипсами
-                children: allTags.map((entry) {
-                  final int id = entry.id;
-                  final tag = entry;
-
-                  return ChoiceChip(
-                    label: Text(tag.name ?? ""), // Замените на ваш текст
-                    selected: selectedChipIndex == id,
-                    side: selectedChipIndex == id
-                        ? BorderSide(width: 2, color: white)
-                        : null,
-                    backgroundColor: Color(int.parse(tag.color!)),
-                    onSelected: (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          if (id == -1) {
-                            setEditing(!isEditing);
-                            return;
-                          }
-                          // currentPage = 0;
-                          widget.onTagSelected(id);
-                          selectedChipIndex = id;
-                          selectTagForEditing();
-                          // loadRecords();
-                        } else {
-                          if (id == -1) {
-                            setEditing(false);
-                            return;
-                          }
-                          widget.onTagSelected(null);
-                          // currentPage = 0;
-                          selectedChipIndex = null;
-                          // loadRecords();
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+              Text(
+                "Search by Tag",
+                style: TextStyle(
+                  color: white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+              SizedBox(height: 8),
+              // Scrollable tags section
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: allTags.map((entry) {
+                      final int id = entry.id;
+                      final tag = entry;
+
+                      return ChoiceChip(
+                        label: Text(
+                          tag.name,
+                          style: TextStyle(
+                            color: white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        selected: selectedChipIndex == id,
+                        side: selectedChipIndex == id
+                            ? BorderSide(width: 2, color: white)
+                            : null,
+                        backgroundColor: Color(int.parse(tag.color!)),
+                        onSelected: (bool selected) {
+                          setState(() {
+                            if (selected) {
+                              if (id == -1) {
+                                setEditing(!isEditing);
+                                return;
+                              }
+                              // currentPage = 0;
+                              widget.onTagSelected(id);
+                              selectedChipIndex = id;
+                              selectTagForEditing();
+                              // loadRecords();
+                            } else {
+                              if (id == -1) {
+                                setEditing(false);
+                                return;
+                              }
+                              widget.onTagSelected(null);
+                              // currentPage = 0;
+                              selectedChipIndex = null;
+                              // loadRecords();
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              // Fixed editing section
               isEditing
                   ? Padding(
                       padding: const EdgeInsets.symmetric(
@@ -205,6 +226,7 @@ class _TagsManagerState extends State<TagsManager> {
                       child: Column(
                         children: [
                           TextFormField(
+                            style: TextStyle(color: MyColors.secondaryColor),
                             decoration: InputDecoration(
                               fillColor: Colors.white,
                               filled: true,
@@ -219,6 +241,7 @@ class _TagsManagerState extends State<TagsManager> {
                                     color: MyColors.primaryColor, width: 1.0),
                               ),
                               hintText: 'Tag Name',
+                              hintStyle: TextStyle(color: Colors.grey[600]),
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                             ),

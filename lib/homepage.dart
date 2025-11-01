@@ -110,7 +110,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         });
       }
     });
-
   }
 
   @override
@@ -293,7 +292,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   //dialog for delete
   Future<void> _loadFilterSettings() async {
     currentFilterSettings = await filterService.getFilterSettings();
-    debugPrint('🔍 Filter settings loaded: showGoals=${currentFilterSettings?.showGoalRecords}, showRoutines=${currentFilterSettings?.showRoutineRecords}');
+    debugPrint(
+        '🔍 Filter settings loaded: showGoals=${currentFilterSettings?.showGoalRecords}, showRoutines=${currentFilterSettings?.showRoutineRecords}');
     if (mounted) {
       setState(() {});
     }
@@ -386,6 +386,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: Text("CHRONO", style: TextStyle(color: Color.fromARGB(255, 190, 190, 190))),
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: MyColors.secondaryColor,
         //Floating action button on Scaffold
         onPressed: () {
           FocusManager.instance.primaryFocus?.unfocus();
@@ -401,15 +402,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
           //code to execute on button press
         },
-        child: Icon(Icons.add), //icon inside button
+        child: Icon(Icons.add, color: MyColors.fivyColor), //icon inside button
       ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       //floating action button location to left
 
       bottomNavigationBar: BottomAppBar(
+        notchMargin: 4.0,
+
         //bottom navigation bar on scaffold
-        color: MyColors.trecondaryColor,
+        color: MyColors.primaryColor,
         height: 60, // Устанавливаем фиксированную высоту
         shape: const AutomaticNotchedShape(
           RoundedRectangleBorder(
@@ -418,7 +421,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(17)),
+            borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
         ), //shape of notch
         // notchMargin:
@@ -477,6 +480,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: Colors.white,
                     size: 24.0,
                   )),
+              SizedBox(width: 70),
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
@@ -591,6 +595,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: GroupedListView<Record, String>(
                 controller: _scrollController,
                 elements: allRecords,
+                padding: const EdgeInsets.only(bottom: 80),
                 groupBy: (record) {
                   String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
                   return groupDate;
@@ -729,7 +734,6 @@ class _FilterDialogState extends State<FilterDialog> {
               style: TextStyle(color: Colors.white60),
             ),
             value: settings.showGoalRecords,
-            activeColor: MyColors.secondaryColor,
             onChanged: (value) {
               setState(() {
                 settings = settings.copyWith(showGoalRecords: value);
@@ -747,7 +751,6 @@ class _FilterDialogState extends State<FilterDialog> {
               style: TextStyle(color: Colors.white60),
             ),
             value: settings.showRoutineRecords,
-            activeColor: MyColors.secondaryColor,
             onChanged: (value) {
               setState(() {
                 settings = settings.copyWith(showRoutineRecords: value);
@@ -758,19 +761,13 @@ class _FilterDialogState extends State<FilterDialog> {
       ),
       actions: [
         TextButton(
-          child: const Text(
-            'Cancel',
-            style: TextStyle(color: Colors.white70),
-          ),
+          child: const Text('Cancel'),
           onPressed: () {
             Navigator.of(context).pop();
           },
         ),
         TextButton(
-          child: const Text(
-            'Apply',
-            style: TextStyle(color: MyColors.secondaryColor),
-          ),
+          child: const Text('Apply'),
           onPressed: () {
             Navigator.of(context).pop(settings);
           },

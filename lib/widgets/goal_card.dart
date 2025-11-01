@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/goal.model.dart';
 import '../services/timer_service.dart';
+import '../colors.dart';
 
 class GoalCard extends StatelessWidget {
   final Goal goal;
@@ -133,8 +134,8 @@ class GoalCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         height: 72,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(0),
+          color: cardColor2,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -145,7 +146,7 @@ class GoalCard extends StatelessWidget {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F3F5),
+                  color: cardColor3,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
@@ -156,7 +157,7 @@ class GoalCard extends StatelessWidget {
                             ? Icons.pause
                             : Icons.play_arrow,
                     size: 24,
-                    color: const Color(0xFF121417),
+                    color: white,
                   ),
                 ),
               ),
@@ -176,7 +177,7 @@ class GoalCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF121417),
+                        color: white,
                         height: 1.2,
                       ),
                       maxLines: 1,
@@ -193,17 +194,17 @@ class GoalCard extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
                           color:
-                              isRunning ? Colors.green[600] : Colors.grey[600],
+                              isRunning ? Colors.green[400] : MyColors.fivyColor,
                           height: 1.2,
                         ),
                       ),
                     ] else ...[
                       Text(
                         'Time spent: ${goal.formattedTimeSpent}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: Colors.grey[600],
+                          color: MyColors.fivyColor,
                           height: 1.2,
                         ),
                       ),
@@ -219,7 +220,7 @@ class GoalCard extends StatelessWidget {
                           child: Container(
                             height: 4,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDCE1E5),
+                              color: MyColors.forthyColor,
                               borderRadius: BorderRadius.circular(2),
                             ),
                             child: FractionallySizedBox(
@@ -243,7 +244,7 @@ class GoalCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF121417),
+                            color: white,
                           ),
                         ),
                       ],
