@@ -56,15 +56,28 @@ Future<void> sessionCompleteCallback(int alarmId) async {
 
     print('📊 BACKGROUND: Processing session completion for: "${goalAtAlarmTime.title}"');
     print('   - Current time spent: ${_formatTimeStatic(goalAtAlarmTime.timeSpentSeconds)}/${_formatTimeStatic(goalAtAlarmTime.totalSeconds)}');
+    print('   - Session resumed timestamp: ${goalAtAlarmTime.sessionResumedTimestampSeconds}');
 
-    // 🎯 ENHANCED: Better session duration calculation
+    // 🎯 FIX: For resumed sessions, timeSpentSeconds is the baseline (preserved by foreground)
+    // For normal sessions, timeSpentSeconds is also the baseline
+    // This works because foreground no longer updates timeSpentSeconds during resumed sessions
     final int sessionDurationForThisAlarm = _getStaticSessionDurationForGoal(goalAtAlarmTime);
+    final int baselineBeforeThisSession = goalAtAlarmTime.timeSpentSeconds;
+
+    if (goalAtAlarmTime.sessionResumedTimestampSeconds != null && goalAtAlarmTime.sessionResumedTimestampSeconds! > 0) {
+      print('   - ✅ RESUMED SESSION: Using timeSpentSeconds as baseline (preserved from Continue action)');
+      print('   - Baseline: ${_formatTimeStatic(baselineBeforeThisSession)}');
+    } else {
+      print('   - Normal background session continuation');
+      print('   - Baseline: ${_formatTimeStatic(baselineBeforeThisSession)}');
+    }
+
     print('   - Session duration: ${_formatTimeStatic(sessionDurationForThisAlarm)}');
 
-    // 🎯 ENHANCED: More precise completion calculation
-    final newTimeSpentAfterThisSession = goalAtAlarmTime.timeSpentSeconds + sessionDurationForThisAlarm;
+    // 🎯 ENHANCED: Calculate new time from baseline to avoid double-counting
+    final newTimeSpentAfterThisSession = baselineBeforeThisSession + sessionDurationForThisAlarm;
     final isGoalNowActuallyComplete = newTimeSpentAfterThisSession >= goalAtAlarmTime.totalSeconds;
-    
+
     print('   - Time after session: ${_formatTimeStatic(newTimeSpentAfterThisSession)}');
     print('   - Will complete goal: $isGoalNowActuallyComplete');
 
@@ -1135,19 +1148,22 @@ class TimerService extends ChangeNotifier {
 
     try {
       final currentSessionTime = sessionTimeElapsed;
-      
+
       // Validate session time is reasonable
       if (currentSessionTime < 0) {
         print('⚠️ SAVE PROGRESS: Invalid negative session time: $currentSessionTime');
         return;
       }
-      
+
       if (currentSessionTime > 86400) { // More than 24 hours
         print('⚠️ SAVE PROGRESS: Extremely long session time: ${formatTime(currentSessionTime)} - capping at 24 hours');
         // Cap at reasonable maximum
         final cappedSessionTime = 86400;
         final totalTimeSpent = _baselineTimeSpent + cappedSessionTime;
-        final updatedGoal = _activeGoal!.copyWith(timeSpentSeconds: totalTimeSpent);
+        final updatedGoal = _activeGoal!.copyWith(
+          timeSpentSeconds: totalTimeSpent,
+          sessionResumedTimestampSeconds: _isRunning && _sessionStartTime > 0 ? _sessionStartTime : null,
+        );
         await _db.updateGoal(updatedGoal);
         _activeGoal = updatedGoal;
         return;
@@ -1155,21 +1171,52 @@ class TimerService extends ChangeNotifier {
 
       // Calculate total time with validation
       final totalTimeSpent = _baselineTimeSpent + currentSessionTime;
-      
+
       // Ensure we don't exceed the goal (with small buffer for precision)
       final goalTarget = _activeGoal!.totalSeconds;
       final clampedTotal = totalTimeSpent > goalTarget ? goalTarget : totalTimeSpent;
-      
+
       if (totalTimeSpent != clampedTotal) {
         print('⚠️ SAVE PROGRESS: Clamped total time from ${formatTime(totalTimeSpent)} to ${formatTime(clampedTotal)}');
       }
 
-      final updatedGoal = _activeGoal!.copyWith(timeSpentSeconds: clampedTotal);
-      await _db.updateGoal(updatedGoal);
-      _activeGoal = updatedGoal;
+      // 🎯 FIX: For resumed sessions (continued from background), preserve the baseline in the database
+      // The alarm will add the full session duration to this baseline when it fires
+      // Only update sessionResumedTimestampSeconds to keep the session alive
+      final bool isResumedSession = _activeGoal!.sessionResumedTimestampSeconds != null;
 
-      print('Progress saved: ${formatTime(currentSessionTime)} session time, total: ${formatTime(clampedTotal)} (baseline: ${formatTime(_baselineTimeSpent)})');
-      
+      if (isResumedSession) {
+        // This is a resumed session - do NOT update timeSpentSeconds in database
+        // Keep the baseline value so the alarm can use it correctly
+        final updatedGoal = _activeGoal!.copyWith(
+          // timeSpentSeconds is NOT updated - keeps the baseline from when session started
+          sessionResumedTimestampSeconds: _sessionStartTime,
+        );
+        await _db.updateGoal(updatedGoal);
+
+        // Update local cache to reflect current progress for UI
+        _activeGoal = _activeGoal!.copyWith(
+          timeSpentSeconds: clampedTotal,
+          sessionResumedTimestampSeconds: _sessionStartTime,
+        );
+
+        print('💾 SAVE PROGRESS (RESUMED SESSION): Local total: ${formatTime(clampedTotal)}, DB baseline preserved: ${formatTime(_baselineTimeSpent)}');
+        print('   - Database timeSpentSeconds NOT updated (alarm will update when session completes)');
+      } else {
+        // Normal save for non-resumed sessions
+        final updatedGoal = _activeGoal!.copyWith(
+          timeSpentSeconds: clampedTotal,
+          sessionResumedTimestampSeconds: _isRunning && _sessionStartTime > 0 ? _sessionStartTime : null,
+        );
+        await _db.updateGoal(updatedGoal);
+        _activeGoal = updatedGoal;
+
+        print('💾 SAVE PROGRESS: Session time: ${formatTime(currentSessionTime)}, Total: ${formatTime(clampedTotal)}, Baseline: ${formatTime(_baselineTimeSpent)}');
+        if (_isRunning && _sessionStartTime > 0) {
+          print('   - Preserved sessionResumedTimestampSeconds: $_sessionStartTime for background coordination');
+        }
+      }
+
       // Update baseline if we had to clamp (maintains consistency for next calculation)
       if (clampedTotal != totalTimeSpent) {
         _baselineTimeSpent = clampedTotal;
@@ -1460,17 +1507,14 @@ class TimerService extends ChangeNotifier {
     if (activeGoal.sessionResumedTimestampSeconds != null && activeGoal.sessionResumedTimestampSeconds! > 0) {
       _sessionStartTime = activeGoal.sessionResumedTimestampSeconds!;
       print('🔄 RESUME: Using resume timestamp: ${_sessionStartTime}');
-      
-      // Clear the resume timestamp
-      final goalUpdate = activeGoal.copyWith(
-        sessionResumedTimestampSeconds: null,
-        clearSessionResumedTimestamp: true,
-      );
-      await _db.updateGoal(goalUpdate);
-      _activeGoal = goalUpdate;
+
+      // 🎯 FIX: Keep sessionResumedTimestampSeconds set so foreground knows this is a resumed session
+      // This flag tells _saveProgressToDatabase to preserve the baseline in the database
+      _activeGoal = activeGoal;
     } else {
       _sessionStartTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       print('🔄 RESUME: Starting new session at: ${_sessionStartTime}');
+      _activeGoal = activeGoal;
     }
 
     _isRunning = true;
