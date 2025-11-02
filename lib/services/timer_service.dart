@@ -258,13 +258,26 @@ Future<void> _showBackgroundGoalCompleteNotification(
 }
 
 @pragma('vm:entry-point')
-// NEW: Show a running notification from background context
+// NEW: Show a running notification from background context with unified design
 Future<void> _showBackgroundRunningNotification(
     FlutterLocalNotificationsPlugin plugin, Goal goal) async {
   try {
-    print('💡 BG NOTIF: Attempting to show BACKGROUND RUNNING notification for ${goal.title}');
+    print('💡 BG NOTIF: Attempting to show unified running notification for ${goal.title}');
 
-    const androidDetails = AndroidNotificationDetails(
+    // Calculate session progress for the progress bar
+    // When continued from background, we need to calculate session elapsed time
+    final int currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final int sessionStartTime = goal.sessionResumedTimestampSeconds ?? currentTime;
+    final int sessionElapsed = (currentTime - sessionStartTime).clamp(0, 86400);
+    final int sessionDuration = _getStaticSessionDurationForGoal(goal);
+
+    // Calculate progress percentage (0-100) for the current session segment
+    final int progressPercentage = sessionDuration > 0
+        ? ((sessionElapsed / sessionDuration) * 100).round().clamp(0, 100)
+        : 0;
+
+    // Use unified notification format with progress bar
+    final androidDetails = AndroidNotificationDetails(
       'timer_channel', // Same channel as the foreground running notification
       'Timer Notifications',
       channelDescription: 'Notifications for goal timer sessions',
@@ -274,6 +287,10 @@ Future<void> _showBackgroundRunningNotification(
       autoCancel: false,
       showWhen: false,
       icon: '@mipmap/ic_launcher',
+      // Unified progress bar
+      showProgress: true,
+      maxProgress: 100,
+      progress: progressPercentage,
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -282,26 +299,24 @@ Future<void> _showBackgroundRunningNotification(
       presentSound: false,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
 
-    final notificationTitle = '🎯 ${goal.title} (Running)';
-    // Since we don't have live sessionTimeElapsed or goalTimeRemaining here without TimerService state,
-    // we show the overall progress from the goal object itself.
-    final notificationBody =
-        '⏱️ Progress: ${_formatTimeStatic(goal.timeSpentSeconds)} / ${_formatTimeStatic(goal.totalSeconds)}';
+    // Unified format: clean title and elapsed time
+    final notificationTitle = '🎯 ${goal.title}';
+    final notificationBody = '⏱️ ${_formatTimeStatic(goal.timeSpentSeconds)} elapsed';
 
     await plugin.show(
       1, // Use the same ID as the main running notification
       notificationTitle,
       notificationBody,
       details,
-      payload: 'running_goal_${goal.id}', // Optional: payload for if user taps this
+      payload: 'running_goal_${goal.id}',
     );
 
-    print('✅ BACKGROUND: Running notification shown for ${goal.title}');
+    print('✅ BACKGROUND: Unified running notification shown for ${goal.title} (progress: $progressPercentage%)');
   } catch (e) {
     print('❌ BACKGROUND: Failed to show running notification: $e');
   }
@@ -1233,6 +1248,47 @@ class TimerService extends ChangeNotifier {
   }
 
   // Notification methods
+
+  /// Creates unified notification details with progress bar for active goal sessions
+  /// Returns [NotificationDetails] with consistent formatting and visual progress indicator
+  NotificationDetails _createUnifiedNotificationDetails({
+    required int sessionElapsedSeconds,
+    required int sessionDurationSeconds,
+    required int totalElapsedSeconds,
+  }) {
+    // Calculate session progress percentage (0-100)
+    final int progressPercentage = sessionDurationSeconds > 0
+        ? ((sessionElapsedSeconds / sessionDurationSeconds) * 100).round().clamp(0, 100)
+        : 0;
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'timer_channel',
+      'Timer Notifications',
+      channelDescription: 'Notifications for goal timer sessions',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      ongoing: true,
+      autoCancel: false,
+      showWhen: false,
+      icon: '@mipmap/ic_launcher',
+      // Progress bar configuration
+      showProgress: true,
+      maxProgress: 100,
+      progress: progressPercentage,
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: false,
+      presentBadge: true,
+      presentSound: false,
+    );
+
+    return NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+  }
+
   Future<void> _showRunningNotification() async {
     if (_activeGoal == null) {
       print('❌ Cannot show running notification - no active goal');
@@ -1243,35 +1299,17 @@ class TimerService extends ChangeNotifier {
     print('   - Goal: ${_activeGoal!.title}');
     print(
         '   - Session time: ${formatTime(sessionTimeElapsed)}/${formatTime(_getSessionDuration())}');
-    print('   - Goal remaining: ${formatTime(goalTimeRemaining)}');
+    print('   - Total elapsed: ${formatTime(totalTimeElapsed)}');
 
     try {
-      const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-        'timer_channel', // Use the same channel we created
-        'Timer Notifications',
-        channelDescription: 'Notifications for goal timer sessions',
-        importance: Importance.defaultImportance,
-        priority: Priority.defaultPriority,
-        ongoing: true,
-        autoCancel: false,
-        showWhen: false,
-        icon: '@mipmap/ic_launcher',
-      );
-
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics = DarwinNotificationDetails(
-        presentAlert: false, // Don't alert for ongoing notifications
-        presentBadge: true,
-        presentSound: false,
-      );
-
-      const NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
-      );
-
       final notificationTitle = '🎯 ${_activeGoal!.title}';
-      final notificationBody =
-          '⏱️ Elapsed: ${formatTime(totalTimeElapsed)} | Session: ${formatTime(sessionTimeElapsed)} | Goal: ${formatTime(goalTimeRemaining)} left';
+      final notificationBody = '⏱️ ${formatTime(totalTimeElapsed)} elapsed';
+
+      final platformChannelSpecifics = _createUnifiedNotificationDetails(
+        sessionElapsedSeconds: sessionTimeElapsed,
+        sessionDurationSeconds: _getSessionDuration(),
+        totalElapsedSeconds: totalTimeElapsed,
+      );
 
       await _notificationsPlugin.show(
         1,
@@ -1280,7 +1318,7 @@ class TimerService extends ChangeNotifier {
         platformChannelSpecifics,
       );
 
-      print('✅ NOTIFICATION: Running notification updated successfully');
+      print('✅ NOTIFICATION: Running notification updated successfully (${sessionTimeElapsed}/${_getSessionDuration()}s - ${((sessionTimeElapsed / _getSessionDuration()) * 100).round()}%)');
     } catch (e) {
       print('❌ NOTIFICATION ERROR: Failed to show running notification: $e');
     }
