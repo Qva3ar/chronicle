@@ -460,26 +460,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
               IconButton(
-                  onPressed: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const RoutineManagerScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
-                  },
-                  icon: const Icon(
-                    // <-- Icon
-                    Icons.arrow_upward_rounded,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
+                icon: SvgPicture.asset(
+                  'assets/icons/chat.svg', // Replace with the path to your SVG file
+                  width: 28, // Specify the width
+                  height: 28,
+                  // colorFilter: // <-- Use the color filter property to specify the
+                  //     ColorFilter.mode(Color.fromARGB(255, 67, 0, 79), BlendMode.srcIn),
+                ),
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  if (gptNoteBindService.isKeyProvided()) {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ChatPage(
+                                  messageService: messageServie,
+                                )));
+                  } else {
+                    _showApiKeyPopup(context);
+                  }
+                },
+              ),
               SizedBox(width: 70),
               IconButton(
                   onPressed: () {
@@ -503,27 +504,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     size: 24.0,
                   )),
               IconButton(
-                icon: SvgPicture.asset(
-                  'assets/icons/chat.svg', // Replace with the path to your SVG file
-                  width: 28, // Specify the width
-                  height: 28,
-                  // colorFilter: // <-- Use the color filter property to specify the
-                  //     ColorFilter.mode(Color.fromARGB(255, 67, 0, 79), BlendMode.srcIn),
-                ),
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  if (gptNoteBindService.isKeyProvided()) {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ChatPage(
-                                  messageService: messageServie,
-                                )));
-                  } else {
-                    _showApiKeyPopup(context);
-                  }
-                },
-              ),
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const RoutineManagerScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: const Icon(
+                    // <-- Icon
+                    Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
             ],
           ),
         ),

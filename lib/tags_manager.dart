@@ -42,19 +42,18 @@ class TagsManager extends StatefulWidget {
   final void Function(int?) onTagSelected; //
   final int? selectedTag;
 
-  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected})
-      : super(key: key);
+  const TagsManager({Key? key, this.selectedTag, required this.onTagSelected}) : super(key: key);
 
   @override
   _TagsManagerState createState() => _TagsManagerState();
 }
 
 class _TagsManagerState extends State<TagsManager> {
-  RecordService recordService =
-      RecordService(); // Замените RecordService на ваш реальный сервис
+  RecordService recordService = RecordService(); // Замените RecordService на ваш реальный сервис
   final dbHelper = DatabaseHelper.instance;
 
   final TextEditingController _categoryController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final formGlobalKey = GlobalKey<FormState>();
   List<Category> allCategoryData = [];
   late Future<Uint8List> imageBytes;
@@ -91,15 +90,33 @@ class _TagsManagerState extends State<TagsManager> {
     getAllTags();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
+
   Future<void> saveTag() async {
+    bool isNewTag = selectedTag == null;
     if (selectedTag != null) {
-      await recordService.updateTag(
-          selectedTag!.id, _categoryController.text, selectedColor);
+      await recordService.updateTag(selectedTag!.id, _categoryController.text, selectedColor);
     } else {
       await recordService.insertTag(_categoryController.text, selectedColor);
     }
-    getAllTags();
+    await getAllTags();
     _categoryController.text = "";
+
+    // Scroll to bottom to show newly created tag
+    if (isNewTag && _scrollController.hasClients) {
+      Future.delayed(Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
   }
 
   Future<void> removeTag() async {
@@ -169,6 +186,7 @@ class _TagsManagerState extends State<TagsManager> {
               // Scrollable tags section
               Flexible(
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   child: Wrap(
                     spacing: 8.0,
                     runSpacing: 8.0,
@@ -185,9 +203,7 @@ class _TagsManagerState extends State<TagsManager> {
                           ),
                         ),
                         selected: selectedChipIndex == id,
-                        side: selectedChipIndex == id
-                            ? BorderSide(width: 2, color: white)
-                            : null,
+                        side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
                         backgroundColor: Color(int.parse(tag.color!)),
                         onSelected: (bool selected) {
                           setState(() {
@@ -221,8 +237,7 @@ class _TagsManagerState extends State<TagsManager> {
               // Fixed editing section
               isEditing
                   ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 0, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
                       child: Column(
                         children: [
                           TextFormField(
@@ -232,18 +247,14 @@ class _TagsManagerState extends State<TagsManager> {
                               filled: true,
                               focusedBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                    color: const Color.fromARGB(
-                                        255, 223, 234, 229),
-                                    width: 2.0),
+                                    color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: MyColors.primaryColor, width: 1.0),
+                                borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
                               ),
                               hintText: 'Tag Name',
                               hintStyle: TextStyle(color: Colors.grey[600]),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             ),
                             controller: _categoryController,
                             validator: (value) {
@@ -256,8 +267,7 @@ class _TagsManagerState extends State<TagsManager> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: ColorPickerWidget(
-                                selected: selectedTag,
-                                onColorSelected: onColorSelected),
+                                selected: selectedTag, onColorSelected: onColorSelected),
                           ),
                           Row(
                             children: [
@@ -266,12 +276,10 @@ class _TagsManagerState extends State<TagsManager> {
                                 child: TextButton(
                                   style: ButtonStyle(
                                     backgroundColor:
-                                        WidgetStateProperty.all<Color>(
-                                            MyColors.trecondaryColor),
+                                        WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
                                   ),
                                   onPressed: () {
-                                    if (formGlobalKey.currentState!
-                                        .validate()) {
+                                    if (formGlobalKey.currentState!.validate()) {
                                       saveTag();
                                     }
                                   },
@@ -285,12 +293,10 @@ class _TagsManagerState extends State<TagsManager> {
                                   ? TextButton(
                                       style: ButtonStyle(
                                         backgroundColor:
-                                            WidgetStateProperty.all<Color>(
-                                                MyColors.remove),
+                                            WidgetStateProperty.all<Color>(MyColors.remove),
                                       ),
                                       onPressed: () {
-                                        if (formGlobalKey.currentState!
-                                            .validate()) {
+                                        if (formGlobalKey.currentState!.validate()) {
                                           removeTag();
                                         }
                                       },
@@ -318,8 +324,7 @@ class _TagsManagerState extends State<TagsManager> {
     if (kDebugMode) {
       //print('query all rows:');
     }
-    allCategoryData =
-        allRows.map((element) => Category(name: element["name"])).toList();
+    allCategoryData = allRows.map((element) => Category(name: element["name"])).toList();
     setState(() {});
   }
 }
