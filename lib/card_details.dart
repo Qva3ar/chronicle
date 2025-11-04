@@ -12,6 +12,7 @@ import 'package:chrono/record.service.dart';
 import 'package:chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:chrono/screens/tag_form_screen.dart';
 
 class CardDetailPage extends StatefulWidget {
   final String title;
@@ -159,7 +160,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
     recordService.setTagIds(selectedTags);
   }
 
-  void getAllTags() async {
+  Future<void> getAllTags() async {
     allTags = await recordService.queryAllTags();
     setState(() {});
   }
@@ -198,6 +199,30 @@ class _CardDetailPageState extends State<CardDetailPage> {
     super.dispose();
   }
 
+  Future<void> navigateToTagForm() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TagFormScreen(),
+      ),
+    );
+
+    // Reload tags if a tag was created and show the modal again
+    if (result == true) {
+      await getAllTags();
+      await getTags();
+      setState(() {});
+
+      // Automatically reopen the tags modal for better UX
+      // Give a small delay to ensure the UI is updated
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          showTagsModal();
+        }
+      });
+    }
+  }
+
   showTagsModal() {
     showModalBottomSheet(
         context: context,
@@ -216,45 +241,29 @@ class _CardDetailPageState extends State<CardDetailPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Text("Open AI"),
-                      // Padding(
-                      //   padding: const EdgeInsets.only(bottom: 16),
-                      //   child: MultiSelectContainer(
-                      //       key: UniqueKey(),
-                      //       itemsPadding: EdgeInsets.all(10),
-                      //       prefix: MultiSelectPrefix(
-                      //           selectedPrefix: const Padding(
-                      //             padding: EdgeInsets.only(right: 5),
-                      //             child: Icon(
-                      //               Icons.check,
-                      //               color: Colors.white,
-                      //               size: 14,
-                      //             ),
-                      //           ),
-                      //           disabledPrefix: const Padding(
-                      //             padding: EdgeInsets.only(right: 5),
-                      //             child: Icon(
-                      //               Icons.do_disturb_alt_sharp,
-                      //               size: 14,
-                      //             ),
-                      //           )),
-                      //       items: gptTags,
-                      //       // itemsDecoration: MultiSelectDecorations(decoration: InputDecoration( contentPadding: 10)),
-                      //       textStyles: MultiSelectTextStyles(textStyle: TextStyle(fontSize: 16)),
-                      //       onChange: (allSelectedItems, selectedItem) {
-                      //         // var selected = selectedItem as MultiSelectCard;
-                      //         selectedTags = allSelectedItems
-                      //             .whereType<int>() // Отфильтровать только целые числа
-                      //             .toList();
-                      //         ;
-                      //         setTagIds();
-                      //         // setState(() {
-                      //         //   _animals.add(MultiSelectCard(value: 1, label: "1"));
-                      //         // });
-                      //         // //print(_animals.length);
-                      //       }),
-                      // ),
-                      Text("All tags"),
+                      // Header with title and create button
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "All tags",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add, color: Colors.white, size: 24),
+                            onPressed: () {
+                              Navigator.pop(context); // Close the modal first
+                              navigateToTagForm();
+                            },
+                            tooltip: 'Create new tag',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: MultiSelectContainer(

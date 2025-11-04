@@ -1,42 +1,12 @@
 // ignore_for_file: prefer_const_constructors
 
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:chrono/contact_list.dart';
 import 'package:chrono/record.service.dart';
-import 'package:chrono/shared/confirm-dialog.dart';
-import 'package:chrono/tag_color_picker.dart';
-import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
-import 'package:signature/signature.dart';
 
 import 'colors.dart';
 import 'db_manager.dart';
 import 'models/tag.dart';
-import 'mydrawal.dart';
-
-class Animal {
-  final int id;
-  final String name;
-
-  Animal({
-    required this.id,
-    required this.name,
-  });
-}
-
-class Category {
-  late int id;
-  final String name;
-
-  Category({
-    required this.name,
-  });
-}
+import 'package:chrono/screens/tag_form_screen.dart';
 
 class TagsManager extends StatefulWidget {
   final void Function(int?) onTagSelected; //
@@ -49,282 +19,194 @@ class TagsManager extends StatefulWidget {
 }
 
 class _TagsManagerState extends State<TagsManager> {
-  RecordService recordService = RecordService(); // Замените RecordService на ваш реальный сервис
+  RecordService recordService = RecordService();
   final dbHelper = DatabaseHelper.instance;
 
-  final TextEditingController _categoryController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final formGlobalKey = GlobalKey<FormState>();
-  List<Category> allCategoryData = [];
-  late Future<Uint8List> imageBytes;
 
   int? selectedChipIndex;
   List<Tag> allTags = [];
-  Tag addTag = Tag(
-    id: -1,
-    name: "Add/Remove",
-    color: cardColor2.value.toString(),
-  );
-  Tag? selectedTag;
-  bool isEditing = false;
-
-  int selectedColor = Colors.transparent.value;
-
-  void onColorSelected(Color color) {
-    selectedColor = color.value;
-  }
 
   Future<void> getAllTags() async {
     List<Tag> tags = await recordService.queryAllTagsJust();
     setState(() {
       allTags = tags;
-      allTags.add(addTag);
     });
+  }
+
+  Future<void> navigateToTagForm([Tag? tag]) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TagFormScreen(existingTag: tag),
+      ),
+    );
+
+    // Reload tags if a tag was created/updated/deleted
+    if (result == true) {
+      await getAllTags();
+      // If a tag was deleted and it was selected, clear the selection
+      if (tag != null && selectedChipIndex == tag.id) {
+        setState(() {
+          selectedChipIndex = null;
+        });
+        widget.onTagSelected(null);
+      }
+    }
+  }
+
+  Tag? getSelectedTag() {
+    if (selectedChipIndex == null) return null;
+    try {
+      return allTags.firstWhere((tag) => tag.id == selectedChipIndex);
+    } catch (e) {
+      return null;
+    }
   }
 
   @override
   void initState() {
     selectedChipIndex = widget.selectedTag;
     super.initState();
-    _query();
     getAllTags();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _categoryController.dispose();
     super.dispose();
-  }
-
-  Future<void> saveTag() async {
-    bool isNewTag = selectedTag == null;
-    if (selectedTag != null) {
-      await recordService.updateTag(selectedTag!.id, _categoryController.text, selectedColor);
-    } else {
-      await recordService.insertTag(_categoryController.text, selectedColor);
-    }
-    await getAllTags();
-    _categoryController.text = "";
-
-    // Scroll to bottom to show newly created tag
-    if (isNewTag && _scrollController.hasClients) {
-      Future.delayed(Duration(milliseconds: 100), () {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
-    }
-  }
-
-  Future<void> removeTag() async {
-    if (selectedTag != null) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return ConfirmDialog(
-            title: "Tag deletion",
-            message: "Are you sure?",
-            onConfirm: (bool) async {
-              final id = await recordService.deleteTag(selectedTag!.id);
-              if (id) {
-                getAllTags();
-                widget.onTagSelected(null);
-                _categoryController.text = "";
-                selectedTag = null;
-              }
-            },
-          );
-        },
-      );
-    }
-  }
-
-  void setEditing(bool isEdit) {
-    setState(() {
-      isEditing = isEdit;
-    });
-    if (isEditing) {
-      selectTagForEditing();
-    }
-  }
-
-  void selectTagForEditing() {
-    if (isEditing && selectedChipIndex != null) {
-      selectedTag = allTags.firstWhere(
-        (element) => element.id == selectedChipIndex,
-      );
-      if (selectedTag != null) {
-        _categoryController.text = selectedTag!.name;
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedTag = getSelectedTag();
+
     return Container(
       color: MyColors.secondaryColor,
       child: Padding(
         padding: EdgeInsets.all(20),
-        child: Form(
-          key: formGlobalKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Search by Tag",
-                style: TextStyle(
-                  color: white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 8),
-              // Scrollable tags section
-              Flexible(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  child: Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    children: allTags.map((entry) {
-                      final int id = entry.id;
-                      final tag = entry;
-
-                      return ChoiceChip(
-                        label: Text(
-                          tag.name,
-                          style: TextStyle(
-                            color: white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        selected: selectedChipIndex == id,
-                        side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
-                        backgroundColor: Color(int.parse(tag.color!)),
-                        onSelected: (bool selected) {
-                          setState(() {
-                            if (selected) {
-                              if (id == -1) {
-                                setEditing(!isEditing);
-                                return;
-                              }
-                              // currentPage = 0;
-                              widget.onTagSelected(id);
-                              selectedChipIndex = id;
-                              selectTagForEditing();
-                              // loadRecords();
-                            } else {
-                              if (id == -1) {
-                                setEditing(false);
-                                return;
-                              }
-                              widget.onTagSelected(null);
-                              // currentPage = 0;
-                              selectedChipIndex = null;
-                              // loadRecords();
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Search by Tag",
+                  style: TextStyle(
+                    color: white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              // Fixed editing section
-              isEditing
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            style: TextStyle(color: MyColors.secondaryColor),
-                            decoration: InputDecoration(
-                              fillColor: Colors.white,
-                              filled: true,
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: const Color.fromARGB(255, 223, 234, 229), width: 2.0),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: MyColors.primaryColor, width: 1.0),
-                              ),
-                              hintText: 'Tag Name',
-                              hintStyle: TextStyle(color: Colors.grey[600]),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            ),
-                            controller: _categoryController,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Write Tag name';
-                              }
-                              return null;
-                            },
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: ColorPickerWidget(
-                                selected: selectedTag, onColorSelected: onColorSelected),
-                          ),
-                          Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 20),
-                                child: TextButton(
-                                  style: ButtonStyle(
-                                    backgroundColor:
-                                        WidgetStateProperty.all<Color>(MyColors.trecondaryColor),
-                                  ),
-                                  onPressed: () {
-                                    if (formGlobalKey.currentState!.validate()) {
-                                      saveTag();
-                                    }
-                                  },
-                                  child: Text(
-                                    "Save",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              selectedTag != null
-                                  ? TextButton(
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            WidgetStateProperty.all<Color>(MyColors.remove),
-                                      ),
-                                      onPressed: () {
-                                        if (formGlobalKey.currentState!.validate()) {
-                                          removeTag();
-                                        }
-                                      },
-                                      child: Text(
-                                        "Remove",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    )
-                                  : Container()
-                            ],
-                          ),
-                        ],
+                Row(
+                  children: [
+                    // Edit button (only shown when tag is selected)
+                    if (selectedTag != null)
+                      IconButton(
+                        icon: Icon(Icons.edit, color: white, size: 20),
+                        onPressed: () => navigateToTagForm(selectedTag),
+                        tooltip: 'Edit tag',
                       ),
-                    )
-                  : Container()
+                    // Create new tag button
+                    IconButton(
+                      icon: Icon(Icons.add, color: white, size: 24),
+                      onPressed: () => navigateToTagForm(),
+                      tooltip: 'Create new tag',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            // Scrollable tags section
+            Flexible(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: allTags.map((tag) {
+                    final int id = tag.id;
+
+                    return ChoiceChip(
+                      label: Text(
+                        tag.name,
+                        style: TextStyle(
+                          color: white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      selected: selectedChipIndex == id,
+                      side: selectedChipIndex == id
+                        ? BorderSide(width: 2, color: white)
+                        : null,
+                      backgroundColor: Color(int.parse(tag.color!)),
+                      onSelected: (bool selected) {
+                        setState(() {
+                          if (selected) {
+                            widget.onTagSelected(id);
+                            selectedChipIndex = id;
+                          } else {
+                            widget.onTagSelected(null);
+                            selectedChipIndex = null;
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            // Selected tag indicator at the bottom
+            if (selectedTag != null) ...[
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: MyColors.primaryColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Color(int.parse(selectedTag.color!)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Selected: ${selectedTag.name}',
+                        style: TextStyle(
+                          color: white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: white, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          selectedChipIndex = null;
+                        });
+                        widget.onTagSelected(null);
+                      },
+                      tooltip: 'Clear selection',
+                    ),
+                  ],
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  void _query() async {
-    final allRows = await dbHelper.queryAllRows();
-    if (kDebugMode) {
-      //print('query all rows:');
-    }
-    allCategoryData = allRows.map((element) => Category(name: element["name"])).toList();
-    setState(() {});
-  }
 }
