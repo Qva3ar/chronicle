@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 import '../record.service.dart';
+import '../main.dart';
+import '../screens/goals_screen.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 
@@ -1374,6 +1376,38 @@ class TimerService extends ChangeNotifier {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  // Handle notification tap to navigate to Goals screen
+  void _handleNotificationTap(NotificationResponse response) {
+    if (response.payload == null || response.payload!.isEmpty) {
+      print('Goal notification tapped but no payload provided');
+      return;
+    }
+
+    print('📱 Goal notification tapped with payload: ${response.payload}');
+
+    try {
+      // Use the global navigator key to show bottom sheet
+      final context = navigatorKey.currentContext;
+      if (context == null) {
+        print('⚠️ No navigation context available');
+        return;
+      }
+
+      print('🚀 Navigating to Goals screen');
+
+      // Show the Goals bottom sheet
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => const GoalsScreen(),
+      );
+    } catch (e, stackTrace) {
+      print('❌ Error handling goal notification tap: $e');
+      print('Stack trace: $stackTrace');
+    }
+  }
+
   // Initialize notifications
   Future<void> _initializeNotifications() async {
     try {
@@ -1401,14 +1435,7 @@ class TimerService extends ChangeNotifier {
 
       bool? initialized = await _notificationsPlugin.initialize(
         initSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          // Handle notification clicks
-          print('Notification clicked: ${response.payload}');
-          if (response.payload?.startsWith('session_complete_') == true) {
-            // Handle session complete notification click
-            // You can navigate to the goal details or start a new session
-          }
-        },
+        onDidReceiveNotificationResponse: _handleNotificationTap,
         onDidReceiveBackgroundNotificationResponse:
             backgroundNotificationActionHandler, // REGISTER THE HANDLER
       );

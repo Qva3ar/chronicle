@@ -7,6 +7,9 @@ import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/colors.dart';
 
+// Global navigator key for navigation from notifications
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   try {
     print('Starting app initialization...');
@@ -49,6 +52,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Goal Manager',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

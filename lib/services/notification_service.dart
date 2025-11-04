@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -11,6 +11,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/routine_service.dart'; // Ensure this path is correct
 import 'package:chrono/services/goal_service.dart';
+import 'package:chrono/main.dart';
+import 'package:chrono/screens/goals_screen.dart';
+import 'package:chrono/screens/routine_manager_screen.dart';
 
 // Top-level or static callback function for the daily reset alarm
 @pragma('vm:entry-point')
@@ -165,7 +168,7 @@ class NotificationService {
 
       await _notifications.initialize(
         initSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {},
+        onDidReceiveNotificationResponse: _handleNotificationTap,
       );
 
       if (Platform.isAndroid) {
@@ -191,6 +194,73 @@ class NotificationService {
     } finally {
       _isInitializing = false;
     }
+  }
+
+  // Handle notification tap to navigate to appropriate screen
+  void _handleNotificationTap(NotificationResponse response) {
+    if (response.payload == null || response.payload!.isEmpty) {
+      debugPrint('Notification tapped but no payload provided');
+      return;
+    }
+
+    debugPrint('📱 Notification tapped with payload: ${response.payload}');
+
+    try {
+      final payload = response.payload!;
+      final parts = payload.split('_');
+
+      if (parts.length < 2) {
+        debugPrint('⚠️ Invalid payload format: $payload');
+        return;
+      }
+
+      final type = parts[0];
+      final id = int.tryParse(parts[parts.length - 1]);
+
+      if (id == null) {
+        debugPrint('⚠️ Could not parse ID from payload: $payload');
+        return;
+      }
+
+      // Use the global navigator key to show bottom sheet
+      final context = navigatorKey.currentContext;
+      if (context == null) {
+        debugPrint('⚠️ No navigation context available');
+        return;
+      }
+
+      debugPrint('🚀 Navigating to $type details for ID: $id');
+
+      // Navigate based on notification type
+      if (type == 'routine') {
+        _showRoutineBottomSheet(context);
+      } else if (type == 'goal' || type == 'running' || type == 'session') {
+        _showGoalBottomSheet(context);
+      } else {
+        debugPrint('⚠️ Unknown notification type: $type');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error handling notification tap: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  void _showRoutineBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const RoutineManagerScreen(),
+    );
+  }
+
+  void _showGoalBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const GoalsScreen(),
+    );
   }
 
   @pragma('vm:entry-point')
@@ -317,7 +387,8 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time, // Be cautious with this if dates vary
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: 'routine_$routineId',
       );
 
       if (Platform.isAndroid && numberOfRetries > 0) {
@@ -475,6 +546,7 @@ class NotificationService {
             presentSound: true,
           ),
         ),
+        payload: 'routine_$routineId',
       );
 
       // Schedule the NEXT retry if applicable
