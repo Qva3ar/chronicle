@@ -26,17 +26,8 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
 
   Future<void> _loadRoutines() async {
     final routines = await _db.getAllRoutines();
-
-    // Calculate streaks for all routines based on their completion history
-    for (var routineMap in routines) {
-      final routineId = routineMap['_id'] as int;
-      await _db.calculateAndUpdateRoutineStreak(routineId);
-    }
-
-    // Reload routines with updated streak data
-    final updatedRoutines = await _db.getAllRoutines();
     setState(() {
-      _routines = updatedRoutines.map((r) => Routine.fromMap(r)).toList();
+      _routines = routines.map((r) => Routine.fromMap(r)).toList();
     });
   }
 

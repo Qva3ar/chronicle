@@ -414,7 +414,16 @@ class DatabaseHelper {
           ALTER TABLE ${DatabaseTables.routines}
           ADD COLUMN ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1
         ''');
-        log('Upgraded database to v23: Added streak tracking columns to routines table.');
+
+        // ONE-TIME: Calculate streaks for existing routines based on completion history
+        log('Calculating streaks for existing routines...');
+        final routines = await db.query(DatabaseTables.routines);
+        for (var routine in routines) {
+          final routineId = routine[DatabaseColumns.id] as int;
+          await _calculateAndUpdateStreakForMigration(db, routineId);
+        }
+
+        log('Upgraded database to v23: Added streak tracking columns and calculated existing streaks.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -729,23 +738,18 @@ class DatabaseHelper {
     }
   }
 
-  /// Calculate and update streak for a routine based on completion history
-  Future<void> calculateAndUpdateRoutineStreak(int routineId) async {
+  /// Internal helper for migration: Calculate and update streak for a routine
+  Future<void> _calculateAndUpdateStreakForMigration(Database db, int routineId) async {
     try {
-      final Database db = await instance.database;
-      final records = await getRecordsByRoutineId(routineId);
+      final records = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordRoutineId} = ?',
+        whereArgs: [routineId],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
 
       if (records.isEmpty) {
-        // No completions, reset streak
-        await db.update(
-          DatabaseTables.routines,
-          {
-            DatabaseColumns.routineStreak: 0,
-            DatabaseColumns.routineLastCompletedDate: null,
-          },
-          where: '${DatabaseColumns.id} = ?',
-          whereArgs: [routineId],
-        );
+        // No completions, keep default streak of 0
         return;
       }
 
@@ -800,10 +804,10 @@ class DatabaseHelper {
         whereArgs: [routineId],
       );
 
-      log('Updated routine $routineId: streak=$streak, lastCompleted=$lastCompletedDate');
+      log('Migration: Updated routine $routineId: streak=$streak, lastCompleted=$lastCompletedDate');
     } catch (e) {
-      log('Error calculating routine streak: $e');
-      rethrow;
+      log('Error calculating routine streak during migration: $e');
+      // Don't rethrow during migration - continue with other routines
     }
   }
 
