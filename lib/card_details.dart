@@ -226,7 +226,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   showTagsModal() {
     showModalBottomSheet(
         context: context,
-        backgroundColor: MyColors.secondaryColor,
+        backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (context) {
           return Padding(
@@ -523,7 +523,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
       Container(
         height: 70, // Height of the bottom bar
         decoration: BoxDecoration(
-          color: Color.fromARGB(255, 80, 80, 80),
+          color: MyColors.primaryColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
         ),
         child: Padding(

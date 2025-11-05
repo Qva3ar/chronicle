@@ -82,7 +82,11 @@ class _TagsManagerState extends State<TagsManager> {
     final selectedTag = getSelectedTag();
 
     return Container(
-      color: MyColors.secondaryColor,
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: const BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Padding(
         padding: EdgeInsets.all(20),
         child: Column(
@@ -139,9 +143,7 @@ class _TagsManagerState extends State<TagsManager> {
                         ),
                       ),
                       selected: selectedChipIndex == id,
-                      side: selectedChipIndex == id
-                        ? BorderSide(width: 2, color: white)
-                        : null,
+                      side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
                       backgroundColor: Color(int.parse(tag.color!)),
                       onSelected: (bool selected) {
                         setState(() {
@@ -208,5 +210,4 @@ class _TagsManagerState extends State<TagsManager> {
       ),
     );
   }
-
 }

@@ -56,8 +56,7 @@ class MyDrawal extends StatelessWidget {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => InstructionsPage()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => InstructionsPage()));
               },
             ),
             Divider(
@@ -87,25 +86,7 @@ class MyDrawal extends StatelessWidget {
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
-                Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => SettingsPage()));
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'ROUTINE MANAGER',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const RoutineManagerScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
               },
             ),
 

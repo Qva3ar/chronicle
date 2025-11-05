@@ -1,3 +1,4 @@
+import 'package:chrono/colors.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +91,7 @@ class RecordListItem extends StatelessWidget {
                               ),
                               child: Center(
                                 child: Text(
-                                  tag.name ?? 'Unnamed Tag',
+                                  tag.name,
                                   style: const TextStyle(color: Colors.black, fontSize: 12),
                                 ),
                               ),
@@ -101,7 +102,7 @@ class RecordListItem extends StatelessWidget {
                     ),
                   if (tags.isEmpty) const Spacer(),
                   Text(
-                    'Created: ${DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(item.createdAt))}',
+                    _formatDateTime(context, item.createdAt),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white70,
@@ -131,7 +132,7 @@ class RecordListItem extends StatelessWidget {
       case 'goal':
         return Color.fromARGB(255, 60, 90, 60);
       default:
-        return Color.fromARGB(255, 80, 80, 80);
+        return MyColors.primaryColor;
     }
   }
 
@@ -165,5 +166,14 @@ class RecordListItem extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatDateTime(BuildContext context, int timestamp) {
+    final locale = Localizations.localeOf(context).toString();
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    // Use locale-aware formatting with 24-hour time and localized date
+    final timeFormatter = DateFormat.Hm(locale);
+    final dateFormatter = DateFormat.yMd(locale);
+    return '${timeFormatter.format(dateTime)} ${dateFormatter.format(dateTime)}';
   }
 }

@@ -208,11 +208,13 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel', style: TextStyle(color: MyColors.fivyColor)),
+                                    child: const Text('Cancel',
+                                        style: TextStyle(color: MyColors.fivyColor)),
                                   ),
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+                                    child: const Text('Delete',
+                                        style: TextStyle(color: MyColors.remove)),
                                   ),
                                 ],
                               ),

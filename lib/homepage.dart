@@ -439,16 +439,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                   showModalBottomSheet(
                       context: context,
-                      backgroundColor: MyColors.secondaryColor,
+                      backgroundColor: Colors.transparent,
                       isScrollControlled: true,
                       builder: (context) {
-                        return Padding(
-                          padding:
-                              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                          child: TagsManager(
-                            selectedTag: selectedChipIndex,
-                            onTagSelected: onTagSelected,
-                          ),
+                        return TagsManager(
+                          selectedTag: selectedChipIndex,
+                          onTagSelected: onTagSelected,
                         );
                       });
                 },
@@ -595,7 +591,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: GroupedListView<Record, String>(
                 controller: _scrollController,
                 elements: allRecords,
-                padding: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.only(bottom: 30),
                 groupBy: (record) {
                   String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
                   return groupDate;
