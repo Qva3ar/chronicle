@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 22;
+  static const int databaseVersion = 23;
   static const int pageSize = 20;
 }
 
@@ -54,6 +54,9 @@ class DatabaseColumns {
   static const String routinePeriodAfter = 'period_after';
   static const String routineInterval = 'interval';
   static const String routineIsDone = 'is_done';
+  static const String routineStreak = 'streak';
+  static const String routineLastCompletedDate = 'last_completed_date';
+  static const String routineShowStreak = 'show_streak';
 
   // Goal table columns
   static const String goalTitle = 'title';
@@ -237,7 +240,10 @@ class DatabaseHelper {
           ${DatabaseColumns.routineDaysOfWeek} TEXT NOT NULL,
           ${DatabaseColumns.routinePeriodAfter} INTEGER NOT NULL,
           ${DatabaseColumns.routineInterval} INTEGER NOT NULL,
-          ${DatabaseColumns.routineIsDone} INTEGER NOT NULL DEFAULT 0
+          ${DatabaseColumns.routineIsDone} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.routineStreak} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.routineLastCompletedDate} TEXT,
+          ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1
         )
       ''');
 
@@ -392,6 +398,23 @@ class DatabaseHelper {
           ALTER TABLE ${DatabaseTables.record}
           ADD COLUMN ${DatabaseColumns.recordRoutineId} INTEGER
         ''');
+      }
+
+      if (oldVersion < 23) {
+        // Add streak tracking columns to routines table
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routineStreak} INTEGER NOT NULL DEFAULT 0
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routineLastCompletedDate} TEXT
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1
+        ''');
+        log('Upgraded database to v23: Added streak tracking columns to routines table.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -686,6 +709,100 @@ class DatabaseHelper {
       return recordsData.map((data) => Record.fromMap(data)).toList();
     } catch (e) {
       log('Error getting records by IDs: $e');
+      rethrow;
+    }
+  }
+
+  /// Get records by routine ID
+  Future<List<Map<String, dynamic>>> getRecordsByRoutineId(int routineId) async {
+    try {
+      final Database db = await instance.database;
+      return await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordRoutineId} = ?',
+        whereArgs: [routineId],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
+    } catch (e) {
+      log('Error getting records by routine ID: $e');
+      rethrow;
+    }
+  }
+
+  /// Calculate and update streak for a routine based on completion history
+  Future<void> calculateAndUpdateRoutineStreak(int routineId) async {
+    try {
+      final Database db = await instance.database;
+      final records = await getRecordsByRoutineId(routineId);
+
+      if (records.isEmpty) {
+        // No completions, reset streak
+        await db.update(
+          DatabaseTables.routines,
+          {
+            DatabaseColumns.routineStreak: 0,
+            DatabaseColumns.routineLastCompletedDate: null,
+          },
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [routineId],
+        );
+        return;
+      }
+
+      // Get completion dates (normalized to date only, no time)
+      final Set<String> completionDates = {};
+      for (var record in records) {
+        final timestamp = record[DatabaseColumns.recordCreatedAt] as int;
+        final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        completionDates.add(dateStr);
+      }
+
+      // Sort dates in descending order
+      final sortedDates = completionDates.toList()..sort((a, b) => b.compareTo(a));
+
+      // Get the most recent completion date
+      final lastCompletedDate = sortedDates.first;
+      final lastDate = DateTime.parse(lastCompletedDate);
+      final today = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(today);
+      final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
+
+      // Calculate streak
+      int streak = 0;
+
+      // Only count streak if last completion was today or yesterday
+      if (lastCompletedDate == todayStr || lastCompletedDate == yesterdayStr) {
+        // Start from the most recent date and count backwards
+        DateTime checkDate = lastDate;
+
+        for (int i = 0; i < sortedDates.length; i++) {
+          final dateStr = DateFormat('yyyy-MM-dd').format(checkDate);
+
+          if (completionDates.contains(dateStr)) {
+            streak++;
+            checkDate = checkDate.subtract(const Duration(days: 1));
+          } else {
+            // Gap found, stop counting
+            break;
+          }
+        }
+      }
+
+      // Update the routine
+      await db.update(
+        DatabaseTables.routines,
+        {
+          DatabaseColumns.routineStreak: streak,
+          DatabaseColumns.routineLastCompletedDate: lastCompletedDate,
+        },
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+
+      log('Updated routine $routineId: streak=$streak, lastCompleted=$lastCompletedDate');
+    } catch (e) {
+      log('Error calculating routine streak: $e');
       rethrow;
     }
   }
@@ -999,16 +1116,64 @@ class DatabaseHelper {
     }
   }
 
-  /// Mark routine as done/undone
+  /// Mark routine as done/undone with streak tracking
   Future<int> toggleRoutineDone(int id, bool isDone) async {
     try {
       final Database db = await instance.database;
-      return await db.update(
-        DatabaseTables.routines,
-        {DatabaseColumns.routineIsDone: isDone ? 1 : 0},
-        where: '${DatabaseColumns.id} = ?',
-        whereArgs: [id],
-      );
+
+      if (isDone) {
+        // Get current routine data
+        final List<Map<String, dynamic>> routineData = await db.query(
+          DatabaseTables.routines,
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [id],
+        );
+
+        if (routineData.isEmpty) {
+          throw Exception('Routine not found');
+        }
+
+        final currentRoutine = routineData.first;
+        final String? lastCompletedDate = currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
+        final int currentStreak = currentRoutine[DatabaseColumns.routineStreak] as int? ?? 0;
+
+        // Calculate new streak
+        final DateTime now = DateTime.now();
+        final String today = DateFormat('yyyy-MM-dd').format(now);
+        int newStreak = 1;
+
+        if (lastCompletedDate != null) {
+          final DateTime lastCompleted = DateTime.parse(lastCompletedDate);
+          final DateTime yesterday = now.subtract(const Duration(days: 1));
+
+          // Check if last completion was yesterday (comparing dates only, not time)
+          if (lastCompleted.year == yesterday.year &&
+              lastCompleted.month == yesterday.month &&
+              lastCompleted.day == yesterday.day) {
+            newStreak = currentStreak + 1;
+          }
+        }
+
+        // Update routine with new streak data
+        return await db.update(
+          DatabaseTables.routines,
+          {
+            DatabaseColumns.routineIsDone: 1,
+            DatabaseColumns.routineStreak: newStreak,
+            DatabaseColumns.routineLastCompletedDate: today,
+          },
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [id],
+        );
+      } else {
+        // Just update isDone status when marking as undone
+        return await db.update(
+          DatabaseTables.routines,
+          {DatabaseColumns.routineIsDone: 0},
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [id],
+        );
+      }
     } catch (e) {
       log('Error toggling routine done status: $e');
       rethrow;

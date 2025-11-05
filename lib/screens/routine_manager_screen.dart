@@ -1,8 +1,10 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/screens/routine_calendar_screen.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
   const RoutineManagerScreen({super.key});
@@ -24,8 +26,17 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
 
   Future<void> _loadRoutines() async {
     final routines = await _db.getAllRoutines();
+
+    // Calculate streaks for all routines based on their completion history
+    for (var routineMap in routines) {
+      final routineId = routineMap['_id'] as int;
+      await _db.calculateAndUpdateRoutineStreak(routineId);
+    }
+
+    // Reload routines with updated streak data
+    final updatedRoutines = await _db.getAllRoutines();
     setState(() {
-      _routines = routines.map((r) => Routine.fromMap(r)).toList();
+      _routines = updatedRoutines.map((r) => Routine.fromMap(r)).toList();
     });
   }
 
@@ -53,7 +64,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
           Navigator.pop(context, true); // Pop with true to indicate records need refresh
         }
       } catch (e) {
-        print('ERROR: Failed to create routine record: $e');
+        log('ERROR: Failed to create routine record: $e');
         // Show error to user
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -88,32 +99,21 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
     }
   }
 
-  Future<void> _deleteRoutine(Routine routine) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Routine'),
-        content: Text('Are you sure you want to delete "${routine.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
+  Future<void> _showCalendarHistory(Routine routine) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RoutineCalendarScreen(routine: routine),
       ),
     );
+  }
 
-    if (confirmed == true) {
-      // Remove all routine data including notifications and alarms
-      await _notifications.cancelRoutineNotification(routine.id!);
-      // Delete the routine from database
-      await _db.deleteRoutine(routine.id!);
-      await _loadRoutines();
-    }
+  Future<void> _deleteRoutine(Routine routine) async {
+    // Remove all routine data including notifications and alarms
+    await _notifications.cancelRoutineNotification(routine.id!);
+    // Delete the routine from database
+    await _db.deleteRoutine(routine.id!);
+    await _loadRoutines();
   }
 
   @override
@@ -175,7 +175,31 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
                           child: const Icon(Icons.delete, color: white),
                         ),
                         onDismissed: (_) => _deleteRoutine(routine),
+                        confirmDismiss: (direction) async {
+                          return await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: cardColor,
+                              title: const Text('Delete Routine', style: TextStyle(color: white)),
+                              content: Text(
+                                'Are you sure you want to delete "${routine.name}"?',
+                                style: const TextStyle(color: white),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel', style: TextStyle(color: MyColors.fivyColor)),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                         child: ListTile(
+                          onTap: () => _showRoutineForm(routine),
                           leading: Checkbox(
                             value: routine.isDone,
                             onChanged: (_) => _toggleRoutineDone(routine),
@@ -203,13 +227,36 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (routine.showStreak && routine.streak > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: MyColors.fivyColor.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text('🔥', style: TextStyle(fontSize: 16)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${routine.streak}',
+                                          style: const TextStyle(
+                                            color: MyColors.fivyColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               IconButton(
-                                icon: const Icon(Icons.edit, color: white),
-                                onPressed: () => _showRoutineForm(routine),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: MyColors.remove),
-                                onPressed: () => _deleteRoutine(routine),
+                                icon: const Icon(Icons.calendar_today, color: MyColors.fivyColor),
+                                onPressed: () => _showCalendarHistory(routine),
+                                tooltip: 'View completion history',
                               ),
                             ],
                           ),
@@ -303,6 +350,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
   final List<bool> _daysOfWeek = List.filled(7, false);
   int _periodAfter = 30;
   int _interval = 10;
+  bool _showStreak = true;
 
   @override
   void initState() {
@@ -313,6 +361,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       _daysOfWeek.setAll(0, widget.routine!.daysOfWeek);
       _periodAfter = widget.routine!.periodAfter;
       _interval = widget.routine!.interval;
+      _showStreak = widget.routine!.showStreak;
     }
   }
 
@@ -353,6 +402,9 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       daysOfWeek: _daysOfWeek,
       periodAfter: _periodAfter,
       interval: _interval,
+      showStreak: _showStreak,
+      streak: widget.routine?.streak ?? 0,
+      lastCompletedDate: widget.routine?.lastCompletedDate,
     );
 
     final db = DatabaseHelper.instance;
@@ -466,7 +518,18 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Show Streak'),
+              subtitle: const Text('Display streak count when completing this routine'),
+              value: _showStreak,
+              onChanged: (value) {
+                setState(() {
+                  _showStreak = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saveRoutine,
               child: Text(widget.routine == null ? 'Add Routine' : 'Save Changes'),

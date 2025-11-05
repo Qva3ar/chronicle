@@ -8,6 +8,9 @@ class Routine {
   final int periodAfter;
   final int interval;
   final bool isDone;
+  final int streak;
+  final String? lastCompletedDate;
+  final bool showStreak;
 
   Routine({
     this.id,
@@ -17,6 +20,9 @@ class Routine {
     required this.periodAfter,
     required this.interval,
     this.isDone = false,
+    this.streak = 0,
+    this.lastCompletedDate,
+    this.showStreak = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +35,9 @@ class Routine {
       'period_after': periodAfter,
       'interval': interval,
       'is_done': isDone ? 1 : 0,
+      'streak': streak,
+      'last_completed_date': lastCompletedDate,
+      'show_streak': showStreak ? 1 : 0,
     };
   }
 
@@ -47,6 +56,9 @@ class Routine {
       periodAfter: map['period_after'] as int,
       interval: map['interval'] as int,
       isDone: map['is_done'] == 1,
+      streak: map['streak'] as int? ?? 0,
+      lastCompletedDate: map['last_completed_date'] as String?,
+      showStreak: (map['show_streak'] as int? ?? 1) == 1,
     );
   }
 
@@ -58,6 +70,9 @@ class Routine {
     int? periodAfter,
     int? interval,
     bool? isDone,
+    int? streak,
+    String? lastCompletedDate,
+    bool? showStreak,
   }) {
     return Routine(
       id: id ?? this.id,
@@ -67,6 +82,9 @@ class Routine {
       periodAfter: periodAfter ?? this.periodAfter,
       interval: interval ?? this.interval,
       isDone: isDone ?? this.isDone,
+      streak: streak ?? this.streak,
+      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
+      showStreak: showStreak ?? this.showStreak,
     );
   }
 
