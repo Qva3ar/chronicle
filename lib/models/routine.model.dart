@@ -131,4 +131,12 @@ class Routine {
     // This should never happen if at least one day is active
     return now;
   }
+
+  /// Returns the number of minutes until the next occurrence of this routine
+  /// Used for sorting routines by proximity to current time
+  int minutesUntilNext() {
+    final now = DateTime.now();
+    final nextOccurrence = getNextOccurrence();
+    return nextOccurrence.difference(now).inMinutes;
+  }
 }

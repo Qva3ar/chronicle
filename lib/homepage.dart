@@ -595,7 +595,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: GroupedListView<Record, String>(
                 controller: _scrollController,
                 elements: allRecords,
-                padding: const EdgeInsets.only(bottom: 80),
+                padding: const EdgeInsets.only(bottom: 20),
                 groupBy: (record) {
                   String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
                   return groupDate;

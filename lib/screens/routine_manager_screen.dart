@@ -26,8 +26,26 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
 
   Future<void> _loadRoutines() async {
     final routines = await _db.getAllRoutines();
+    final routineList = routines.map((r) => Routine.fromMap(r)).toList();
+
+    // Sort routines by proximity to current time
+    // Completed routines go to the end
+    routineList.sort((a, b) {
+      // Put completed routines at the end
+      if (a.isDone && !b.isDone) return 1;
+      if (!a.isDone && b.isDone) return -1;
+
+      // For non-completed routines, sort by time proximity
+      if (!a.isDone && !b.isDone) {
+        return a.minutesUntilNext().compareTo(b.minutesUntilNext());
+      }
+
+      // For completed routines, maintain their relative order by time
+      return a.minutesUntilNext().compareTo(b.minutesUntilNext());
+    });
+
     setState(() {
-      _routines = routines.map((r) => Routine.fromMap(r)).toList();
+      _routines = routineList;
     });
   }
 
