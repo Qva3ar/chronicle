@@ -158,39 +158,56 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
                       final routine = _routines[index];
                       return Dismissible(
                         key: Key(routine.id.toString()),
-                        direction: DismissDirection.endToStart,
+                        direction: DismissDirection.horizontal,
                         background: Container(
+                          color: MyColors.fivyColor,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 16),
+                          child: const Icon(Icons.edit, color: white),
+                        ),
+                        secondaryBackground: Container(
                           color: MyColors.remove,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 16),
                           child: const Icon(Icons.delete, color: white),
                         ),
-                        onDismissed: (_) => _deleteRoutine(routine),
                         confirmDismiss: (direction) async {
-                          return await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: cardColor,
-                              title: const Text('Delete Routine', style: TextStyle(color: white)),
-                              content: Text(
-                                'Are you sure you want to delete "${routine.name}"?',
-                                style: const TextStyle(color: white),
+                          if (direction == DismissDirection.startToEnd) {
+                            // Swipe right - edit
+                            _showRoutineForm(routine);
+                            return false; // Don't dismiss
+                          } else {
+                            // Swipe left - delete
+                            return await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: cardColor,
+                                title: const Text('Delete Routine', style: TextStyle(color: white)),
+                                content: Text(
+                                  'Are you sure you want to delete "${routine.name}"?',
+                                  style: const TextStyle(color: white),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel', style: TextStyle(color: MyColors.fivyColor)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+                                  ),
+                                ],
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel', style: TextStyle(color: MyColors.fivyColor)),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
-                                ),
-                              ],
-                            ),
-                          );
+                            );
+                          }
+                        },
+                        onDismissed: (direction) {
+                          if (direction == DismissDirection.endToStart) {
+                            _deleteRoutine(routine);
+                          }
                         },
                         child: ListTile(
-                          onTap: () => _showRoutineForm(routine),
+                          onTap: () => _toggleRoutineDone(routine),
                           leading: Checkbox(
                             value: routine.isDone,
                             onChanged: (_) => _toggleRoutineDone(routine),
