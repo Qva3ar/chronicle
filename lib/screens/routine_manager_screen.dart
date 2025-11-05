@@ -394,6 +394,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       periodAfter: _periodAfter,
       interval: _interval,
       showStreak: _showStreak,
+      isDone: widget.routine?.isDone ?? false,
       streak: widget.routine?.streak ?? 0,
       lastCompletedDate: widget.routine?.lastCompletedDate,
     );
