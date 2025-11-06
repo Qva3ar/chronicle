@@ -231,6 +231,14 @@ class NotificationService {
 
       debugPrint('🚀 Navigating to $type details for ID: $id');
 
+      // Check if a bottom sheet is already open
+      final isBottomSheetOpen = _isBottomSheetAlreadyOpen(context);
+
+      if (isBottomSheetOpen) {
+        debugPrint('⚠️ Bottom sheet already open, skipping duplicate');
+        return;
+      }
+
       // Navigate based on notification type
       if (type == 'routine') {
         _showRoutineBottomSheet(context);
@@ -243,6 +251,17 @@ class NotificationService {
       debugPrint('❌ Error handling notification tap: $e');
       debugPrint('Stack trace: $stackTrace');
     }
+  }
+
+  bool _isBottomSheetAlreadyOpen(BuildContext context) {
+    // Check if the current route is a modal bottom sheet
+    final ModalRoute? currentRoute = ModalRoute.of(context);
+    if (currentRoute == null) return false;
+
+    // Check if there's a modal route being presented
+    return currentRoute.isCurrent &&
+           Navigator.of(context).canPop() &&
+           currentRoute is! PageRoute;
   }
 
   void _showRoutineBottomSheet(BuildContext context) {

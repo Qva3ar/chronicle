@@ -68,10 +68,8 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
         await _notifications.markRoutineDone(routine.id!);
         await _notifications.cancelRoutineNotification(routine.id!);
 
-        // Notify parent to refresh records
-        if (mounted) {
-          Navigator.pop(context, true); // Pop with true to indicate records need refresh
-        }
+        // Don't close the bottom sheet - keep it open for more interactions
+        // The parent will refresh records automatically when the bottom sheet is dismissed
       } catch (e) {
         log('ERROR: Failed to create routine record: $e');
         // Show error to user
