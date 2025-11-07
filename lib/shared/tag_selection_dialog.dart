@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/models/tag.dart';
+import 'package:chrono/db_manager.dart';
 
 /// Dialog for selecting multiple tags to include in AI context
 class TagSelectionDialog extends StatefulWidget {
@@ -20,12 +21,44 @@ class TagSelectionDialog extends StatefulWidget {
 class _TagSelectionDialogState extends State<TagSelectionDialog> {
   late Set<int> selectedTagIds;
   bool selectAll = false;
+  int noteCount = 0;
+  bool isLoadingCount = false;
 
   @override
   void initState() {
     super.initState();
     selectedTagIds = Set<int>.from(widget.initialSelectedTagIds);
     selectAll = selectedTagIds.length == widget.availableTags.length;
+    _updateNoteCount();
+  }
+
+  Future<void> _updateNoteCount() async {
+    if (selectedTagIds.isEmpty) {
+      setState(() {
+        noteCount = 0;
+        isLoadingCount = false;
+      });
+      return;
+    }
+
+    setState(() {
+      isLoadingCount = true;
+    });
+
+    try {
+      final records = await DatabaseHelper.instance.getRecordsByMultipleTags(
+        selectedTagIds.toList(),
+      );
+      setState(() {
+        noteCount = records.length;
+        isLoadingCount = false;
+      });
+    } catch (e) {
+      setState(() {
+        noteCount = 0;
+        isLoadingCount = false;
+      });
+    }
   }
 
   void toggleTag(int tagId) {
@@ -40,6 +73,7 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
         }
       }
     });
+    _updateNoteCount();
   }
 
   void toggleSelectAll() {
@@ -51,6 +85,7 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
         selectedTagIds.clear();
       }
     });
+    _updateNoteCount();
   }
 
   @override
@@ -160,12 +195,51 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
 
               SizedBox(height: 16),
 
-              // Selection count
-              Text(
-                "${selectedTagIds.length} tag${selectedTagIds.length != 1 ? 's' : ''} selected",
-                style: TextStyle(
-                  color: white.withOpacity(0.7),
-                  fontSize: 14,
+              // Selection count and note preview
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: MyColors.primaryColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: white.withOpacity(0.7), size: 20),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${selectedTagIds.length} tag${selectedTagIds.length != 1 ? 's' : ''} selected",
+                            style: TextStyle(
+                              color: white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          isLoadingCount
+                              ? Text(
+                                  "Counting notes...",
+                                  style: TextStyle(
+                                    color: white.withOpacity(0.6),
+                                    fontSize: 12,
+                                  ),
+                                )
+                              : Text(
+                                  selectedTagIds.isEmpty
+                                      ? "No notes will be included"
+                                      : "$noteCount note${noteCount != 1 ? 's' : ''} will be included in AI context",
+                                  style: TextStyle(
+                                    color: white.withOpacity(0.7),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
 

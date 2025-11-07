@@ -168,19 +168,78 @@ class _ChatPageState extends State<ChatPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Include user data",
-                              style: TextStyle(color: Colors.white),
+                            Row(
+                              children: [
+                                Text(
+                                  "Include user data",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                if (includeAllNote && selectedTagIds.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: InkWell(
+                                      onTap: () async {
+                                        // Allow re-opening dialog to change selection
+                                        final result = await showDialog<List<int>?>(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return TagSelectionDialog(
+                                              availableTags: allTags,
+                                              initialSelectedTagIds: selectedTagIds,
+                                            );
+                                          },
+                                        );
+
+                                        if (result != null && result.isNotEmpty) {
+                                          setState(() {
+                                            selectedTagIds = result;
+                                          });
+                                          getUserNotes();
+                                        } else if (result != null && result.isEmpty) {
+                                          // User confirmed with no tags - turn off
+                                          setState(() {
+                                            includeAllNote = false;
+                                            selectedTagIds = [];
+                                            tokenCount = 0;
+                                          });
+                                        }
+                                      },
+                                      child: Icon(
+                                        Icons.edit,
+                                        size: 16,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             if (includeAllNote && selectedTagIds.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  "${selectedTagIds.length} tag${selectedTagIds.length != 1 ? 's' : ''} selected",
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 12,
-                                  ),
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Wrap(
+                                  spacing: 4.0,
+                                  runSpacing: 4.0,
+                                  children: allTags
+                                      .where((tag) => selectedTagIds.contains(tag.id))
+                                      .map((tag) => Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Color(int.parse(tag.color!)),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              tag.name,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ))
+                                      .toList(),
                                 ),
                               ),
                           ],
