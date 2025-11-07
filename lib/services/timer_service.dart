@@ -163,10 +163,6 @@ String _formatTimeStatic(int seconds) {
 @pragma('vm:entry-point')
 // Helper function to determine session duration, callable from background contexts
 int _getStaticSessionDurationForGoal(Goal goal) {
-  // Use 10 seconds for test goals
-  if (goal.title.contains('Test Goal')) {
-    return 10; // 10 seconds for testing
-  }
   return goal.sessionMinutes * 60; // Normal duration
 }
 
@@ -275,9 +271,23 @@ Future<void> _showBackgroundRunningNotification(
     final int sessionDuration = _getStaticSessionDurationForGoal(goal);
 
     // Calculate progress percentage (0-100) for the current session segment
-    final int progressPercentage = sessionDuration > 0
+    int progressPercentage = sessionDuration > 0
         ? ((sessionElapsed / sessionDuration) * 100).round().clamp(0, 100)
         : 0;
+
+    // UX FIX: Show indeterminate progress when session just started (< 5 seconds)
+    // This provides visual feedback that session is active even when progress is near 0
+    bool showIndeterminate = sessionElapsed < 5;
+    int maxProgress = 100;
+
+    if (showIndeterminate) {
+      // Android shows indeterminate progress bar when maxProgress = 0
+      maxProgress = 0;
+      progressPercentage = 0;
+      print('📊 BG NOTIF: Showing indeterminate progress (session just started: ${sessionElapsed}s)');
+    } else {
+      print('📊 BG NOTIF: Showing progress: $progressPercentage% (${sessionElapsed}s / ${sessionDuration}s)');
+    }
 
     // Use unified notification format with progress bar
     // HIGH PRIORITY: Make it noticeable when user resumes session
@@ -296,9 +306,9 @@ Future<void> _showBackgroundRunningNotification(
       vibrationPattern: Int64List.fromList([0, 500, 250, 500]), // Vibrate-pause-vibrate pattern
       // Add sound for initial notification
       playSound: true,
-      // Unified progress bar
+      // Unified progress bar (indeterminate if session just started, otherwise shows actual progress)
       showProgress: true,
-      maxProgress: 100,
+      maxProgress: maxProgress, // 0 = indeterminate, 100 = normal progress
       progress: progressPercentage,
     );
 
@@ -534,24 +544,19 @@ class TimerService extends ChangeNotifier {
   // 🎯 ENHANCED: Get session duration with validation
   int _getSessionDuration() {
     if (_activeGoal == null) return 0;
-    
-    // Special handling for test goals
-    if (_activeGoal!.title.contains('Test Goal')) {
-      return 10; // 10 seconds for testing
-    }
-    
+
     // Validate session duration is reasonable
     final sessionMinutes = _activeGoal!.sessionMinutes;
     if (sessionMinutes <= 0) {
       print('⚠️ SESSION DURATION: Invalid session minutes: $sessionMinutes, using default 25');
       return 25 * 60; // Default to 25 minutes
     }
-    
+
     if (sessionMinutes > 240) { // More than 4 hours
       print('⚠️ SESSION DURATION: Very long session: $sessionMinutes minutes, capping at 240');
       return 240 * 60; // Cap at 4 hours
     }
-    
+
     return sessionMinutes * 60;
   }
 

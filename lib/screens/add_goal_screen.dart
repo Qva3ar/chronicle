@@ -136,17 +136,6 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
               onPressed: _saveGoal,
               child: Text(_isEditing ? 'Update Goal' : 'Save Goal'),
             ),
-            if (!_isEditing) ...[
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _saveTestGoal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Test Goal (10s)'),
-              ),
-            ],
           ],
         ),
       ),
@@ -192,32 +181,6 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving goal: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _saveTestGoal() async {
-    final goal = Goal(
-      title: 'Test Goal - ${DateTime.now().toString().substring(11, 19)}',
-      hours: 0,
-      minutes: 1, // 1 minute total goal
-      sessionMinutes: 1, // Will be treated as 10s in timer service
-      timeSpentSeconds: 0,
-      isActive: false,
-    );
-
-    final db = DatabaseHelper.instance;
-
-    try {
-      await db.insertGoal(goal);
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving test goal: $e')),
         );
       }
     }
