@@ -15,6 +15,7 @@ import 'package:chrono/services/gpt.service.dart';
 import 'package:chrono/services/messages.service.dart';
 import 'package:chrono/shared/instructions-block.dart';
 import 'package:chrono/shared/instructions.dart';
+import 'package:chrono/shared/tag_selection_dialog.dart';
 
 import 'package:chrono/helpers/api-key-options.dart';
 import 'db_manager.dart';
@@ -37,6 +38,7 @@ class _ChatPageState extends State<ChatPage> {
 
   var _awaitingResponse = false;
   var includeAllNote = false;
+  List<int> selectedTagIds = []; // Store selected tag IDs for AI context
   final TextEditingController _textController = TextEditingController();
   final dbHelper = DatabaseHelper.instance;
   late StreamSubscription<OpenAIStreamChatCompletionModel> stream;
@@ -67,11 +69,20 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   getUserNotes() async {
-    final newRecords = await recordService.queryRecords();
+    List<Record> newRecords;
+
+    // Fetch records based on selected tags or all records
+    if (selectedTagIds.isNotEmpty) {
+      newRecords = await dbHelper.getRecordsByMultipleTags(selectedTagIds);
+    } else {
+      newRecords = await recordService.queryRecords();
+    }
+
     allRecords.clear();
     if (newRecords.isNotEmpty) {
       allRecords.addAll(newRecords);
-    } else {}
+    }
+
     final count = await processMessages(allRecords);
     //find model from apitokenoptions and get price
     final model = apiKeyOptions
@@ -83,7 +94,6 @@ class _ChatPageState extends State<ChatPage> {
       isTokenCounting = false;
       tokenCount = double.parse(inString);
     });
-    setState(() {});
   }
 
   String extractValue(String input) {
@@ -154,21 +164,67 @@ class _ChatPageState extends State<ChatPage> {
                 Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Include all user data",
-                        style: TextStyle(color: Colors.white),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Include user data",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            if (includeAllNote && selectedTagIds.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  "${selectedTagIds.length} tag${selectedTagIds.length != 1 ? 's' : ''} selected",
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       Switch(
                         value: includeAllNote,
-                        onChanged: (newValue) {
-                          setState(() {
-                            includeAllNote = newValue;
-                            if (newValue) {
+                        onChanged: (newValue) async {
+                          if (newValue) {
+                            // Show tag selection dialog
+                            final result = await showDialog<List<int>?>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return TagSelectionDialog(
+                                  availableTags: allTags,
+                                  initialSelectedTagIds: selectedTagIds,
+                                );
+                              },
+                            );
+
+                            // Handle dialog result
+                            if (result != null && result.isNotEmpty) {
+                              // User confirmed with tags selected
+                              setState(() {
+                                selectedTagIds = result;
+                                includeAllNote = true;
+                              });
                               getUserNotes();
                             } else {
-                              tokenCount = 0;
+                              // User cancelled or confirmed with no tags
+                              setState(() {
+                                includeAllNote = false;
+                                selectedTagIds = [];
+                                tokenCount = 0;
+                              });
                             }
-                          });
+                          } else {
+                            // Turning switch OFF
+                            setState(() {
+                              includeAllNote = false;
+                              selectedTagIds = [];
+                              tokenCount = 0;
+                            });
+                          }
                         },
                       ),
                     ]),

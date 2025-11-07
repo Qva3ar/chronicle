@@ -707,6 +707,39 @@ class DatabaseHelper {
     }
   }
 
+  /// Get records by multiple tag IDs (returns records that have ANY of the specified tags)
+  Future<List<Record>> getRecordsByMultipleTags(List<int> tagIds) async {
+    try {
+      if (tagIds.isEmpty) {
+        return [];
+      }
+
+      final Database db = await instance.database;
+
+      // Create placeholders for the IN clause
+      final String placeholders = List.filled(tagIds.length, '?').join(',');
+
+      final query = '''
+        SELECT DISTINCT
+          ${DatabaseTables.record}.*,
+          GROUP_CONCAT(${DatabaseTables.category}.${DatabaseColumns.id}) AS tags
+        FROM ${DatabaseTables.record}
+        INNER JOIN ${DatabaseTables.recordTag} ON ${DatabaseTables.record}.${DatabaseColumns.id} = ${DatabaseTables.recordTag}.recordId
+        LEFT JOIN ${DatabaseTables.category} ON ${DatabaseTables.recordTag}.tagId = ${DatabaseTables.category}.${DatabaseColumns.id}
+        WHERE ${DatabaseTables.recordTag}.tagId IN ($placeholders)
+        GROUP BY ${DatabaseTables.record}.${DatabaseColumns.id}
+        ORDER BY ${DatabaseTables.record}.${DatabaseColumns.recordCreatedAt} DESC
+      ''';
+
+      final List<Map<String, dynamic>> recordsData = await db.rawQuery(query, tagIds);
+      log('🔍 getRecordsByMultipleTags - Found ${recordsData.length} records for tags: $tagIds');
+      return recordsData.map((data) => Record.fromMap(data)).toList();
+    } catch (e) {
+      log('Error getting records by multiple tags: $e');
+      rethrow;
+    }
+  }
+
   /// Get records by their IDs
   Future<List<Record>> getRecordsByIds(String recordIds) async {
     try {
