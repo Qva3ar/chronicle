@@ -45,6 +45,9 @@ class _ChatPageState extends State<ChatPage> {
 
   double tokenCount = 0;
   bool isTokenCounting = false;
+  bool _isProcessingChunks = false;
+  int _currentChunk = 0;
+  int _totalChunks = 0;
 
   GPTService gptService = GPTService();
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
@@ -128,6 +131,220 @@ class _ChatPageState extends State<ChatPage> {
             ],
           );
         });
+  }
+
+  Future<bool> showChunkingConfirmationDialog(int estimatedChunks) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: cardColor,
+          title: Text(
+            'Context Too Large',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your selected context exceeds the model\'s limit.',
+                style: TextStyle(color: Colors.white),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'We can split it into approximately $estimatedChunks chunks and process them sequentially. The AI will receive all context before responding.',
+                style: TextStyle(color: Colors.white.withOpacity(0.8)),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Note: This may take longer and cost more.',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text('Cancel', style: TextStyle(color: Colors.white)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MyColors.primaryColor,
+              ),
+              child: Text('Continue with Chunking', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  List<List<Record>> _splitRecordsIntoChunks(List<Record> records) {
+    // Estimate tokens per record (rough estimate: 1 character ≈ 0.25 tokens)
+    // Conservative chunk size: 6000 tokens per chunk (leaving room for system messages)
+    const maxTokensPerChunk = 6000;
+    const charsPerToken = 4.0;
+    final maxCharsPerChunk = (maxTokensPerChunk * charsPerToken).toInt();
+
+    List<List<Record>> chunks = [];
+    List<Record> currentChunk = [];
+    int currentChunkSize = 0;
+
+    // Sort records by tag to keep semantic groups together
+    final sortedRecords = List<Record>.from(records);
+    sortedRecords.sort((a, b) {
+      final aFirstTag = a.tagIds.isNotEmpty ? a.tagIds.first : 0;
+      final bFirstTag = b.tagIds.isNotEmpty ? b.tagIds.first : 0;
+      return aFirstTag.compareTo(bFirstTag);
+    });
+
+    for (final record in sortedRecords) {
+      final recordSize = record.text.length;
+
+      // If adding this record would exceed the chunk size, start a new chunk
+      if (currentChunkSize + recordSize > maxCharsPerChunk && currentChunk.isNotEmpty) {
+        chunks.add(List<Record>.from(currentChunk));
+        currentChunk = [record];
+        currentChunkSize = recordSize;
+      } else {
+        currentChunk.add(record);
+        currentChunkSize += recordSize;
+      }
+    }
+
+    // Add the last chunk if it's not empty
+    if (currentChunk.isNotEmpty) {
+      chunks.add(currentChunk);
+    }
+
+    return chunks;
+  }
+
+  String _createChunkInstruction(int chunkNumber, int totalChunks, List<Record> records, bool isLast, String? userQuery) {
+    final notesString = records.map((note) {
+      String tagIds = note.tagIds.map((tagId) => "$tagId").join(', ');
+      return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: ${tagIds}\nCreated At: ${note.createdAt}\n\n";
+    }).join('\n');
+
+    final tags = allTags.map((tag) {
+      return "tagId: ${tag.id}; tagName: ${tag.name}";
+    }).join(', ');
+
+    if (isLast) {
+      return "This is the FINAL chunk ($chunkNumber of $totalChunks) of the user's personal data. All context has now been provided. Here are the remaining notes:\n\n$notesString\n\nAll my tags: $tags\nMy local time: ${DateTime.now()}\n\nYou now have the complete context. Please respond thoughtfully to the user's question: \"$userQuery\"";
+    } else if (chunkNumber == 1) {
+      return "IMPORTANT: This is chunk $chunkNumber of $totalChunks. I'm providing you with my personal data (notes/records) in multiple chunks. DO NOT RESPOND until you receive the final chunk. Just acknowledge and wait. Here are the notes for chunk $chunkNumber:\n\n$notesString";
+    } else {
+      return "This is chunk $chunkNumber of $totalChunks. Continue receiving context. DO NOT RESPOND YET. Here are more notes:\n\n$notesString";
+    }
+  }
+
+  Future<void> _submitWithChunking(String userQuery, List<Record> records) async {
+    final chunks = _splitRecordsIntoChunks(records);
+
+    setState(() {
+      _isProcessingChunks = true;
+      _totalChunks = chunks.length;
+      _currentChunk = 0;
+    });
+
+    try {
+      // Send each chunk sequentially
+      for (int i = 0; i < chunks.length; i++) {
+        setState(() {
+          _currentChunk = i + 1;
+        });
+
+        final isLastChunk = i == chunks.length - 1;
+        final chunkInstruction = _createChunkInstruction(
+          i + 1,
+          chunks.length,
+          chunks[i],
+          isLastChunk,
+          userQuery,
+        );
+
+        // Create system message for this chunk
+        final List<ChatMessage> chunkSystemMessages = [
+          ChatMessage(chunkInstruction, false, true),
+        ];
+
+        // Only for the last chunk, we stream the response
+        if (isLastChunk) {
+          String accumulator = '';
+          _messages.insert(0, ChatMessage("", false, false));
+
+          final completer = Completer<void>();
+
+          stream = gptService
+              .completionStream(_messages, chunkSystemMessages)
+              .listen((event) {
+            final content = event.choices.first.delta.content;
+            if (content != null && content.isNotEmpty) {
+              accumulator += content[0].text ?? '';
+            }
+
+            _messages.first.content = accumulator;
+            setState(() {});
+          }, onError: (err) {
+            completer.completeError(err);
+          }, onDone: () {
+            final ids = extractValue(accumulator);
+            _messages.first.recordIds = ids;
+            widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+            completer.complete();
+          });
+
+          await completer.future;
+        } else {
+          // For non-last chunks, send without streaming (just to feed context)
+          // We create a temporary message list to send the chunk
+          final tempMessages = List<ChatMessage>.from(_messages);
+          tempMessages.insert(0, ChatMessage("Acknowledged. Waiting for next chunk.", false, false));
+
+          final completer = Completer<void>();
+
+          stream = gptService
+              .completionStream(tempMessages, chunkSystemMessages)
+              .listen((event) {
+            // We don't care about the response for intermediate chunks
+          }, onError: (err) {
+            completer.completeError(err);
+          }, onDone: () {
+            completer.complete();
+          });
+
+          await completer.future;
+
+          // Small delay between chunks
+          await Future.delayed(Duration(milliseconds: 500));
+        }
+      }
+    } catch (err) {
+      log('Error during chunked submission: $err');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error during chunked processing: $err')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isProcessingChunks = false;
+        _awaitingResponse = false;
+        _currentChunk = 0;
+        _totalChunks = 0;
+      });
+    }
   }
 
   @override
@@ -305,6 +522,21 @@ class _ChatPageState extends State<ChatPage> {
                       'Approximate cost of next query: ~\$${tokenCount}',
                       style: TextStyle(color: Colors.white),
                     )),
+          if (_isProcessingChunks)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 12),
+                  Text(
+                    'Processing chunk $_currentChunk of $_totalChunks...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
           MessageComposer(
             onSubmitted: _onSubmitted,
             onStop: onStop,
@@ -368,20 +600,56 @@ class _ChatPageState extends State<ChatPage> {
         if (event.choices.first.finishReason == 'stop') {}
         _messages.first.content = accumulator;
         setState(() {});
-      }, onError: (err) {
+      }, onError: (err) async {
         if (err is RequestFailedException) {
-          // Handle 400 status code
           final errorMessage = err.message;
-          //print('Error: $errorMessage');
+          log('API Error: $errorMessage');
 
-          // Display the error message to the user (you can use a Snackbar or any other UI element)
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   SnackBar(content: Text('Error: $errorMessage')),
-          // );
-          showErrorDialog(errorMessage);
+          // Check if error is related to context length
+          final isContextLengthError = errorMessage.toLowerCase().contains('maximum context length') ||
+              errorMessage.toLowerCase().contains('context_length_exceeded') ||
+              errorMessage.toLowerCase().contains('too many tokens') ||
+              errorMessage.toLowerCase().contains('token limit');
+
+          if (isContextLengthError && includeAllNote && allRecords.isNotEmpty) {
+            // Context is too large - offer chunking
+            setState(() {
+              _awaitingResponse = false;
+            });
+
+            // Remove the empty message we inserted
+            if (_messages.isNotEmpty && _messages.first.content.isEmpty) {
+              _messages.removeAt(0);
+            }
+
+            // Estimate number of chunks
+            final chunks = _splitRecordsIntoChunks(allRecords);
+            final shouldProceed = await showChunkingConfirmationDialog(chunks.length);
+
+            if (shouldProceed) {
+              // User confirmed - proceed with chunking
+              setState(() {
+                _awaitingResponse = true;
+              });
+              await _submitWithChunking(message, allRecords);
+            } else {
+              // User cancelled
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Request cancelled.')),
+                );
+              }
+            }
+          } else {
+            // Other API error
+            showErrorDialog(errorMessage);
+            setState(() {
+              _awaitingResponse = false;
+            });
+          }
         } else {
           // Handle other exceptions
-          //print('An unexpected error occurred: $err');
+          log('Unexpected error: $err');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -389,11 +657,10 @@ class _ChatPageState extends State<ChatPage> {
                       Text('An unexpected error occurred. Please try again.')),
             );
           }
+          setState(() {
+            _awaitingResponse = false;
+          });
         }
-
-        setState(() {
-          _awaitingResponse = false;
-        });
       }, onDone: () {
         final ids = extractValue(accumulator);
         _messages.first.recordIds = ids;
