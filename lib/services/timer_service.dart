@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
@@ -279,16 +280,22 @@ Future<void> _showBackgroundRunningNotification(
         : 0;
 
     // Use unified notification format with progress bar
+    // HIGH PRIORITY: Make it noticeable when user resumes session
     final androidDetails = AndroidNotificationDetails(
       'timer_channel', // Same channel as the foreground running notification
       'Timer Notifications',
       channelDescription: 'Notifications for goal timer sessions',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
+      importance: Importance.high, // Changed from defaultImportance to high
+      priority: Priority.high, // Changed from defaultPriority to high
       ongoing: true,
       autoCancel: false,
       showWhen: false,
       icon: '@mipmap/ic_launcher',
+      // Add vibration pattern for visibility
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 500, 250, 500]), // Vibrate-pause-vibrate pattern
+      // Add sound for initial notification
+      playSound: true,
       // Unified progress bar
       showProgress: true,
       maxProgress: 100,
@@ -296,9 +303,9 @@ Future<void> _showBackgroundRunningNotification(
     );
 
     const iosDetails = DarwinNotificationDetails(
-      presentAlert: false,
+      presentAlert: true, // Changed from false to show alert
       presentBadge: true,
-      presentSound: false,
+      presentSound: true, // Changed from false to play sound
     );
 
     final details = NotificationDetails(
