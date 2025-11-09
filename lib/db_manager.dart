@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 23;
+  static const int databaseVersion = 24;
   static const int pageSize = 20;
 }
 
@@ -57,6 +57,8 @@ class DatabaseColumns {
   static const String routineStreak = 'streak';
   static const String routineLastCompletedDate = 'last_completed_date';
   static const String routineShowStreak = 'show_streak';
+  static const String routinePreviousStreak = 'previous_streak';
+  static const String routinePreviousLastCompletedDate = 'previous_last_completed_date';
 
   // Goal table columns
   static const String goalTitle = 'title';
@@ -243,7 +245,9 @@ class DatabaseHelper {
           ${DatabaseColumns.routineIsDone} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.routineStreak} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.routineLastCompletedDate} TEXT,
-          ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1
+          ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1,
+          ${DatabaseColumns.routinePreviousStreak} INTEGER,
+          ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT
         )
       ''');
 
@@ -424,6 +428,19 @@ class DatabaseHelper {
         }
 
         log('Upgraded database to v23: Added streak tracking columns and calculated existing streaks.');
+      }
+
+      if (oldVersion < 24) {
+        // Add previous state columns for undo functionality when unchecking routines
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routinePreviousStreak} INTEGER
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT
+        ''');
+        log('Upgraded database to v24: Added previous state columns for routine undo functionality.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -1191,25 +1208,65 @@ class DatabaseHelper {
           }
         }
 
-        // Update routine with new streak data
+        // Update routine with new streak data, saving previous state for undo
         return await db.update(
           DatabaseTables.routines,
           {
             DatabaseColumns.routineIsDone: 1,
             DatabaseColumns.routineStreak: newStreak,
             DatabaseColumns.routineLastCompletedDate: today,
+            // Save previous state for potential undo on same day
+            DatabaseColumns.routinePreviousStreak: currentStreak,
+            DatabaseColumns.routinePreviousLastCompletedDate: lastCompletedDate,
           },
           where: '${DatabaseColumns.id} = ?',
           whereArgs: [id],
         );
       } else {
-        // Just update isDone status when marking as undone
-        return await db.update(
+        // Get current routine data to check if we should restore previous state
+        final List<Map<String, dynamic>> routineData = await db.query(
           DatabaseTables.routines,
-          {DatabaseColumns.routineIsDone: 0},
           where: '${DatabaseColumns.id} = ?',
           whereArgs: [id],
         );
+
+        if (routineData.isEmpty) {
+          throw Exception('Routine not found');
+        }
+
+        final currentRoutine = routineData.first;
+        final String? lastCompletedDate = currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
+        final DateTime now = DateTime.now();
+        final String today = DateFormat('yyyy-MM-dd').format(now);
+
+        // Check if the routine was completed today - if so, restore previous state
+        if (lastCompletedDate == today) {
+          // Restore previous state to undo accidental check
+          final int? previousStreak = currentRoutine[DatabaseColumns.routinePreviousStreak] as int?;
+          final String? previousLastCompletedDate = currentRoutine[DatabaseColumns.routinePreviousLastCompletedDate] as String?;
+
+          return await db.update(
+            DatabaseTables.routines,
+            {
+              DatabaseColumns.routineIsDone: 0,
+              DatabaseColumns.routineStreak: previousStreak ?? 0,
+              DatabaseColumns.routineLastCompletedDate: previousLastCompletedDate,
+              // Clear previous state after restoring
+              DatabaseColumns.routinePreviousStreak: null,
+              DatabaseColumns.routinePreviousLastCompletedDate: null,
+            },
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [id],
+          );
+        } else {
+          // Not unchecking on the same day, just update isDone status
+          return await db.update(
+            DatabaseTables.routines,
+            {DatabaseColumns.routineIsDone: 0},
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [id],
+          );
+        }
       }
     } catch (e) {
       log('Error toggling routine done status: $e');
