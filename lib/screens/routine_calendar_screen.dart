@@ -225,6 +225,41 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          // Hint about backdating
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: MyColors.fivyColor.withAlpha(26),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: MyColors.fivyColor.withAlpha(77),
+                  width: 1,
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: MyColors.fivyColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tap any past date (within 7 days) to mark as complete',
+                      style: TextStyle(
+                        color: MyColors.fivyColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Calendar
           Expanded(
             child: Container(
