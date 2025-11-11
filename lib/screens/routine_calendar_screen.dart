@@ -21,6 +21,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
   DateTime? _selectedDay;
   Set<DateTime> _completionDates = {};
   Routine? _currentRoutine;
+  bool _dataChanged = false;
 
   @override
   void initState() {
@@ -147,6 +148,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       try {
         await _db.backdateRoutineCompletion(widget.routine.id!, selectedDay);
         await _loadCompletionDates();
+        _dataChanged = true; // Mark that data has changed
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -172,14 +174,26 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: MyColors.secondaryColor,
-      appBar: AppBar(
-        title: Text('${widget.routine.name} - History'),
-        backgroundColor: cardColor,
-        foregroundColor: white,
-      ),
-      body: Column(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          // Handle system back button
+          Navigator.pop(context, _dataChanged);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: MyColors.secondaryColor,
+        appBar: AppBar(
+          title: Text('${widget.routine.name} - History'),
+          backgroundColor: cardColor,
+          foregroundColor: white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context, _dataChanged),
+          ),
+        ),
+        body: Column(
         children: [
           const SizedBox(height: 16),
           // Stats Card
@@ -381,6 +395,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

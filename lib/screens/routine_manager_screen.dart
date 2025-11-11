@@ -123,12 +123,17 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
   }
 
   Future<void> _showCalendarHistory(Routine routine) async {
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RoutineCalendarScreen(routine: routine),
       ),
     );
+
+    // Reload routines if data was changed in the calendar
+    if (result == true) {
+      await _loadRoutines();
+    }
   }
 
   Future<void> _deleteRoutine(Routine routine) async {
