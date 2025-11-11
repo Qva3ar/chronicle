@@ -434,6 +434,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
               IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const GoalsScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: const Icon(
+                    // <-- Icon
+                    Icons.flag,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
+              IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const RoutineManagerScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: const Icon(
+                    // <-- Icon
+                    Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
+              const SizedBox(width: 70),
+              IconButton(
                 onPressed: () {
                   FocusManager.instance.primaryFocus?.unfocus();
 
@@ -477,49 +520,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   }
                 },
               ),
-              SizedBox(width: 70),
-              IconButton(
-                  onPressed: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const GoalsScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
-                  },
-                  icon: const Icon(
-                    // <-- Icon
-                    Icons.flag,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
-              IconButton(
-                  onPressed: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const RoutineManagerScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
-                  },
-                  icon: const Icon(
-                    // <-- Icon
-                    Icons.arrow_upward_rounded,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
             ],
           ),
         ),
