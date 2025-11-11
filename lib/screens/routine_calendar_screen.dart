@@ -20,10 +20,12 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Set<DateTime> _completionDates = {};
+  Routine? _currentRoutine;
 
   @override
   void initState() {
     super.initState();
+    _currentRoutine = widget.routine;
     _loadCompletionDates();
   }
 
@@ -40,8 +42,15 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         dates.add(DateTime(date.year, date.month, date.day));
       }
 
+      // Reload routine data to get updated streak
+      final routineData = await _db.getAllRoutines();
+      final updatedRoutine = routineData
+          .map((r) => Routine.fromMap(r))
+          .firstWhere((r) => r.id == widget.routine.id);
+
       setState(() {
         _completionDates = dates;
+        _currentRoutine = updatedRoutine;
       });
     } catch (e) {
       log('Error loading completion dates: $e');
@@ -54,6 +63,111 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       date.month == day.month &&
       date.day == day.day
     );
+  }
+
+  bool _isScheduledDay(DateTime day) {
+    final int dayIndex = day.weekday - 1; // Convert to 0-based index (Monday = 0)
+    return widget.routine.daysOfWeek[dayIndex];
+  }
+
+  Future<void> _handleDateTap(DateTime selectedDay) async {
+    final DateTime today = DateTime.now();
+    final DateTime todayNormalized = DateTime(today.year, today.month, today.day);
+    final DateTime selectedNormalized = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+
+    // Check if it's a past date
+    if (selectedNormalized.isAfter(todayNormalized) || selectedNormalized.isAtSameMomentAs(todayNormalized)) {
+      return; // Can't backdate today or future dates
+    }
+
+    // Check if it's within the 7-day window
+    final int daysDifference = todayNormalized.difference(selectedNormalized).inDays;
+    if (daysDifference > 7) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Can only backdate completions within the last 7 days'),
+            backgroundColor: MyColors.remove,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if it's a scheduled day
+    if (!_isScheduledDay(selectedDay)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Routine is not scheduled for this day of the week'),
+            backgroundColor: MyColors.remove,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if already completed
+    if (_isCompletionDate(selectedDay)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Routine already completed on this date'),
+            backgroundColor: MyColors.fivyColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text('Mark as Complete', style: TextStyle(color: white)),
+        content: Text(
+          'Mark "${widget.routine.name}" as completed on ${selectedDay.day}/${selectedDay.month}/${selectedDay.year}?\n\nThis will update your streak accordingly.',
+          style: const TextStyle(color: white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: MyColors.forthyColor)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm', style: TextStyle(color: MyColors.fivyColor)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _db.backdateRoutineCompletion(widget.routine.id!, selectedDay);
+        await _loadCompletionDates();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Routine completion added successfully'),
+              backgroundColor: MyColors.fivyColor,
+            ),
+          );
+        }
+      } catch (e) {
+        log('Error backdating routine: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: MyColors.remove,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -85,12 +199,12 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                     label: 'Total Completions',
                     value: '${_completionDates.length}',
                   ),
-                  if (widget.routine.showStreak && widget.routine.streak > 0)
+                  if (_currentRoutine?.showStreak == true && (_currentRoutine?.streak ?? 0) > 0)
                     _buildStatItem(
                       icon: null,
                       emoji: '🔥',
                       label: 'Current Streak',
-                      value: '${widget.routine.streak}',
+                      value: '${_currentRoutine?.streak ?? 0}',
                     ),
                 ],
               ),
@@ -117,6 +231,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                     _selectedDay = selectedDay;
                     _focusedDay = focusedDay;
                   });
+                  _handleDateTap(selectedDay);
                 },
                 onFormatChanged: (format) {
                   setState(() {
@@ -153,7 +268,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                   // Default text colors
                   defaultTextStyle: const TextStyle(color: white),
                   weekendTextStyle: const TextStyle(color: MyColors.fivyColor),
-                  outsideTextStyle: TextStyle(color: MyColors.forthyColor),
+                  outsideTextStyle: const TextStyle(color: MyColors.forthyColor),
                 ),
                 headerStyle: const HeaderStyle(
                   formatButtonVisible: true,
@@ -172,8 +287,8 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                     borderRadius: BorderRadius.all(Radius.circular(8)),
                   ),
                 ),
-                daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: const TextStyle(color: white),
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(color: white),
                   weekendStyle: TextStyle(color: MyColors.fivyColor),
                 ),
                 calendarBuilders: CalendarBuilders(
@@ -218,7 +333,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                         child: Center(
                           child: Text(
                             '${day.day}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: MyColors.forthyColor,
                             ),
                           ),

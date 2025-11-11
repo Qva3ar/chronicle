@@ -440,7 +440,16 @@ class DatabaseHelper {
           ALTER TABLE ${DatabaseTables.routines}
           ADD COLUMN ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT
         ''');
-        log('Upgraded database to v24: Added previous state columns for routine undo functionality.');
+
+        // Recalculate all streaks using scheduled-day logic
+        log('Recalculating routine streaks with scheduled-day logic...');
+        final routines = await db.query(DatabaseTables.routines);
+        for (var routine in routines) {
+          final routineId = routine[DatabaseColumns.id] as int;
+          await _calculateAndUpdateStreakWithScheduledDays(db, routineId);
+        }
+
+        log('Upgraded database to v24: Added previous state columns and recalculated streaks with scheduled-day logic.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -468,6 +477,24 @@ class DatabaseHelper {
   }
 
   // Helper methods
+
+  /// Find the previous scheduled occurrence date for a routine
+  /// Returns null if no scheduled day found in the past week
+  DateTime? _findPreviousScheduledOccurrence(DateTime date, List<bool> daysOfWeek) {
+    // Start from yesterday and look backwards up to 7 days
+    DateTime checkDate = DateTime(date.year, date.month, date.day).subtract(const Duration(days: 1));
+
+    for (int i = 0; i < 7; i++) {
+      int dayIndex = checkDate.weekday - 1; // Convert to 0-based (Monday=0)
+      if (daysOfWeek[dayIndex]) {
+        return checkDate;
+      }
+      checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+
+    // No scheduled day found (should not happen if at least one day is active)
+    return null;
+  }
 
   /// Insert a new tag into the database
   Future<int> insert(Map<String, dynamic> row) async {
@@ -861,6 +888,94 @@ class DatabaseHelper {
     }
   }
 
+  /// Calculate streak respecting scheduled days of week (for v24+ migration)
+  Future<void> _calculateAndUpdateStreakWithScheduledDays(Database db, int routineId) async {
+    try {
+      // Get routine data to access days_of_week
+      final routineData = await db.query(
+        DatabaseTables.routines,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+
+      if (routineData.isEmpty) {
+        return;
+      }
+
+      final routine = routineData.first;
+      final daysOfWeekString = routine[DatabaseColumns.routineDaysOfWeek] as String;
+      final daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
+
+      // Get completion records
+      final records = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordRoutineId} = ?',
+        whereArgs: [routineId],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
+
+      if (records.isEmpty) {
+        // No completions, keep default streak of 0
+        return;
+      }
+
+      // Get completion dates (normalized to date only, no time)
+      final Set<String> completionDates = {};
+      for (var record in records) {
+        final timestamp = record[DatabaseColumns.recordCreatedAt] as int;
+        final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        completionDates.add(dateStr);
+      }
+
+      // Sort dates in descending order
+      final sortedDates = completionDates.toList()..sort((a, b) => b.compareTo(a));
+
+      // Get the most recent completion date
+      final lastCompletedDate = sortedDates.first;
+      DateTime mostRecentDate = DateTime.parse(lastCompletedDate);
+
+      // Calculate streak using scheduled days
+      int streak = 1; // Start with 1 for the most recent completion
+      DateTime currentDate = mostRecentDate;
+
+      // Count backwards through scheduled occurrences
+      while (true) {
+        final previousScheduled = _findPreviousScheduledOccurrence(currentDate, daysOfWeek);
+        if (previousScheduled == null) {
+          // No more scheduled days to check
+          break;
+        }
+
+        final prevDateStr = DateFormat('yyyy-MM-dd').format(previousScheduled);
+        if (completionDates.contains(prevDateStr)) {
+          // Previous scheduled occurrence was completed, continue streak
+          streak++;
+          currentDate = previousScheduled;
+        } else {
+          // Streak broken - previous scheduled day was not completed
+          break;
+        }
+      }
+
+      // Update the routine
+      await db.update(
+        DatabaseTables.routines,
+        {
+          DatabaseColumns.routineStreak: streak,
+          DatabaseColumns.routineLastCompletedDate: lastCompletedDate,
+        },
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+
+      log('Migration v24: Updated routine $routineId with scheduled-day streak: $streak, lastCompleted=$lastCompletedDate');
+    } catch (e) {
+      log('Error calculating routine streak with scheduled days during migration: $e');
+      // Don't rethrow during migration - continue with other routines
+    }
+  }
+
   /// Insert a new instruction
   Future<int> insertInstruction(Instruction instruction) async {
     try {
@@ -1190,21 +1305,32 @@ class DatabaseHelper {
         final currentRoutine = routineData.first;
         final String? lastCompletedDate = currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
         final int currentStreak = currentRoutine[DatabaseColumns.routineStreak] as int? ?? 0;
+        final String daysOfWeekString = currentRoutine[DatabaseColumns.routineDaysOfWeek] as String;
+        final List<bool> daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
 
-        // Calculate new streak
+        // Calculate new streak using scheduled-day logic
         final DateTime now = DateTime.now();
         final String today = DateFormat('yyyy-MM-dd').format(now);
         int newStreak = 1;
 
-        if (lastCompletedDate != null) {
-          final DateTime lastCompleted = DateTime.parse(lastCompletedDate);
-          final DateTime yesterday = now.subtract(const Duration(days: 1));
+        if (lastCompletedDate == today) {
+          // Already completed today - keep current streak (same-day re-completion)
+          newStreak = currentStreak;
+        } else if (lastCompletedDate != null) {
+          // Find the previous scheduled occurrence before today
+          final DateTime? previousScheduled = _findPreviousScheduledOccurrence(
+            DateTime(now.year, now.month, now.day),
+            daysOfWeek,
+          );
 
-          // Check if last completion was yesterday (comparing dates only, not time)
-          if (lastCompleted.year == yesterday.year &&
-              lastCompleted.month == yesterday.month &&
-              lastCompleted.day == yesterday.day) {
-            newStreak = currentStreak + 1;
+          if (previousScheduled != null) {
+            final String previousScheduledStr = DateFormat('yyyy-MM-dd').format(previousScheduled);
+
+            // If the previous scheduled day was completed, increment streak
+            if (lastCompletedDate == previousScheduledStr) {
+              newStreak = currentStreak + 1;
+            }
+            // Otherwise, streak resets to 1 (already set above)
           }
         }
 
@@ -1270,6 +1396,190 @@ class DatabaseHelper {
       }
     } catch (e) {
       log('Error toggling routine done status: $e');
+      rethrow;
+    }
+  }
+
+  /// Backdate a routine completion for a specific date
+  /// Returns the created record ID on success, throws an error on failure
+  Future<int> backdateRoutineCompletion(int routineId, DateTime completionDate) async {
+    try {
+      final Database db = await instance.database;
+
+      // Get routine data
+      final List<Map<String, dynamic>> routineData = await db.query(
+        DatabaseTables.routines,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+
+      if (routineData.isEmpty) {
+        throw Exception('Routine not found');
+      }
+
+      final currentRoutine = routineData.first;
+      final String routineName = currentRoutine[DatabaseColumns.routineName] as String;
+      final String daysOfWeekString = currentRoutine[DatabaseColumns.routineDaysOfWeek] as String;
+      final List<bool> daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
+
+      // Normalize completion date to midnight
+      final DateTime normalizedDate = DateTime(completionDate.year, completionDate.month, completionDate.day);
+      final int dayIndex = normalizedDate.weekday - 1; // Convert to 0-based index
+
+      // Validate: Check if routine is scheduled for this day
+      if (!daysOfWeek[dayIndex]) {
+        throw Exception('Routine is not scheduled for this day of the week');
+      }
+
+      // Validate: Check if date is in the past (not today or future)
+      final DateTime today = DateTime.now();
+      final DateTime todayNormalized = DateTime(today.year, today.month, today.day);
+      if (normalizedDate.isAfter(todayNormalized) || normalizedDate.isAtSameMomentAs(todayNormalized)) {
+        throw Exception('Can only backdate to past dates');
+      }
+
+      // Validate: Check if within allowed backdating window (7 days)
+      final int daysDifference = todayNormalized.difference(normalizedDate).inDays;
+      if (daysDifference > 7) {
+        throw Exception('Can only backdate up to 7 days in the past');
+      }
+
+      // Check if already completed on this date
+      final existingRecords = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordRoutineId} = ?',
+        whereArgs: [routineId],
+      );
+
+      for (var record in existingRecords) {
+        final int timestamp = record[DatabaseColumns.recordCreatedAt] as int;
+        final DateTime recordDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        final DateTime recordDateNormalized = DateTime(recordDate.year, recordDate.month, recordDate.day);
+
+        if (recordDateNormalized.isAtSameMomentAs(normalizedDate)) {
+          throw Exception('Routine already completed on this date');
+        }
+      }
+
+      // Create routine record with backdated timestamp (set to noon of that day)
+      final DateTime backdatedTimestamp = DateTime(
+        normalizedDate.year,
+        normalizedDate.month,
+        normalizedDate.day,
+        12, // Noon
+        0,
+        0,
+      );
+
+      final record = {
+        DatabaseColumns.recordTitle: 'Completed Routine: $routineName',
+        DatabaseColumns.recordText: 'Completed routine: $routineName (backdated)',
+        DatabaseColumns.recordCreatedAt: backdatedTimestamp.millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'routine',
+        DatabaseColumns.recordRoutineId: routineId,
+      };
+
+      final int recordId = await db.insert(DatabaseTables.record, record);
+
+      // Recalculate streak based on all completions
+      await _recalculateRoutineStreak(db, routineId);
+
+      return recordId;
+    } catch (e) {
+      log('Error backdating routine completion: $e');
+      rethrow;
+    }
+  }
+
+  /// Recalculate and update a routine's streak based on all completion records
+  Future<void> _recalculateRoutineStreak(Database db, int routineId) async {
+    try {
+      // Get routine data
+      final List<Map<String, dynamic>> routineData = await db.query(
+        DatabaseTables.routines,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+
+      if (routineData.isEmpty) return;
+
+      final currentRoutine = routineData.first;
+      final String daysOfWeekString = currentRoutine[DatabaseColumns.routineDaysOfWeek] as String;
+      final List<bool> daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
+
+      // Get all completion records for this routine
+      final records = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordRoutineId} = ?',
+        whereArgs: [routineId],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
+
+      // Extract unique completion dates (normalized to just the date)
+      final Set<String> completionDates = {};
+      String? mostRecentCompletionDate;
+
+      for (var record in records) {
+        final int timestamp = record[DatabaseColumns.recordCreatedAt] as int;
+        final DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        final String dateStr = DateFormat('yyyy-MM-dd').format(date);
+        completionDates.add(dateStr);
+
+        // Track most recent completion
+        mostRecentCompletionDate ??= dateStr;
+      }
+
+      if (completionDates.isEmpty) {
+        // No completions, reset streak
+        await db.update(
+          DatabaseTables.routines,
+          {
+            DatabaseColumns.routineStreak: 0,
+            DatabaseColumns.routineLastCompletedDate: null,
+            DatabaseColumns.routineIsDone: 0,
+          },
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [routineId],
+        );
+        return;
+      }
+
+      // Calculate streak from most recent completion going backwards
+      int streak = 1; // Start with 1 for the most recent completion
+      DateTime currentDate = DateFormat('yyyy-MM-dd').parse(mostRecentCompletionDate!);
+
+      // Check if most recent completion is today
+      final DateTime today = DateTime.now();
+      final String todayStr = DateFormat('yyyy-MM-dd').format(today);
+      final bool isDoneToday = mostRecentCompletionDate == todayStr;
+
+      // Count backwards through scheduled occurrences
+      while (true) {
+        final previousScheduled = _findPreviousScheduledOccurrence(currentDate, daysOfWeek);
+        if (previousScheduled == null) break;
+
+        final prevDateStr = DateFormat('yyyy-MM-dd').format(previousScheduled);
+        if (completionDates.contains(prevDateStr)) {
+          streak++;
+          currentDate = previousScheduled;
+        } else {
+          break;
+        }
+      }
+
+      // Update the routine
+      await db.update(
+        DatabaseTables.routines,
+        {
+          DatabaseColumns.routineStreak: streak,
+          DatabaseColumns.routineLastCompletedDate: mostRecentCompletionDate,
+          DatabaseColumns.routineIsDone: isDoneToday ? 1 : 0,
+        },
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [routineId],
+      );
+    } catch (e) {
+      log('Error recalculating routine streak: $e');
       rethrow;
     }
   }
