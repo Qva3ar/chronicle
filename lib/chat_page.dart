@@ -507,34 +507,59 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-          Visibility(
-              visible: includeAllNote,
+          if (includeAllNote)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: isTokenCounting
-                  ? Row(
+                  ? const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(width: 10),
-                        Text('Counting tokens...'),
+                        SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Counting tokens...',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
                       ],
                     )
                   : Text(
-                      'Approximate cost of next query: ~\$${tokenCount}',
-                      style: TextStyle(color: Colors.white),
-                    )),
+                      'Cost: ~\$$tokenCount',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+            ),
           if (_isProcessingChunks)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: 12),
-                  Text(
-                    'Processing chunk $_currentChunk of $_totalChunks...',
-                    style: TextStyle(color: Colors.white),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: MyColors.fivyColor.withAlpha(26),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: MyColors.fivyColor.withAlpha(77),
+                    width: 1,
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Processing chunk $_currentChunk/$_totalChunks',
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
             ),
           MessageComposer(

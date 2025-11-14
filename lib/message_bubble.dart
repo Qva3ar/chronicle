@@ -37,6 +37,35 @@ class _MessageBubbleState extends State<MessageBubble> {
   Widget build(BuildContext context) {
     //print(widget.recordIds);
     final themeData = Theme.of(context);
+
+    // Show typing indicator for empty AI messages (streaming)
+    if (!widget.isUserMessage && widget.content.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: cardColor3,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              const Text(
+                'AI',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _TypingIndicator(),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -125,6 +154,65 @@ class _MessageBubbleState extends State<MessageBubble> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Typing indicator widget
+class _TypingIndicator extends StatefulWidget {
+  @override
+  __TypingIndicatorState createState() => __TypingIndicatorState();
+}
+
+class __TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final delay = index * 0.2;
+            final progress = (_controller.value - delay) % 1.0;
+            final opacity = progress < 0.5
+                ? progress * 2
+                : (1 - progress) * 2;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Opacity(
+                opacity: opacity.clamp(0.3, 1.0),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.white70,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 }

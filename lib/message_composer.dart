@@ -20,69 +20,55 @@ class MessageComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      // color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.05),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Card(
-        color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.05),
-        child: Container(
-          padding: const EdgeInsets.only(left: 8, right: 8),
-          child: SafeArea(
-            child: Row(
-              children: [
-                Expanded(
-                  child: !awaitingResponse
-                      ? Container(
-                          child: new ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: 300.0,
-                            ),
-                            child: TextField(
-                              maxLines: null,
-                              autofocus: true,
-                              controller: _messageController,
-                              onSubmitted: onSubmitted,
-                              style: TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                                    borderSide: BorderSide(color: Colors.transparent, width: 0),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                                    borderSide: BorderSide(color: Colors.transparent, width: 0),
-                                  ),
-                                  hintText: 'Write your message here...',
-                                  border: InputBorder.none,
-                                  hintStyle: TextStyle(
-                                    color: Color.fromARGB(255, 108, 108, 108),
-                                  )),
-                            ),
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text('Fetching response...'),
-                            ),
-                            IconButton(
-                                onPressed: onStop, icon: Icon(Icons.stop, color: Colors.white)),
-                          ],
-                        ),
+        color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.05),
+        child: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxHeight: 300.0,
+                  ),
+                  child: TextField(
+                    maxLines: null,
+                    autofocus: true,
+                    readOnly: awaitingResponse,
+                    textInputAction: TextInputAction.send,
+                    controller: _messageController,
+                    onSubmitted: onSubmitted,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Colors.transparent, width: 0),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Colors.transparent, width: 0),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Colors.transparent, width: 0),
+                      ),
+                      hintText: 'Write your message here...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(
+                        color: Color.fromARGB(255, 108, 108, 108),
+                      ),
+                    ),
+                  ),
                 ),
-                IconButton(
-                  onPressed: !awaitingResponse ? () => onSubmitted(_messageController.text) : null,
-                  icon: const Icon(Icons.send),
-                  color: Colors.white,
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                onPressed: awaitingResponse ? onStop : () => onSubmitted(_messageController.text),
+                icon: Icon(awaitingResponse ? Icons.stop : Icons.send),
+                color: Colors.white,
+              ),
+            ],
           ),
         ),
       ),
