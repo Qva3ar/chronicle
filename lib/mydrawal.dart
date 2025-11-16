@@ -6,6 +6,7 @@ import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
+import 'package:chrono/screens/settings/insights_settings_screen.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
@@ -45,6 +46,23 @@ class MyDrawal extends StatelessWidget {
           // Important: Remove any padding from the ListView.
           padding: EdgeInsets.zero,
           children: [
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            ListTile(
+              title: const Text(
+                'AI INSIGHTS SETTINGS',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const InsightsSettingsScreen()),
+                );
+              },
+            ),
             Divider(
               color: MyColors.drawalDivider,
               height: 2,

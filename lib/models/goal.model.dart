@@ -11,6 +11,8 @@ class Goal {
   final int timeSpentSeconds; // Total time spent on this goal
   final int? sessionResumedTimestampSeconds; // Added field
   final int? completedAt; // Added field
+  final bool isPrimary;
+  final bool createdFromOnboarding;
 
   Goal({
     this.id,
@@ -22,6 +24,8 @@ class Goal {
     this.timeSpentSeconds = 0,
     this.sessionResumedTimestampSeconds, // Added to constructor
     this.completedAt, // Added to constructor
+    this.isPrimary = false,
+    this.createdFromOnboarding = false,
   });
 
   // Total goal time in seconds
@@ -74,6 +78,9 @@ class Goal {
       sessionResumedTimestampSeconds:
           map[DatabaseColumns.goalSessionResumedTimestampSeconds],
       completedAt: map[DatabaseColumns.goalCompletedAt],
+      isPrimary: (map[DatabaseColumns.goalIsPrimary] ?? 0) == 1,
+      createdFromOnboarding:
+          (map[DatabaseColumns.goalCreatedFromOnboarding] ?? 0) == 1,
     );
   }
 
@@ -90,6 +97,8 @@ class Goal {
       DatabaseColumns.goalSessionResumedTimestampSeconds:
           sessionResumedTimestampSeconds,
       DatabaseColumns.goalCompletedAt: completedAt,
+      DatabaseColumns.goalIsPrimary: isPrimary ? 1 : 0,
+      DatabaseColumns.goalCreatedFromOnboarding: createdFromOnboarding ? 1 : 0,
     };
   }
 
@@ -105,6 +114,8 @@ class Goal {
     int? sessionResumedTimestampSeconds, // Added parameter
     int? completedAt, // Added parameter
     bool clearSessionResumedTimestamp = false, // Added helper parameter
+    bool? isPrimary,
+    bool? createdFromOnboarding,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -120,12 +131,15 @@ class Goal {
           ? null
           : (sessionResumedTimestampSeconds ??
               this.sessionResumedTimestampSeconds),
+      isPrimary: isPrimary ?? this.isPrimary,
+      createdFromOnboarding:
+          createdFromOnboarding ?? this.createdFromOnboarding,
     );
   }
 
   @override
   String toString() {
-    return 'Goal(id: $id, title: $title, hours: $hours, minutes: $minutes, isActive: $isActive)';
+    return 'Goal(id: $id, title: $title, hours: $hours, minutes: $minutes, isActive: $isActive, isPrimary: $isPrimary)';
   }
 
   @override

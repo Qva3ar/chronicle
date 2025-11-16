@@ -6,6 +6,7 @@ import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/background/insight_worker.dart';
 
 // Global navigator key for navigation from notifications
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -37,6 +38,16 @@ void main() async {
     print('Initializing notification service...');
     await NotificationService().initialize();
     print('Notification service initialized');
+
+    // Initialize WorkManager for background tasks
+    print('Initializing WorkManager...');
+    await InsightWorker.initialize();
+    print('WorkManager initialized');
+
+    // Register AI insights background task if enabled
+    print('Registering insight worker...');
+    await InsightWorker.registerIfEnabled();
+    print('Insight worker registered');
 
     print('Starting app...');
     runApp(const MyApp());

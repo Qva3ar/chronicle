@@ -14,12 +14,27 @@ import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/main.dart';
 import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
+import 'package:chrono/ai/summarizer.dart';
 
 // Top-level or static callback function for the daily reset alarm
 @pragma('vm:entry-point')
 Future<void> _dailyResetAlarmCallback(int id) async {
   // This function runs in a separate isolate.
   tz.initializeTimeZones();
+  // Set local timezone for background isolate
+  try {
+    final String localTimezoneName = DateTime.now().timeZoneName;
+    String tzLocation = 'Europe/Moscow'; // Default fallback
+    if (localTimezoneName.contains('MSK')) {
+      tzLocation = 'Europe/Moscow';
+    } else if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
+      tzLocation = 'UTC';
+    }
+    tz.setLocalLocation(tz.getLocation(tzLocation));
+  } catch (e) {
+    tz.setLocalLocation(tz.getLocation('UTC'));
+  }
+
   final FlutterLocalNotificationsPlugin notificationsPlugin = FlutterLocalNotificationsPlugin();
   const AndroidInitializationSettings androidSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -63,6 +78,8 @@ Future<void> _dailyResetAlarmCallback(int id) async {
 
     // Schedule next reset with improved timing
     await _scheduleNextDailyReset();
+    // After daily reset, run optional summarization rollup
+    await Summarizer.instance.runDailySummary();
   } catch (e, stackTrace) {
     debugPrint('❌ DAILY RESET ERROR: $e');
     debugPrint('Stack trace: $stackTrace');
@@ -72,6 +89,21 @@ Future<void> _dailyResetAlarmCallback(int id) async {
 @pragma('vm:entry-point')
 Future<void> _scheduleNextDailyReset() async {
   try {
+    // Ensure timezone is set (this runs in background isolate)
+    tz.initializeTimeZones();
+    try {
+      final String localTimezoneName = DateTime.now().timeZoneName;
+      String tzLocation = 'Europe/Moscow';
+      if (localTimezoneName.contains('MSK')) {
+        tzLocation = 'Europe/Moscow';
+      } else if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
+        tzLocation = 'UTC';
+      }
+      tz.setLocalLocation(tz.getLocation(tzLocation));
+    } catch (e) {
+      tz.setLocalLocation(tz.getLocation('UTC'));
+    }
+
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     
     // Calculate next midnight with timezone awareness
@@ -146,6 +178,30 @@ class NotificationService {
 
     try {
       tz.initializeTimeZones();
+      // Set local timezone - this is critical for daily reset scheduling
+      // Try to detect local timezone from system, fallback to common timezones
+      try {
+        final String localTimezoneName = DateTime.now().timeZoneName;
+        debugPrint('📍 Device timezone: $localTimezoneName');
+
+        // Try common timezone mappings
+        String tzLocation = 'Europe/Moscow'; // Default fallback
+        if (localTimezoneName.contains('MSK')) {
+          tzLocation = 'Europe/Moscow';
+        } else if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
+          tzLocation = 'UTC';
+        } else if (localTimezoneName.contains('EST') || localTimezoneName.contains('EDT')) {
+          tzLocation = 'America/New_York';
+        } else if (localTimezoneName.contains('PST') || localTimezoneName.contains('PDT')) {
+          tzLocation = 'America/Los_Angeles';
+        }
+
+        tz.setLocalLocation(tz.getLocation(tzLocation));
+        debugPrint('✅ Timezone set to: $tzLocation (from $localTimezoneName)');
+      } catch (e) {
+        debugPrint('⚠️ Failed to set timezone: $e, using UTC');
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      }
 
       if (Platform.isAndroid) {
         if (!calledFromBackgroundTask) {
@@ -189,7 +245,9 @@ class NotificationService {
       }
 
       _isInitialized = true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ ERROR initializing NotificationService: $e');
+      debugPrint('Stack trace: $stackTrace');
       _isInitialized = false;
     } finally {
       _isInitializing = false;
@@ -652,6 +710,71 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('❌ Error cancelling pending notifications for routine $routineId: $e');
+    }
+  }
+
+  Future<void> showInsightNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_isInitialized) {
+      await initialize();
+      if (!_isInitialized) return;
+    }
+    try {
+      // Quiet hours check via app settings
+      final db = await DatabaseHelper.instance.database;
+      final rows = await db.query('app_settings', limit: 1);
+      if (rows.isNotEmpty) {
+        final s = rows.first;
+        final start = s['quiet_hours_start'] as String?;
+        final end = s['quiet_hours_end'] as String?;
+        if (start != null && end != null && start.isNotEmpty && end.isNotEmpty) {
+          final now = DateTime.now();
+          final partsStart = start.split(':');
+          final partsEnd = end.split(':');
+          if (partsStart.length == 2 && partsEnd.length == 2) {
+            final startDt = DateTime(now.year, now.month, now.day,
+                int.parse(partsStart[0]), int.parse(partsStart[1]));
+            final endDt = DateTime(now.year, now.month, now.day,
+                int.parse(partsEnd[0]), int.parse(partsEnd[1]));
+            bool inQuiet;
+            if (endDt.isAfter(startDt)) {
+              inQuiet = now.isAfter(startDt) && now.isBefore(endDt);
+            } else {
+              // Overnight window (e.g., 22:00 - 07:00)
+              inQuiet = now.isAfter(startDt) || now.isBefore(endDt);
+            }
+            if (inQuiet) {
+              debugPrint('🔕 Quiet hours active, skipping insight notification');
+              return;
+            }
+          }
+        }
+      }
+
+      await _notifications.show(
+        DateTime.now().millisecondsSinceEpoch % 1000000,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _routineChannelId,
+            _routineChannelName,
+            channelDescription: _routineChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: 'insight',
+      );
+    } catch (e) {
+      debugPrint('❌ Error showing insight notification: $e');
     }
   }
 }

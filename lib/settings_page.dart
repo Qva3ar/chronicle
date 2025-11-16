@@ -3,6 +3,8 @@ import 'package:chrono/dialogs/export_dialog.dart';
 import 'package:chrono/import_notes.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/routine_service.dart';
+import 'package:chrono/services/goal_service.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -119,6 +121,62 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _resetDailyData() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Reset Routines & Goals'),
+          content: Text(
+              'Are you sure you want to reset all routines and goals for a new day? This will:\n\n'
+              '• Mark all routines as not done\n'
+              '• Reset all goal completion status\n'
+              '• Reschedule all notifications\n\n'
+              'This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final dbManager = DatabaseHelper.instance;
+                  final routineService = RoutineService(dbManager);
+                  final goalService = GoalService(dbManager);
+
+                  // Reset all routines
+                  final routines = await routineService.getAllRoutines();
+                  for (final routine in routines) {
+                    await routineService.resetRoutine(routine.id);
+                  }
+
+                  // Reset all goals
+                  await goalService.resetAllGoals();
+
+                  // Reschedule notifications
+                  await _notificationService.checkAndRescheduleRoutines();
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Daily data reset successfully')),
+                  );
+                } catch (e) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error resetting daily data: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: Text('Reset', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -165,6 +223,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Text('Delete All Routines'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    minimumSize: Size(double.infinity, 50),
+                  ),
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _resetDailyData,
+                  child: Text('Reset Routines & Goals'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     minimumSize: Size(double.infinity, 50),
                   ),

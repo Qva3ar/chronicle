@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 24;
+  static const int databaseVersion = 27;
   static const int pageSize = 20;
 }
 
@@ -25,6 +25,10 @@ class DatabaseTables {
   static const String routines = 'routines';
   static const String goals = 'goals';
   static const String sessions = 'sessions';
+  static const String aiInterestSignals = 'ai_interest_signals';
+  static const String aiContextSummaries = 'ai_context_summaries';
+  static const String aiInsights = 'ai_insights';
+  static const String appSettings = 'app_settings';
 }
 
 class DatabaseColumns {
@@ -69,6 +73,46 @@ class DatabaseColumns {
   static const String goalTimeSpentSeconds = 'time_spent_seconds';
   static const String goalSessionResumedTimestampSeconds = 'session_resumed_timestamp_seconds';
   static const String goalCompletedAt = 'completed_at';
+  static const String goalIsPrimary = 'is_primary';
+  static const String goalCreatedFromOnboarding = 'created_from_onboarding';
+
+  // AI interest signals columns
+  static const String aiSource = 'source';
+  static const String aiSourceId = 'source_id';
+  static const String aiTopic = 'topic';
+  static const String aiIntent = 'intent';
+  static const String aiConfidence = 'confidence';
+  static const String aiCreatedAt = 'created_at';
+
+  // AI context summaries columns
+  static const String aiScope = 'scope';
+  static const String aiSummary = 'summary';
+  static const String aiPeriodStart = 'period_start';
+  static const String aiPeriodEnd = 'period_end';
+  static const String aiTokens = 'tokens';
+
+  // AI insights columns
+  static const String insightTitle = 'title';
+  static const String insightBody = 'body';
+  static const String insightTags = 'tags';
+  static const String insightScore = 'score';
+  static const String insightUrgency = 'urgency';
+  static const String insightSourceContextHash = 'source_context_hash';
+  static const String insightDeliveredAs = 'delivered_as';
+  static const String insightDeliveredAt = 'delivered_at';
+  static const String insightDismissedAt = 'dismissed_at';
+  static const String insightExpiresAt = 'expires_at';
+
+  // App settings columns
+  static const String settingInsightEnabled = 'insight_enabled';
+  static const String settingInsightIntervalMinutes = 'insight_interval_minutes';
+  static const String settingInsightContextDays = 'insight_context_days';
+  static const String settingInsightTokenLimit = 'insight_token_limit';
+  static const String settingQuietHoursStart = 'quiet_hours_start';
+  static const String settingQuietHoursEnd = 'quiet_hours_end';
+  static const String settingPrimaryGoalId = 'primary_goal_id';
+  static const String settingMainIntentionText = 'main_intention_text';
+  static const String settingLastBackgroundRunAt = 'last_background_run_at';
 }
 
 /// A singleton class that manages the SQLite database operations
@@ -88,10 +132,10 @@ class DatabaseHelper {
     try {
       final Directory documentsDirectory = await getApplicationDocumentsDirectory();
       final String path = join(documentsDirectory.path, DatabaseConfig.databaseName);
-      
+
       // 🎯 DATA PROTECTION: Log database info for debugging
       log('📍 Database path: $path');
-      
+
       // Check if database file exists and log its size
       final File dbFile = File(path);
       if (await dbFile.exists()) {
@@ -109,69 +153,64 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
         onOpen: _onOpen,
       );
-      
+
       // 🎯 VERIFICATION: Check data integrity after opening
       await _verifyDataIntegrity(database);
-      
+
       return database;
     } catch (e) {
       log('❌ Error initializing database: $e');
       rethrow;
     }
   }
-  
+
   /// Verify data integrity when opening database
   Future<void> _onOpen(Database db) async {
     log('🔓 Database opened successfully');
   }
-  
+
   /// Verify data integrity and log recent records
   Future<void> _verifyDataIntegrity(Database db) async {
     try {
       // Count records
-      final List<Map<String, dynamic>> recordCount = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM ${DatabaseTables.record}'
-      );
+      final List<Map<String, dynamic>> recordCount =
+          await db.rawQuery('SELECT COUNT(*) as count FROM ${DatabaseTables.record}');
       final int totalRecords = recordCount.first['count'] as int;
-      
+
       // Get most recent records
-      final List<Map<String, dynamic>> recentRecords = await db.rawQuery(
-        'SELECT ${DatabaseColumns.recordCreatedAt}, ${DatabaseColumns.recordTitle} '
-        'FROM ${DatabaseTables.record} '
-        'ORDER BY ${DatabaseColumns.recordCreatedAt} DESC LIMIT 5'
-      );
-      
+      final List<Map<String, dynamic>> recentRecords = await db
+          .rawQuery('SELECT ${DatabaseColumns.recordCreatedAt}, ${DatabaseColumns.recordTitle} '
+              'FROM ${DatabaseTables.record} '
+              'ORDER BY ${DatabaseColumns.recordCreatedAt} DESC LIMIT 5');
+
       log('📊 DATABASE VERIFICATION:');
       log('   Total records: $totalRecords');
-      
+
       if (recentRecords.isNotEmpty) {
         log('   Recent records:');
         for (final record in recentRecords) {
-          final DateTime created = DateTime.fromMillisecondsSinceEpoch(
-            record[DatabaseColumns.recordCreatedAt] as int
-          );
+          final DateTime created =
+              DateTime.fromMillisecondsSinceEpoch(record[DatabaseColumns.recordCreatedAt] as int);
           final String title = record[DatabaseColumns.recordTitle] ?? 'No title';
           log('     - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(created)}: ${title.substring(0, title.length > 30 ? 30 : title.length)}${title.length > 30 ? '...' : ''}');
         }
       } else {
         log('   No records found');
       }
-      
+
       // Check for recent data (within last 7 days)
       final DateTime sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
       final List<Map<String, dynamic>> recentCount = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM ${DatabaseTables.record} '
-        'WHERE ${DatabaseColumns.recordCreatedAt} > ?',
-        [sevenDaysAgo.millisecondsSinceEpoch]
-      );
+          'SELECT COUNT(*) as count FROM ${DatabaseTables.record} '
+          'WHERE ${DatabaseColumns.recordCreatedAt} > ?',
+          [sevenDaysAgo.millisecondsSinceEpoch]);
       final int recentRecordCount = recentCount.first['count'] as int;
-      
+
       log('   Records from last 7 days: $recentRecordCount');
-      
+
       if (recentRecordCount == 0 && totalRecords > 0) {
         log('⚠️  WARNING: No recent records found but old records exist - possible backup restore!');
       }
-      
     } catch (e) {
       log('❌ Error during data verification: $e');
     }
@@ -262,7 +301,9 @@ class DatabaseHelper {
           ${DatabaseColumns.goalIsActive} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalTimeSpentSeconds} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER,
-          ${DatabaseColumns.goalCompletedAt} INTEGER
+          ${DatabaseColumns.goalCompletedAt} INTEGER,
+          ${DatabaseColumns.goalIsPrimary} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -278,6 +319,81 @@ class DatabaseHelper {
           is_completed INTEGER NOT NULL DEFAULT 0,
           notes TEXT,
           FOREIGN KEY (goal_id) REFERENCES ${DatabaseTables.goals}(${DatabaseColumns.id}) ON DELETE CASCADE
+        )
+      ''');
+
+      // Create app settings table (singleton row)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.appSettings} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.settingInsightEnabled} INTEGER NOT NULL DEFAULT 1,
+          ${DatabaseColumns.settingInsightIntervalMinutes} INTEGER NOT NULL DEFAULT 60,
+          ${DatabaseColumns.settingInsightContextDays} INTEGER NOT NULL DEFAULT 7,
+          ${DatabaseColumns.settingInsightTokenLimit} INTEGER NOT NULL DEFAULT 4000,
+          ${DatabaseColumns.settingQuietHoursStart} TEXT,
+          ${DatabaseColumns.settingQuietHoursEnd} TEXT,
+          ${DatabaseColumns.settingPrimaryGoalId} INTEGER,
+          ${DatabaseColumns.settingMainIntentionText} TEXT,
+          ${DatabaseColumns.settingLastBackgroundRunAt} INTEGER
+        )
+      ''');
+
+      // Ensure a default settings row exists
+      final countSettings =
+          await db.rawQuery('SELECT COUNT(*) as c FROM ${DatabaseTables.appSettings}');
+      final settingsCount = countSettings.first['c'] as int? ?? 0;
+      if (settingsCount == 0) {
+        await db.insert(DatabaseTables.appSettings, {
+          DatabaseColumns.settingInsightEnabled: 1,
+          DatabaseColumns.settingInsightIntervalMinutes: 60,
+          DatabaseColumns.settingInsightContextDays: 7,
+          DatabaseColumns.settingInsightTokenLimit: 4000,
+          DatabaseColumns.settingQuietHoursStart: null,
+          DatabaseColumns.settingQuietHoursEnd: null,
+          DatabaseColumns.settingPrimaryGoalId: null,
+        });
+      }
+
+      // Create AI interest signals table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiInterestSignals} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.aiSource} TEXT NOT NULL,
+          ${DatabaseColumns.aiSourceId} TEXT,
+          ${DatabaseColumns.aiTopic} TEXT NOT NULL,
+          ${DatabaseColumns.aiIntent} TEXT,
+          ${DatabaseColumns.aiConfidence} REAL,
+          ${DatabaseColumns.aiCreatedAt} INTEGER NOT NULL
+        )
+      ''');
+
+      // Create AI context summaries table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiContextSummaries} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.aiScope} TEXT NOT NULL,
+          ${DatabaseColumns.aiSummary} TEXT NOT NULL,
+          ${DatabaseColumns.aiPeriodStart} INTEGER,
+          ${DatabaseColumns.aiPeriodEnd} INTEGER,
+          ${DatabaseColumns.aiTokens} INTEGER,
+          ${DatabaseColumns.aiCreatedAt} INTEGER NOT NULL
+        )
+      ''');
+
+      // Create AI insights table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiInsights} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.insightTitle} TEXT NOT NULL,
+          ${DatabaseColumns.insightBody} TEXT NOT NULL,
+          ${DatabaseColumns.insightTags} TEXT,
+          ${DatabaseColumns.insightScore} REAL,
+          ${DatabaseColumns.insightUrgency} TEXT,
+          ${DatabaseColumns.insightSourceContextHash} TEXT UNIQUE,
+          ${DatabaseColumns.insightDeliveredAs} TEXT,
+          ${DatabaseColumns.insightDeliveredAt} INTEGER,
+          ${DatabaseColumns.insightDismissedAt} INTEGER,
+          ${DatabaseColumns.insightExpiresAt} INTEGER
         )
       ''');
 
@@ -451,6 +567,114 @@ class DatabaseHelper {
 
         log('Upgraded database to v24: Added previous state columns and recalculated streaks with scheduled-day logic.');
       }
+
+      if (oldVersion < 25) {
+        // Goals: add is_primary and created_from_onboarding if missing
+        final goalColumns = await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasIsPrimary = goalColumns.any((c) => c['name'] == DatabaseColumns.goalIsPrimary);
+        final hasCreatedFrom =
+            goalColumns.any((c) => c['name'] == DatabaseColumns.goalCreatedFromOnboarding);
+        if (!hasIsPrimary) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalIsPrimary} INTEGER NOT NULL DEFAULT 0
+          ''');
+        }
+        if (!hasCreatedFrom) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0
+          ''');
+        }
+
+        // Create app_settings if not exists
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.appSettings} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.settingInsightEnabled} INTEGER NOT NULL DEFAULT 1,
+            ${DatabaseColumns.settingInsightIntervalMinutes} INTEGER NOT NULL DEFAULT 60,
+            ${DatabaseColumns.settingInsightContextDays} INTEGER NOT NULL DEFAULT 7,
+            ${DatabaseColumns.settingInsightTokenLimit} INTEGER NOT NULL DEFAULT 4000,
+            ${DatabaseColumns.settingQuietHoursStart} TEXT,
+            ${DatabaseColumns.settingQuietHoursEnd} TEXT,
+            ${DatabaseColumns.settingPrimaryGoalId} INTEGER
+          )
+        ''');
+        // Ensure a default settings row exists
+        final countSettings =
+            await db.rawQuery('SELECT COUNT(*) as c FROM ${DatabaseTables.appSettings}');
+        final settingsCount = countSettings.first['c'] as int? ?? 0;
+        if (settingsCount == 0) {
+          await db.insert(DatabaseTables.appSettings, {
+            DatabaseColumns.settingInsightEnabled: 1,
+            DatabaseColumns.settingInsightIntervalMinutes: 60,
+            DatabaseColumns.settingInsightContextDays: 7,
+            DatabaseColumns.settingInsightTokenLimit: 4000,
+            DatabaseColumns.settingQuietHoursStart: null,
+            DatabaseColumns.settingQuietHoursEnd: null,
+            DatabaseColumns.settingPrimaryGoalId: null,
+          });
+        }
+
+        // AI tables
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiInterestSignals} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.aiSource} TEXT NOT NULL,
+            ${DatabaseColumns.aiSourceId} TEXT,
+            ${DatabaseColumns.aiTopic} TEXT NOT NULL,
+            ${DatabaseColumns.aiIntent} TEXT,
+            ${DatabaseColumns.aiConfidence} REAL,
+            ${DatabaseColumns.aiCreatedAt} INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiContextSummaries} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.aiScope} TEXT NOT NULL,
+            ${DatabaseColumns.aiSummary} TEXT NOT NULL,
+            ${DatabaseColumns.aiPeriodStart} INTEGER,
+            ${DatabaseColumns.aiPeriodEnd} INTEGER,
+            ${DatabaseColumns.aiTokens} INTEGER,
+            ${DatabaseColumns.aiCreatedAt} INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.aiInsights} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.insightTitle} TEXT NOT NULL,
+            ${DatabaseColumns.insightBody} TEXT NOT NULL,
+            ${DatabaseColumns.insightTags} TEXT,
+            ${DatabaseColumns.insightScore} REAL,
+            ${DatabaseColumns.insightUrgency} TEXT,
+            ${DatabaseColumns.insightSourceContextHash} TEXT UNIQUE,
+            ${DatabaseColumns.insightDeliveredAs} TEXT,
+            ${DatabaseColumns.insightDeliveredAt} INTEGER,
+            ${DatabaseColumns.insightDismissedAt} INTEGER,
+            ${DatabaseColumns.insightExpiresAt} INTEGER
+          )
+        ''');
+
+        log('Upgraded database to v25: Added AI tables, app settings, and goal flags.');
+      }
+
+      if (oldVersion < 26) {
+        // Add main_intention_text column for storing onboarding primary text
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.appSettings}
+          ADD COLUMN ${DatabaseColumns.settingMainIntentionText} TEXT
+        ''');
+        log('Upgraded database to v26: Added main_intention_text to app_settings.');
+      }
+
+      if (oldVersion < 27) {
+        // Add last_background_run_at column for tracking background task execution
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.appSettings}
+          ADD COLUMN ${DatabaseColumns.settingLastBackgroundRunAt} INTEGER
+        ''');
+        log('Upgraded database to v27: Added last_background_run_at to app_settings.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -482,7 +706,8 @@ class DatabaseHelper {
   /// Returns null if no scheduled day found in the past week
   DateTime? _findPreviousScheduledOccurrence(DateTime date, List<bool> daysOfWeek) {
     // Start from yesterday and look backwards up to 7 days
-    DateTime checkDate = DateTime(date.year, date.month, date.day).subtract(const Duration(days: 1));
+    DateTime checkDate =
+        DateTime(date.year, date.month, date.day).subtract(const Duration(days: 1));
 
     for (int i = 0; i < 7; i++) {
       int dayIndex = checkDate.weekday - 1; // Convert to 0-based (Monday=0)
@@ -714,7 +939,8 @@ class DatabaseHelper {
         final whereConditions = <String>[];
 
         if (searchText != null && searchText.isNotEmpty) {
-          whereConditions.add("(${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)");
+          whereConditions.add(
+              "(${DatabaseColumns.recordText} LIKE ? OR ${DatabaseColumns.recordTitle} LIKE ?)");
         }
 
         if (typeFilters.isNotEmpty) {
@@ -1303,7 +1529,8 @@ class DatabaseHelper {
         }
 
         final currentRoutine = routineData.first;
-        final String? lastCompletedDate = currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
+        final String? lastCompletedDate =
+            currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
         final int currentStreak = currentRoutine[DatabaseColumns.routineStreak] as int? ?? 0;
         final String daysOfWeekString = currentRoutine[DatabaseColumns.routineDaysOfWeek] as String;
         final List<bool> daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
@@ -1361,7 +1588,8 @@ class DatabaseHelper {
         }
 
         final currentRoutine = routineData.first;
-        final String? lastCompletedDate = currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
+        final String? lastCompletedDate =
+            currentRoutine[DatabaseColumns.routineLastCompletedDate] as String?;
         final DateTime now = DateTime.now();
         final String today = DateFormat('yyyy-MM-dd').format(now);
 
@@ -1369,7 +1597,8 @@ class DatabaseHelper {
         if (lastCompletedDate == today) {
           // Restore previous state to undo accidental check
           final int? previousStreak = currentRoutine[DatabaseColumns.routinePreviousStreak] as int?;
-          final String? previousLastCompletedDate = currentRoutine[DatabaseColumns.routinePreviousLastCompletedDate] as String?;
+          final String? previousLastCompletedDate =
+              currentRoutine[DatabaseColumns.routinePreviousLastCompletedDate] as String?;
 
           return await db.update(
             DatabaseTables.routines,
@@ -1423,7 +1652,8 @@ class DatabaseHelper {
       final List<bool> daysOfWeek = daysOfWeekString.split(',').map((day) => day == '1').toList();
 
       // Normalize completion date to midnight
-      final DateTime normalizedDate = DateTime(completionDate.year, completionDate.month, completionDate.day);
+      final DateTime normalizedDate =
+          DateTime(completionDate.year, completionDate.month, completionDate.day);
       final int dayIndex = normalizedDate.weekday - 1; // Convert to 0-based index
 
       // Validate: Check if routine is scheduled for this day
@@ -1434,7 +1664,8 @@ class DatabaseHelper {
       // Validate: Check if date is in the past (not today or future)
       final DateTime today = DateTime.now();
       final DateTime todayNormalized = DateTime(today.year, today.month, today.day);
-      if (normalizedDate.isAfter(todayNormalized) || normalizedDate.isAtSameMomentAs(todayNormalized)) {
+      if (normalizedDate.isAfter(todayNormalized) ||
+          normalizedDate.isAtSameMomentAs(todayNormalized)) {
         throw Exception('Can only backdate to past dates');
       }
 
@@ -1454,7 +1685,8 @@ class DatabaseHelper {
       for (var record in existingRecords) {
         final int timestamp = record[DatabaseColumns.recordCreatedAt] as int;
         final DateTime recordDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
-        final DateTime recordDateNormalized = DateTime(recordDate.year, recordDate.month, recordDate.day);
+        final DateTime recordDateNormalized =
+            DateTime(recordDate.year, recordDate.month, recordDate.day);
 
         if (recordDateNormalized.isAtSameMomentAs(normalizedDate)) {
           throw Exception('Routine already completed on this date');

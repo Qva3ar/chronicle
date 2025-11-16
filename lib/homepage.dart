@@ -25,6 +25,9 @@ import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
+import 'package:chrono/widgets/insight_banner.dart';
+import 'package:chrono/onboarding/primary_goal_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dart:async';
 
@@ -72,6 +75,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _initializeApp() async {
     // Load filter settings first, then load records
     await _loadFilterSettings();
+    await _maybeShowOnboarding();
 
     if (widget.recordIds != null && widget.recordIds!.isNotEmpty) {
       //print("SEARCH FOR NOTES" + widget.recordIds.toString());
@@ -81,6 +85,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     _setupListeners();
+  }
+
+  Future<void> _maybeShowOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+    if (done) return;
+    final db = await DatabaseHelper.instance.database;
+    final settings = await db.query(DatabaseTables.appSettings, limit: 1);
+    final hasPrimary =
+        settings.isNotEmpty && settings.first[DatabaseColumns.settingPrimaryGoalId] != null;
+    if (hasPrimary) {
+      await prefs.setBool('onboarding_done', true);
+      return;
+    }
+    if (!mounted) return;
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PrimaryGoalScreen()),
+    );
+    if (result == true) {
+      // refresh anything if needed
+    }
   }
 
   void _setupListeners() {
@@ -526,8 +552,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       body: Column(
         children: [
+          const InsightBanner(),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 Expanded(

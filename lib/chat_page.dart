@@ -20,6 +20,8 @@ import 'package:chrono/shared/tag_selection_dialog.dart';
 import 'package:chrono/helpers/api-key-options.dart';
 import 'db_manager.dart';
 import 'models/chat-message.dart';
+import 'package:chrono/ai/ai_client.dart';
+import 'dart:convert';
 
 class ChatPage extends StatefulWidget {
   final MessageService messageService; // Add this field
@@ -34,7 +36,6 @@ class _ChatPageState extends State<ChatPage> {
   final _messages = <ChatMessage>[];
   final List<Record> allRecords = [];
   List<Tag> allTags = [];
-  List<ChatMessage> _tokenMessages = [];
 
   var _awaitingResponse = false;
   var includeAllNote = false;
@@ -88,8 +89,8 @@ class _ChatPageState extends State<ChatPage> {
 
     final count = await processMessages(allRecords);
     //find model from apitokenoptions and get price
-    final model = apiKeyOptions
-        .firstWhere((element) => element.value == gptNoteBindService.getModel);
+    final model =
+        apiKeyOptions.firstWhere((element) => element.value == gptNoteBindService.getModel);
     //round to 2 digits
     String inString = (count / 1000 * model.price).toStringAsFixed(8);
 
@@ -104,8 +105,7 @@ class _ChatPageState extends State<ChatPage> {
     Match? match = regExp.firstMatch(input);
 
     if (match != null) {
-      return match
-          .group(1)!; // group(1) contains the value within square brackets
+      return match.group(1)!; // group(1) contains the value within square brackets
     } else {
       return ""; // Return an empty string if no match is found
     }
@@ -230,7 +230,8 @@ class _ChatPageState extends State<ChatPage> {
     return chunks;
   }
 
-  String _createChunkInstruction(int chunkNumber, int totalChunks, List<Record> records, bool isLast, String? userQuery) {
+  String _createChunkInstruction(
+      int chunkNumber, int totalChunks, List<Record> records, bool isLast, String? userQuery) {
     final notesString = records.map((note) {
       String tagIds = note.tagIds.map((tagId) => "$tagId").join(', ');
       return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: ${tagIds}\nCreated At: ${note.createdAt}\n\n";
@@ -286,9 +287,7 @@ class _ChatPageState extends State<ChatPage> {
 
           final completer = Completer<void>();
 
-          stream = gptService
-              .completionStream(_messages, chunkSystemMessages)
-              .listen((event) {
+          stream = gptService.completionStream(_messages, chunkSystemMessages).listen((event) {
             final content = event.choices.first.delta.content;
             if (content != null && content.isNotEmpty) {
               accumulator += content[0].text ?? '';
@@ -310,13 +309,12 @@ class _ChatPageState extends State<ChatPage> {
           // For non-last chunks, send without streaming (just to feed context)
           // We create a temporary message list to send the chunk
           final tempMessages = List<ChatMessage>.from(_messages);
-          tempMessages.insert(0, ChatMessage("Acknowledged. Waiting for next chunk.", false, false));
+          tempMessages.insert(
+              0, ChatMessage("Acknowledged. Waiting for next chunk.", false, false));
 
           final completer = Completer<void>();
 
-          stream = gptService
-              .completionStream(tempMessages, chunkSystemMessages)
-              .listen((event) {
+          stream = gptService.completionStream(tempMessages, chunkSystemMessages).listen((event) {
             // We don't care about the response for intermediate chunks
           }, onError: (err) {
             completer.completeError(err);
@@ -378,132 +376,130 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  "Include user data",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                if (includeAllNote && selectedTagIds.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: InkWell(
-                                      onTap: () async {
-                                        // Allow re-opening dialog to change selection
-                                        final result = await showDialog<List<int>?>(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return TagSelectionDialog(
-                                              availableTags: allTags,
-                                              initialSelectedTagIds: selectedTagIds,
-                                            );
-                                          },
-                                        );
-
-                                        if (result != null && result.isNotEmpty) {
-                                          setState(() {
-                                            selectedTagIds = result;
-                                          });
-                                          getUserNotes();
-                                        } else if (result != null && result.isEmpty) {
-                                          // User confirmed with no tags - turn off
-                                          setState(() {
-                                            includeAllNote = false;
-                                            selectedTagIds = [];
-                                            tokenCount = 0;
-                                          });
-                                        }
-                                      },
-                                      child: Icon(
-                                        Icons.edit,
-                                        size: 16,
-                                        color: Colors.white.withOpacity(0.7),
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                            Text(
+                              "Include user data",
+                              style: TextStyle(color: Colors.white),
                             ),
                             if (includeAllNote && selectedTagIds.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Wrap(
-                                  spacing: 4.0,
-                                  runSpacing: 4.0,
-                                  children: allTags
-                                      .where((tag) => selectedTagIds.contains(tag.id))
-                                      .map((tag) => Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Color(int.parse(tag.color!)),
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              tag.name,
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ))
-                                      .toList(),
+                                padding: const EdgeInsets.only(left: 8),
+                                child: InkWell(
+                                  onTap: () async {
+                                    // Allow re-opening dialog to change selection
+                                    final result = await showDialog<List<int>?>(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return TagSelectionDialog(
+                                          availableTags: allTags,
+                                          initialSelectedTagIds: selectedTagIds,
+                                        );
+                                      },
+                                    );
+
+                                    if (result != null && result.isNotEmpty) {
+                                      setState(() {
+                                        selectedTagIds = result;
+                                      });
+                                      getUserNotes();
+                                    } else if (result != null && result.isEmpty) {
+                                      // User confirmed with no tags - turn off
+                                      setState(() {
+                                        includeAllNote = false;
+                                        selectedTagIds = [];
+                                        tokenCount = 0;
+                                      });
+                                    }
+                                  },
+                                  child: Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
                                 ),
                               ),
                           ],
                         ),
-                      ),
-                      Switch(
-                        value: includeAllNote,
-                        onChanged: (newValue) async {
-                          if (newValue) {
-                            // Show tag selection dialog
-                            final result = await showDialog<List<int>?>(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return TagSelectionDialog(
-                                  availableTags: allTags,
-                                  initialSelectedTagIds: selectedTagIds,
-                                );
-                              },
+                        if (includeAllNote && selectedTagIds.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Wrap(
+                              spacing: 4.0,
+                              runSpacing: 4.0,
+                              children: allTags
+                                  .where((tag) => selectedTagIds.contains(tag.id))
+                                  .map((tag) => Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Color(int.parse(tag.color!)),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          tag.name,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: includeAllNote,
+                    onChanged: (newValue) async {
+                      if (newValue) {
+                        // Show tag selection dialog
+                        final result = await showDialog<List<int>?>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return TagSelectionDialog(
+                              availableTags: allTags,
+                              initialSelectedTagIds: selectedTagIds,
                             );
+                          },
+                        );
 
-                            // Handle dialog result
-                            if (result != null && result.isNotEmpty) {
-                              // User confirmed with tags selected
-                              setState(() {
-                                selectedTagIds = result;
-                                includeAllNote = true;
-                              });
-                              getUserNotes();
-                            } else {
-                              // User cancelled or confirmed with no tags
-                              setState(() {
-                                includeAllNote = false;
-                                selectedTagIds = [];
-                                tokenCount = 0;
-                              });
-                            }
-                          } else {
-                            // Turning switch OFF
-                            setState(() {
-                              includeAllNote = false;
-                              selectedTagIds = [];
-                              tokenCount = 0;
-                            });
-                          }
-                        },
-                      ),
-                    ]),
+                        // Handle dialog result
+                        if (result != null && result.isNotEmpty) {
+                          // User confirmed with tags selected
+                          setState(() {
+                            selectedTagIds = result;
+                            includeAllNote = true;
+                          });
+                          getUserNotes();
+                        } else {
+                          // User cancelled or confirmed with no tags
+                          setState(() {
+                            includeAllNote = false;
+                            selectedTagIds = [];
+                            tokenCount = 0;
+                          });
+                        }
+                      } else {
+                        // Turning switch OFF
+                        setState(() {
+                          includeAllNote = false;
+                          selectedTagIds = [];
+                          tokenCount = 0;
+                        });
+                      }
+                    },
+                  ),
+                ]),
               ],
             ),
           ),
@@ -597,14 +593,15 @@ class _ChatPageState extends State<ChatPage> {
       _messages.insert(0, userMessage); // Вставка в начало спискаs
       _awaitingResponse = true;
     });
+    _extractAndStoreInterest(message); // fire-and-forget
     widget.messageService.addMessage(userMessage);
     _textController.clear(); // Очистка текстового поля
 
     String accumulator = '';
 
     if (includeAllNote) {
-      _systemMessages.add(ChatMessage(
-          Instractions.useUserAllNotes(allRecords, allTags), false, true));
+      _systemMessages
+          .add(ChatMessage(Instractions.useUserAllNotes(allRecords, allTags), false, true));
       log(Instractions.useUserAllNotes(allRecords, allTags));
     }
     // _systemMessages.add(ChatMessage(Instractions.findRecords(), false, true));
@@ -613,9 +610,7 @@ class _ChatPageState extends State<ChatPage> {
       //_messages as string
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = gptService
-          .completionStream(_messages, _systemMessages)
-          .listen((event) {
+      stream = gptService.completionStream(_messages, _systemMessages).listen((event) {
         final content = event.choices.first.delta.content;
         //print(content);
         if (content != null && content.isNotEmpty) {
@@ -631,10 +626,11 @@ class _ChatPageState extends State<ChatPage> {
           log('API Error: $errorMessage');
 
           // Check if error is related to context length
-          final isContextLengthError = errorMessage.toLowerCase().contains('maximum context length') ||
-              errorMessage.toLowerCase().contains('context_length_exceeded') ||
-              errorMessage.toLowerCase().contains('too many tokens') ||
-              errorMessage.toLowerCase().contains('token limit');
+          final isContextLengthError =
+              errorMessage.toLowerCase().contains('maximum context length') ||
+                  errorMessage.toLowerCase().contains('context_length_exceeded') ||
+                  errorMessage.toLowerCase().contains('too many tokens') ||
+                  errorMessage.toLowerCase().contains('token limit');
 
           if (isContextLengthError && includeAllNote && allRecords.isNotEmpty) {
             // Context is too large - offer chunking
@@ -677,9 +673,7 @@ class _ChatPageState extends State<ChatPage> {
           log('Unexpected error: $err');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content:
-                      Text('An unexpected error occurred. Please try again.')),
+              const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
             );
           }
           setState(() {
@@ -689,8 +683,7 @@ class _ChatPageState extends State<ChatPage> {
       }, onDone: () {
         final ids = extractValue(accumulator);
         _messages.first.recordIds = ids;
-        widget.messageService
-            .addMessage(ChatMessage(accumulator, false, false));
+        widget.messageService.addMessage(ChatMessage(accumulator, false, false));
         setState(() {
           _awaitingResponse = false;
         });
@@ -704,6 +697,72 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _awaitingResponse = false;
       });
+    }
+  }
+
+  Future<void> _extractAndStoreInterest(String text) async {
+    try {
+      final trimmed = text.trim();
+      if (trimmed.isEmpty) {
+        print('[Interests] Skip empty chat message');
+        return;
+      }
+      final preview = trimmed.length > 120 ? '${trimmed.substring(0, 120)}…' : trimmed;
+      print('[Interests] Extracting topics from: "$preview"');
+      final sys = 'Извлеки краткие темы интересов и намерение из пользовательского сообщения. '
+          'Ответ только JSON с полями: topics (array of strings, ≤3), intent (string), confidence (0..1).';
+      final raw = await AiClient.instance.completeJson(
+        systemPrompt: sys,
+        userPrompt: text,
+      );
+      print('[Interests] Raw extractor response: $raw');
+      Map<String, dynamic> parsed;
+      try {
+        parsed = jsonDecode(raw) as Map<String, dynamic>;
+      } catch (_) {
+        parsed = {
+          'topics': [],
+          'intent': null,
+          'confidence': 0.5,
+        };
+        print('[Interests] Failed to parse JSON, using fallback.');
+      }
+      final topics = (parsed['topics'] is List) ? (parsed['topics'] as List) : <String>[];
+      final intent = parsed['intent']?.toString();
+      final confidence =
+          parsed['confidence'] is num ? (parsed['confidence'] as num).toDouble() : 0.5;
+      final db = await DatabaseHelper.instance.database;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (topics.isEmpty && intent == null) {
+        print('[Interests] Nothing to store (no topics/intent).');
+        return;
+      }
+      if (topics.isEmpty) {
+        await db.insert(DatabaseTables.aiInterestSignals, {
+          DatabaseColumns.aiSource: 'chat',
+          DatabaseColumns.aiSourceId: now.toString(),
+          DatabaseColumns.aiTopic: 'general',
+          DatabaseColumns.aiIntent: intent,
+          DatabaseColumns.aiConfidence: confidence,
+          DatabaseColumns.aiCreatedAt: now,
+        });
+        print('[Interests] Stored generic interest intent="$intent" conf=$confidence');
+      } else {
+        for (final t in topics.take(3)) {
+          await db.insert(DatabaseTables.aiInterestSignals, {
+            DatabaseColumns.aiSource: 'chat',
+            DatabaseColumns.aiSourceId: now.toString(),
+            DatabaseColumns.aiTopic: t.toString(),
+            DatabaseColumns.aiIntent: intent,
+            DatabaseColumns.aiConfidence: confidence,
+            DatabaseColumns.aiCreatedAt: now,
+          });
+          print('[Interests] Stored topic="$t" intent="$intent" conf=$confidence');
+        }
+      }
+    } catch (e, stack) {
+      print('[Interests] ERROR: $e');
+      print(stack);
     }
   }
 }
