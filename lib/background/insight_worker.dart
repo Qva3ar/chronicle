@@ -81,26 +81,67 @@ void insightCallbackDispatcher() {
 class InsightWorker {
   static const String _taskName = 'com.chrono.insight_generation';
   static const String _uniqueName = 'insight_periodic_task';
+  static const bool _temporarilyDisabled = true;
+  static bool _pluginInitialized = false;
+
+  static Future<bool> _initializePluginIfNeeded({required bool forCleanup}) async {
+    if (_pluginInitialized) {
+      return true;
+    }
+
+    try {
+      if (forCleanup) {
+        print('[InsightWorker] ℹ️ Initializing WorkManager plugin to cancel stale tasks...');
+      } else {
+        print('[InsightWorker] Initializing WorkManager...');
+      }
+      await Workmanager().initialize(
+        insightCallbackDispatcher,
+        isInDebugMode: false,
+      );
+      _pluginInitialized = true;
+      if (forCleanup) {
+        print('[InsightWorker] ℹ️ WorkManager plugin initialized (cleanup context)');
+      } else {
+        print('[InsightWorker] ✅ WorkManager initialized');
+      }
+      return true;
+    } catch (e) {
+      final context = forCleanup ? ' for cleanup' : '';
+      print('[InsightWorker] ❌ Failed to initialize WorkManager$context: $e');
+      return false;
+    }
+  }
 
   /// Initialize WorkManager (call once at app startup)
   static Future<void> initialize() async {
-    try {
-      print('[InsightWorker] Initializing WorkManager...');
+    if (_temporarilyDisabled) {
+      print('[InsightWorker] ⛔ WorkManager temporarily disabled (AlarmManager conflict). Skipping initialization.');
+      await disableDueToAlarmManagerConflict();
+      return;
+    }
 
-      await Workmanager().initialize(
-        insightCallbackDispatcher,
-        isInDebugMode: false, // Set to true to see detailed logs
-      );
-
-      print('[InsightWorker] ✅ WorkManager initialized');
-    } catch (e) {
-      print('[InsightWorker] ❌ Failed to initialize WorkManager: $e');
+    final initialized = await _initializePluginIfNeeded(forCleanup: false);
+    if (!initialized) {
+      print('[InsightWorker] ❌ Unable to initialize WorkManager (see logs above).');
     }
   }
 
   /// Register periodic insight generation task
   static Future<void> registerIfEnabled() async {
+    if (_temporarilyDisabled) {
+      print('[InsightWorker] ⛔ WorkManager scheduling disabled. Canceling any existing tasks to avoid AlarmManager conflicts.');
+      await cancel(cancelAll: true);
+      return;
+    }
+
     try {
+      final initialized = await _initializePluginIfNeeded(forCleanup: false);
+      if (!initialized) {
+        print('[InsightWorker] ❌ Aborting task registration because WorkManager failed to initialize.');
+        return;
+      }
+
       final settings = await ContextBuilder.instance.loadSettings();
 
       print('[InsightWorker] Loaded settings: enabled=${settings.insightEnabled}, interval=${settings.intervalMinutes}min');
@@ -146,6 +187,16 @@ class InsightWorker {
       print('[InsightWorker] ❌ Failed to register task: $e');
       print('[InsightWorker] Stack trace: $stack');
     }
+  }
+
+  /// Temporarily disable WorkManager-backed insights (AlarmManager conflict workaround)
+  static Future<void> disableDueToAlarmManagerConflict() async {
+    if (!_temporarilyDisabled) {
+      return;
+    }
+
+    print('[InsightWorker] ⚠️ Disabling WorkManager tasks due to AlarmManager conflict (session timers hanging).');
+    await cancel(cancelAll: true);
   }
 
   /// Run insight generation immediately (for testing/manual trigger)
@@ -206,10 +257,21 @@ class InsightWorker {
   }
 
   /// Cancel all insight generation tasks
-  static Future<void> cancel() async {
+  static Future<void> cancel({bool cancelAll = false}) async {
     try {
-      await Workmanager().cancelByUniqueName(_uniqueName);
-      print('[InsightWorker] ✅ All insight tasks cancelled');
+      final initialized = await _initializePluginIfNeeded(forCleanup: true);
+      if (!initialized) {
+        print('[InsightWorker] ❌ Skipping cancel because WorkManager failed to initialize.');
+        return;
+      }
+
+      if (cancelAll) {
+        await Workmanager().cancelAll();
+        print('[InsightWorker] ✅ All WorkManager tasks cancelled');
+      } else {
+        await Workmanager().cancelByUniqueName(_uniqueName);
+        print('[InsightWorker] ✅ Insight tasks cancelled');
+      }
     } catch (e) {
       print('[InsightWorker] ❌ Failed to cancel tasks: $e');
     }
