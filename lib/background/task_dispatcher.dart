@@ -137,7 +137,7 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
 
     // Create record if goal is completed
     if (isGoalComplete) {
-      final recordService = RecordService(db);
+      final recordService = RecordService();
       final record = {
         DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
         DatabaseColumns.recordText:
@@ -348,20 +348,24 @@ class BackgroundTaskManager {
     try {
       final now = tz.TZDateTime.now(tz.local);
 
-      // Calculate next midnight
-      tz.TZDateTime nextMidnight = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day + 1,
-        0, 0, 0,
-      );
+      // 🧪 TESTING: Schedule every 2 hours instead of midnight
+      const testInterval = Duration(hours: 2);
+      final nextReset = now.add(testInterval);
 
-      if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
-        nextMidnight = nextMidnight.add(const Duration(days: 1));
-      }
+      // PRODUCTION: Calculate next midnight
+      // tz.TZDateTime nextMidnight = tz.TZDateTime(
+      //   tz.local,
+      //   now.year,
+      //   now.month,
+      //   now.day + 1,
+      //   0, 0, 0,
+      // );
+      //
+      // if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
+      //   nextMidnight = nextMidnight.add(const Duration(days: 1));
+      // }
 
-      final delay = nextMidnight.difference(now);
+      final delay = testInterval;
 
       await Workmanager().registerOneOffTask(
         'daily_reset',
@@ -372,7 +376,7 @@ class BackgroundTaskManager {
         ),
       );
 
-      print('[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight');
+      print('[BackgroundTaskManager] ✅ 🧪 TEST MODE: Daily reset scheduled for $nextReset (every 2 hours)');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule daily reset: $e');
     }
