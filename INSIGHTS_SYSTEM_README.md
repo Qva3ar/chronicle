@@ -2,6 +2,8 @@
 
 This document explains how the Chrono “AI Insights” feature works end‑to‑end so that another engineer (or AI assistant) can reason about it quickly, extend it safely, and debug issues without reverse‑engineering the codebase.
 
+> ⚠️ **Temporary change (Nov 16 2025):** WorkManager-based background scheduling is disabled because it conflicts with AndroidAlarmManager session timers (users were missing session-end notifications). The app now calls `InsightWorker.disableDueToAlarmManagerConflict()` on startup to cancel any persisted tasks, and `InsightWorker.registerIfEnabled()` becomes a no-op. Manual insight generation still works. The sections below describe the intended architecture and should be updated once WorkManager is re-enabled.
+
 ## 1. Product Purpose
 - **Goal:** Periodically synthesize the user’s recent activity (notes, goals, routines, signals) into a short coaching tip.
 - **Delivery:** Insights can appear as push notifications and in‑app banners. As of Nov 2025, we always send a notification for each stored insight.
@@ -11,7 +13,7 @@ This document explains how the Chrono “AI Insights” feature works end‑to�
 | Responsibility | File |
 | --- | --- |
 | User settings UI & preview | `lib/screens/settings/insights_settings_screen.dart` |
-| **Background worker (WorkManager)** | `lib/background/insight_worker.dart` |
+| **Background worker (WorkManager — temporarily disabled)** | `lib/background/insight_worker.dart` |
 | Context gathering & settings loading | `lib/ai/context_builder.dart` |
 | OpenAI client & throttling | `lib/ai/ai_client.dart` |
 | Insight generation + storage | `lib/ai/insight_engine.dart` |
@@ -21,18 +23,18 @@ This document explains how the Chrono “AI Insights” feature works end‑to�
 
 ## 3. Data & Control Flow
 1. **Initialization**
-   - `main.dart` loads persisted API creds (`GPTNoteBindService`), opens the database, initializes notifications/timer services, and initializes WorkManager.
-   - `InsightWorker.initialize()` sets up the WorkManager dispatcher.
-   - `InsightWorker.registerIfEnabled()` registers the periodic background task if insights are enabled.
-   - `InsightsSettingsScreen` persists values into `app_settings` and re-registers the worker whenever the user saves.
+   - `main.dart` loads persisted API creds (`GPTNoteBindService`), opens the database, initializes notifications/timer services, and now calls `InsightWorker.disableDueToAlarmManagerConflict()` to cancel any lingering WorkManager jobs.
+   - `InsightWorker.initialize()` (currently short-circuited) would set up the WorkManager dispatcher when the conflict is resolved.
+   - `InsightWorker.registerIfEnabled()` currently no-ops after logging the temporary disablement; historically it registered the periodic background task when insights were enabled.
+   - `InsightsSettingsScreen` still persists values into `app_settings` and calls `InsightWorker.registerIfEnabled()`, which now just cancels any leftover WorkManager tasks.
 
-2. **Scheduling (Cross-Platform with WorkManager)**
-   - `InsightWorker.registerIfEnabled()` uses `Workmanager.registerPeriodicTask()` to schedule recurring insight generation.
-   - **Android:** Uses WorkManager API (JobScheduler under the hood) for reliable background execution.
-   - **iOS:** Uses BGTaskScheduler for background fetch.
-   - Minimum interval: 15 minutes (platform limitation).
-   - Network constraint: Requires active internet connection.
-   - The callback (`insightCallbackDispatcher`) runs in a background isolate with proper network access permissions.
+2. **Scheduling (WorkManager temporarily paused)**
+   - Scheduling via `Workmanager.registerPeriodicTask()` is currently disabled until the AlarmManager conflict is resolved.
+   - Historical behavior (for reference):
+     - **Android:** Used WorkManager/JobScheduler for reliable background execution.
+     - **iOS:** Used BGTaskScheduler via the same plugin.
+     - Minimum interval was 15 minutes with a network connectivity constraint.
+     - The callback (`insightCallbackDispatcher`) runs in a background isolate with proper network access permissions.
 
 3. **Context Building (`ContextBuilder`)**
    - Reads from `app_settings`, `ai_interest_signals`, `ai_context_summaries`, `goals`, `routines`, and `record` tables.
@@ -82,6 +84,8 @@ Relevant tables/columns (see `lib/db_manager.dart` for complete definitions):
 - **Banner blank:** Means no rows satisfy "not expired & not dismissed". Check the settings debug list to confirm DB contents.
 
 ### Background Execution (WorkManager)
+
+> ⚠️ **Currently disabled:** WorkManager background execution is paused while we investigate AlarmManager conflicts. The details below describe the previous behavior and remain relevant once we re-enable the worker.
 
 **✅ IMPROVED:** As of Nov 2025, the app uses **WorkManager** for reliable cross-platform background tasks.
 
@@ -134,6 +138,8 @@ Relevant tables/columns (see `lib/db_manager.dart` for complete definitions):
 - **Cross‑platform support:** Currently `InsightJob` is Android-only. iOS would need background fetch / push support plus equivalent notification handling.
 
 ## 8. Manual Testing Checklist
+
+> ⚠️ WorkManager scheduling is disabled right now, so steps mentioning periodic task registration/background execution are historical. Use manual insight generation to validate the pipeline until the AlarmManager conflict is fixed.
 1. Set API key & model via the API key popup (stored in `SharedPreferences` by `GPTNoteBindService`).
 2. In Insight Settings, enable insights, set interval to 15 minutes, quiet hours blank.
 3. Save settings (watch logs for `[InsightWorker] ✅ Periodic task registered`).

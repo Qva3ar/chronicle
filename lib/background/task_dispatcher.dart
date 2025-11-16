@@ -10,6 +10,8 @@ import 'package:chrono/ai/context_builder.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler;
 
 /// Unified background task dispatcher for WorkManager
 /// Handles all background tasks: session completion, daily reset, and insights
@@ -257,16 +259,105 @@ Future<void> _showSessionCompletionNotifications(
   bool isGoalComplete,
 ) async {
   try {
-    final notif = NotificationService();
-    await notif.initialize(calledFromBackgroundTask: true);
+    final plugin = FlutterLocalNotificationsPlugin();
 
-    // For now, use simple notification - we can enhance this later
-    // The notification service has the methods for routine notifications,
-    // we can add goal-specific methods later if needed
+    // Initialize notifications in background context with action handler
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    await plugin.initialize(
+      initSettings,
+      onDidReceiveBackgroundNotificationResponse: backgroundNotificationActionHandler,
+    );
 
-    print('[SessionCompletion] ✅ Session completed - notifications would be shown here');
-    // TODO: Add showSessionCompletedNotification method to NotificationService
-    // TODO: Add showGoalCompletedNotification method to NotificationService
+    // Cancel the running notification first
+    await plugin.cancel(1);
+    print('[SessionCompletion] 🚫 Cancelled running notification (ID: 1)');
+
+    if (isGoalComplete) {
+      // Show goal completion notification
+      const androidDetails = AndroidNotificationDetails(
+        'goal_complete',
+        'Goal Complete',
+        channelDescription: 'Notifications for completed goals',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await plugin.show(
+        4,
+        '🎉 Goal Completed!',
+        '${goal.title} - Congratulations!',
+        details,
+      );
+      print('[SessionCompletion] ✅ Goal completion notification sent');
+    }
+
+    // Show session completion notification
+    // Add "Continue" button only if goal is not complete
+    List<AndroidNotificationAction> actions = [];
+    if (!isGoalComplete) {
+      actions.add(const AndroidNotificationAction(
+        'CONTINUE_SESSION_ACTION',
+        'Continue',
+      ));
+    }
+
+    final androidDetails = AndroidNotificationDetails(
+      'session_complete_channel',
+      'Session Completed',
+      channelDescription: 'Notifications when a session is completed',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      autoCancel: true,
+      actions: actions.isNotEmpty ? actions : null,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'default',
+      badgeNumber: 1,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final title = isGoalComplete
+        ? 'Session Complete - Goal Achieved! 🎉'
+        : 'Session Completed! 🎉';
+    final body = '${goal.title} - ${_formatTime(sessionDuration)} session finished. Great work!';
+
+    await plugin.show(
+      2,
+      title,
+      body,
+      details,
+      payload: 'session_complete_${goal.id}',
+    );
+
+    print('[SessionCompletion] ✅ Session completion notification sent');
   } catch (e) {
     print('[SessionCompletion] ⚠️ Failed to show notifications: $e');
   }

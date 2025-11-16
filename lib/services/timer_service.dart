@@ -266,11 +266,7 @@ class TimerService extends ChangeNotifier {
       print('⚠️ TIMING WARNING: Extremely long session: ${formatTime(elapsed)}');
     }
 
-    // Debug logging every 30 seconds with more context
-    if (elapsed % 30 == 0 && elapsed > 0) {
-      print(
-          '🕐 TIMING DEBUG: Goal "${_activeGoal?.title}" - Start: $_sessionStartTime, Current: $currentTime, Elapsed: ${formatTime(elapsed)}');
-    }
+    // Debug logging moved to _startUpdateTimer to avoid duplicate logs
 
     return elapsed;
   }
@@ -710,9 +706,14 @@ class TimerService extends ChangeNotifier {
     _updateTimer?.cancel();
 
     // This timer is now ONLY for UI updates, background completion is handled by alarm
-    _updateTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       final sessionElapsed = sessionTimeElapsed;
       final sessionDuration = _getSessionDuration();
+
+      // Debug logging every 30 seconds (moved here to avoid duplicates from getter)
+      if (sessionElapsed % 30 == 0 && sessionElapsed > 0) {
+        print('🕐 TIMING DEBUG: Goal "${_activeGoal?.title}" - Session: ${formatTime(sessionElapsed)}/${ formatTime(sessionDuration)}');
+      }
 
       // 🎯 CRITICAL: Check if the goal is still active in database (background callback might have completed it)
       if (_activeGoal != null) {
