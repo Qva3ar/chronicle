@@ -6,7 +6,7 @@ import '../db_manager.dart';
 import '../models/goal.model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:chrono/background/task_dispatcher.dart';
 
 import '../record.service.dart';
 import '../main.dart';
@@ -14,150 +14,7 @@ import '../screens/goals_screen.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 
-// Top-level callback function for alarm manager - must be outside of any class
-@pragma('vm:entry-point')
-Future<void> sessionCompleteCallback(int alarmId) async {
-  // Ensure Flutter bindings are initialized for background isolates.
-  WidgetsFlutterBinding.ensureInitialized();
-
-  final completionTime = DateTime.now();
-  print(
-      '🔔 BACKGROUND CALLBACK: Session completion alarm fired for goal ID: $alarmId at $completionTime');
-
-  try {
-    // Initialize services in background context
-    final db = DatabaseHelper.instance;
-    final recordService = RecordService();
-    final notificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    // Initialize notifications in background
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-    await notificationsPlugin.initialize(initSettings);
-
-    // 🎯 ENHANCED: Get the goal with better error handling
-    final goalAtAlarmTime = await db.getGoal(alarmId);
-    if (goalAtAlarmTime == null) {
-      print('❌ BACKGROUND: Goal not found with ID: $alarmId - may have been deleted');
-      return;
-    }
-
-    // 🎯 ENHANCED: More comprehensive completion check
-    if (goalAtAlarmTime.completedAt != null) {
-      print(
-          'ℹ️ BACKGROUND: Goal "${goalAtAlarmTime.title}" already completed at ${DateTime.fromMillisecondsSinceEpoch(goalAtAlarmTime.completedAt!)}. Skipping.');
-      return;
-    }
-
-    // Check if goal is already inactive (might have been stopped by user)
-    if (!goalAtAlarmTime.isActive) {
-      print(
-          'ℹ️ BACKGROUND: Goal "${goalAtAlarmTime.title}" is no longer active. User may have stopped it.');
-      return;
-    }
-
-    print('📊 BACKGROUND: Processing session completion for: "${goalAtAlarmTime.title}"');
-    print(
-        '   - Current time spent: ${_formatTimeStatic(goalAtAlarmTime.timeSpentSeconds)}/${_formatTimeStatic(goalAtAlarmTime.totalSeconds)}');
-    print('   - Session resumed timestamp: ${goalAtAlarmTime.sessionResumedTimestampSeconds}');
-
-    // 🎯 FIX: For resumed sessions, timeSpentSeconds is the baseline (preserved by foreground)
-    // For normal sessions, timeSpentSeconds is also the baseline
-    // This works because foreground no longer updates timeSpentSeconds during resumed sessions
-    final int sessionDurationForThisAlarm = _getStaticSessionDurationForGoal(goalAtAlarmTime);
-    final int baselineBeforeThisSession = goalAtAlarmTime.timeSpentSeconds;
-
-    if (goalAtAlarmTime.sessionResumedTimestampSeconds != null &&
-        goalAtAlarmTime.sessionResumedTimestampSeconds! > 0) {
-      print(
-          '   - ✅ RESUMED SESSION: Using timeSpentSeconds as baseline (preserved from Continue action)');
-      print('   - Baseline: ${_formatTimeStatic(baselineBeforeThisSession)}');
-    } else {
-      print('   - Normal background session continuation');
-      print('   - Baseline: ${_formatTimeStatic(baselineBeforeThisSession)}');
-    }
-
-    print('   - Session duration: ${_formatTimeStatic(sessionDurationForThisAlarm)}');
-
-    // 🎯 ENHANCED: Calculate new time from baseline to avoid double-counting
-    final newTimeSpentAfterThisSession = baselineBeforeThisSession + sessionDurationForThisAlarm;
-    final isGoalNowActuallyComplete = newTimeSpentAfterThisSession >= goalAtAlarmTime.totalSeconds;
-
-    print('   - Time after session: ${_formatTimeStatic(newTimeSpentAfterThisSession)}');
-    print('   - Will complete goal: $isGoalNowActuallyComplete');
-
-    if (isGoalNowActuallyComplete) {
-      print('🎉 BACKGROUND: This session completes the goal!');
-
-      // Use exact completion time, not more than the goal requires
-      final exactCompletionTime = goalAtAlarmTime.totalSeconds;
-      final actualSessionTimeUsed = exactCompletionTime - goalAtAlarmTime.timeSpentSeconds;
-
-      final updatedGoal = goalAtAlarmTime.copyWith(
-        timeSpentSeconds: exactCompletionTime, // Complete exactly to goal's total
-        isActive: false,
-        sessionResumedTimestampSeconds: null,
-        clearSessionResumedTimestamp: true,
-        completedAt: completionTime.millisecondsSinceEpoch, // Use precise completion time
-      );
-
-      await db.updateGoal(updatedGoal);
-      print('✅ BACKGROUND: Goal completed exactly at: ${_formatTimeStatic(exactCompletionTime)}');
-      print('   - Actual session time used: ${_formatTimeStatic(actualSessionTimeUsed)}');
-
-      // Create a record for the completed goal
-      final record = {
-        DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
-        DatabaseColumns.recordText:
-            'Goal completed after ${_formatTimeStatic(exactCompletionTime)} of focused work!',
-        DatabaseColumns.recordCreatedAt: completionTime.millisecondsSinceEpoch,
-        DatabaseColumns.recordType: 'goal',
-        DatabaseColumns.recordGoalId: updatedGoal.id,
-      };
-      await recordService.createRecord(record, []);
-      print('📝 BACKGROUND: Record created for completed goal.');
-
-      // Cancel the running notification before showing completion notifications
-      await notificationsPlugin.cancel(1);
-      print('🚫 BACKGROUND: Cancelled running notification (ID: 1)');
-
-      // Show goal completion notifications
-      await _showBackgroundGoalCompleteNotification(notificationsPlugin, updatedGoal);
-      await _showBackgroundCompletionNotification(
-          notificationsPlugin, updatedGoal, actualSessionTimeUsed);
-    } else {
-      print('📝 BACKGROUND: Session completed, goal continues.');
-      final updatedGoal = goalAtAlarmTime.copyWith(
-        timeSpentSeconds: newTimeSpentAfterThisSession,
-        isActive: false, // Mark as inactive after session
-        sessionResumedTimestampSeconds: null,
-        clearSessionResumedTimestamp: true,
-      );
-      await db.updateGoal(updatedGoal);
-      print(
-          '✅ BACKGROUND: Goal updated. Progress: ${_formatTimeStatic(updatedGoal.timeSpentSeconds)}/${_formatTimeStatic(updatedGoal.totalSeconds)}');
-
-      // Cancel the running notification before showing completion notification
-      await notificationsPlugin.cancel(1);
-      print('🚫 BACKGROUND: Cancelled running notification (ID: 1)');
-
-      // Show session completion notification
-      await _showBackgroundCompletionNotification(
-          notificationsPlugin, updatedGoal, sessionDurationForThisAlarm);
-    }
-
-    print('✅ BACKGROUND CALLBACK: Completed successfully for goal "${goalAtAlarmTime.title}"');
-  } catch (e, stackTrace) {
-    print('❌ BACKGROUND ERROR: $e');
-    print('❌ BACKGROUND STACK: $stackTrace');
-  }
-}
-
-// Helper functions for background callback
+// Helper functions for background notification actions
 @pragma('vm:entry-point')
 String _formatTimeStatic(int seconds) {
   final hours = seconds ~/ 3600;
@@ -172,96 +29,6 @@ String _formatTimeStatic(int seconds) {
 // Helper function to determine session duration, callable from background contexts
 int _getStaticSessionDurationForGoal(Goal goal) {
   return goal.sessionMinutes * 60; // Normal duration
-}
-
-@pragma('vm:entry-point')
-Future<void> _showBackgroundCompletionNotification(
-    FlutterLocalNotificationsPlugin plugin, Goal goal, int sessionDuration) async {
-  try {
-    print(
-        '💡 BG NOTIF: Attempting to show session completion notification for ${goal.title} at ${DateTime.now()}');
-    final bool isGoalNowComplete = goal.timeSpentSeconds >= goal.totalSeconds;
-    List<AndroidNotificationAction> actions = [];
-    if (!isGoalNowComplete) {
-      actions.add(const AndroidNotificationAction(CONTINUE_ACTION_ID, 'Continue'));
-    }
-
-    final androidDetails = AndroidNotificationDetails(
-      'session_complete_channel',
-      'Session Completed',
-      channelDescription: 'Notifications when a session is completed',
-      importance: Importance.max,
-      priority: Priority.max,
-      playSound: true,
-      enableVibration: true,
-      autoCancel:
-          true, // Auto cancel when tapped, action buttons remain until action taken or dismissed
-      actions: actions.isNotEmpty ? actions : null, // Add actions here
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      sound: 'default',
-      badgeNumber: 1,
-    );
-
-    final details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await plugin.show(
-      2,
-      'Session Completed! 🎉',
-      '${goal.title} - ${_formatTimeStatic(sessionDuration)} session finished. Great work!',
-      details,
-      payload: 'session_complete_${goal.id}',
-    );
-
-    print('✅ BACKGROUND: Session completion notification sent');
-  } catch (e) {
-    print('❌ BACKGROUND: Failed to show completion notification: $e');
-  }
-}
-
-@pragma('vm:entry-point')
-Future<void> _showBackgroundGoalCompleteNotification(
-    FlutterLocalNotificationsPlugin plugin, Goal goal) async {
-  try {
-    const androidDetails = AndroidNotificationDetails(
-      'goal_complete',
-      'Goal Complete',
-      channelDescription: 'Notifications for completed goals',
-      importance: Importance.max,
-      priority: Priority.max,
-      playSound: true,
-      enableVibration: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await plugin.show(
-      4,
-      '🎉 Goal Completed!',
-      '${goal.title} - Congratulations!',
-      details,
-    );
-
-    print('✅ BACKGROUND: Goal completion notification sent');
-  } catch (e) {
-    print('❌ BACKGROUND: Failed to show goal completion notification: $e');
-  }
 }
 
 @pragma('vm:entry-point')
@@ -370,9 +137,6 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await notificationsPlugin.initialize(initSettings);
 
-    // Initialize Alarm Manager (needed to schedule new alarm)
-    await AndroidAlarmManager.initialize();
-
     final payloadParts = response.payload!.split('_');
     if (payloadParts.length >= 3 && payloadParts[0] == 'session' && payloadParts[1] == 'complete') {
       final goalId = int.tryParse(payloadParts[2]);
@@ -428,22 +192,20 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
         return;
       }
 
-      final alarmTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
+      final completionTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
       print(
-          '⏰ BACKGROUND ACTION: Scheduling alarm for: ${alarmTime.toString()} (${willCompleteEarly ? "goal completion" : "session end"})');
+          '⏰ BACKGROUND ACTION: Scheduling task for: ${completionTime.toString()} (${willCompleteEarly ? "goal completion" : "session end"})');
 
       try {
-        await AndroidAlarmManager.oneShotAt(
-          alarmTime,
-          updatedGoal.id!,
-          sessionCompleteCallback,
-          alarmClock: true,
-          wakeup: true,
-          rescheduleOnReboot: false,
+        await BackgroundTaskManager.scheduleSessionCompletion(
+          goalId: updatedGoal.id!,
+          sessionStartTime: resumeTimestamp,
+          sessionDuration: timeUntilCompletion,
+          completionTime: completionTime,
         );
-        print('✅ BACKGROUND ACTION: Next session alarm scheduled successfully.');
+        print('✅ BACKGROUND ACTION: Next session task scheduled successfully.');
       } catch (e) {
-        print('❌ BACKGROUND ACTION: FAILED to schedule next session alarm: $e');
+        print('❌ BACKGROUND ACTION: FAILED to schedule next session task: $e');
       }
 
       // Cancel the "Session Completed" notification (ID 2) that was acted upon
@@ -462,7 +224,6 @@ class TimerService extends ChangeNotifier {
   static final TimerService instance = TimerService._init();
   TimerService._init() {
     _initializeNotifications();
-    _initializeAlarmManager();
   }
 
   Timer? _updateTimer; // Only for UI updates, not for actual timing
@@ -618,11 +379,11 @@ class TimerService extends ChangeNotifier {
             goal.completedAt != null ||
             goal.timeSpentSeconds >= goal.totalSeconds) {
           try {
-            await AndroidAlarmManager.cancel(goal.id!);
+            await BackgroundTaskManager.cancelSessionCompletion(goal.id!);
             print(
-                '🧩 CLEANUP: Cancelled orphaned alarm for "${goal.title}" (active: ${goal.isActive}, completed: ${goal.completedAt != null})');
+                '🧩 CLEANUP: Cancelled orphaned task for "${goal.title}" (active: ${goal.isActive}, completed: ${goal.completedAt != null})');
           } catch (e) {
-            // It's okay if the alarm doesn't exist
+            // It's okay if the task doesn't exist
           }
         }
       }
@@ -804,14 +565,7 @@ class TimerService extends ChangeNotifier {
     print('🧩 CLEANUP: Cleaned up unrecoverable goal state for "${goal.title}"');
   }
 
-  Future<void> _initializeAlarmManager() async {
-    try {
-      await AndroidAlarmManager.initialize();
-      print('✅ Alarm Manager initialized successfully');
-    } catch (e) {
-      print('❌ Failed to initialize Alarm Manager: $e');
-    }
-  }
+  // WorkManager initialization removed - now handled in main.dart via BackgroundTaskManager.initialize()
 
   // 🎯 ENHANCED: Start session with improved precision and validation
   Future<void> startSession(Goal goal) async {
@@ -882,13 +636,13 @@ class TimerService extends ChangeNotifier {
     _isRunning = false;
     _updateTimer?.cancel();
 
-    // Cancel the background alarm
+    // Cancel the background task
     if (goalId != null) {
       try {
-        await AndroidAlarmManager.cancel(goalId);
-        print('🚫 STOP SESSION: Background alarm cancelled for goal ID: $goalId');
+        await BackgroundTaskManager.cancelSessionCompletion(goalId);
+        print('🚫 STOP SESSION: Background task cancelled for goal ID: $goalId');
       } catch (e) {
-        print('❌ STOP SESSION: Failed to cancel background alarm: $e');
+        print('❌ STOP SESSION: Failed to cancel background task: $e');
       }
     }
 
@@ -1050,12 +804,12 @@ class TimerService extends ChangeNotifier {
       return;
     }
 
-    // Cancel the scheduled session alarm since we're completing early
+    // Cancel the scheduled session task since we're completing early
     try {
-      await AndroidAlarmManager.cancel(_activeGoal!.id!);
-      print('🚫 Cancelled session alarm due to goal completion');
+      await BackgroundTaskManager.cancelSessionCompletion(_activeGoal!.id!);
+      print('🚫 Cancelled session task due to goal completion');
     } catch (e) {
-      print('❌ Failed to cancel session alarm: $e');
+      print('❌ Failed to cancel session task: $e');
     }
 
     // Save final progress with exact goal completion
@@ -1153,13 +907,13 @@ class TimerService extends ChangeNotifier {
   Future<void> _handleBackgroundCompletion() async {
     print('🎉 BG COMPLETION UI: Detected background completion via UI timer.');
 
-    // Cancel the background alarm since we're handling completion now
+    // Cancel the background task since we're handling completion now
     if (_activeGoal?.id != null) {
       try {
-        await AndroidAlarmManager.cancel(_activeGoal!.id!);
-        print('🚫 BG COMPLETION: Cancelled remaining alarm for goal ${_activeGoal!.id}');
+        await BackgroundTaskManager.cancelSessionCompletion(_activeGoal!.id!);
+        print('🚫 BG COMPLETION: Cancelled remaining task for goal ${_activeGoal!.id}');
       } catch (e) {
-        print('❌ BG COMPLETION: Failed to cancel alarm: $e');
+        print('❌ BG COMPLETION: Failed to cancel task: $e');
       }
     }
 
@@ -1611,12 +1365,12 @@ class TimerService extends ChangeNotifier {
     _updateTimer?.cancel();
     await _hideNotification();
 
-    // Cancel any pending alarms
+    // Cancel any pending tasks
     if (_activeGoal?.id != null) {
       try {
-        await AndroidAlarmManager.cancel(_activeGoal!.id!);
+        await BackgroundTaskManager.cancelSessionCompletion(_activeGoal!.id!);
       } catch (e) {
-        print('⚠️ CLEANUP: Failed to cancel alarm: $e');
+        print('⚠️ CLEANUP: Failed to cancel task: $e');
       }
     }
 
@@ -1696,22 +1450,20 @@ class TimerService extends ChangeNotifier {
       return;
     }
 
-    final alarmTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
+    final completionTime = DateTime.now().add(Duration(seconds: timeUntilCompletion));
     print(
-        '⏰ SCHEDULE: Alarm for ${alarmTime} (${willCompleteEarly ? "goal completion" : "session end"})');
+        '⏰ SCHEDULE: WorkManager task for ${completionTime} (${willCompleteEarly ? "goal completion" : "session end"})');
 
     try {
-      await AndroidAlarmManager.oneShotAt(
-        alarmTime,
-        _activeGoal!.id!,
-        sessionCompleteCallback,
-        alarmClock: true,
-        wakeup: true,
-        rescheduleOnReboot: false,
+      await BackgroundTaskManager.scheduleSessionCompletion(
+        goalId: _activeGoal!.id!,
+        sessionStartTime: _sessionStartTime,
+        sessionDuration: timeUntilCompletion,
+        completionTime: completionTime,
       );
-      print('✅ SCHEDULE: Alarm scheduled successfully');
+      print('✅ SCHEDULE: WorkManager task scheduled successfully');
     } catch (e) {
-      print('❌ SCHEDULE: Failed to schedule alarm: $e');
+      print('❌ SCHEDULE: Failed to schedule WorkManager task: $e');
     }
   }
 

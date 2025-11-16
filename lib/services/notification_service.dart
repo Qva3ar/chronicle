@@ -105,7 +105,7 @@ Future<void> _scheduleNextDailyReset() async {
     }
 
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    
+
     // Calculate next midnight with timezone awareness
     tz.TZDateTime nextMidnight = tz.TZDateTime(
       tz.local,
@@ -116,28 +116,57 @@ Future<void> _scheduleNextDailyReset() async {
       0, // minute
       0, // second
     );
-    
+
     // Ensure we're scheduling for the future
     if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
       nextMidnight = nextMidnight.add(const Duration(days: 1));
     }
-    
+
     debugPrint('⏰ DAILY RESET: Scheduling next reset for $nextMidnight (local timezone: ${tz.local.name})');
-    
-    // Cancel existing alarm first
-    await AndroidAlarmManager.cancel(NotificationService._dailyResetAlarmId);
-    
-    // Use setExactAndAllowWhileIdle for critical timing
-    await AndroidAlarmManager.oneShotAt(
-      nextMidnight,
-      NotificationService._dailyResetAlarmId,
-      _dailyResetAlarmCallback,
-      exact: true,
-      wakeup: true,
-      rescheduleOnReboot: true,
-    );
-    
-    debugPrint('✅ DAILY RESET: Next reset scheduled successfully');
+
+    if (Platform.isAndroid) {
+      // Cancel existing alarm first
+      await AndroidAlarmManager.cancel(NotificationService._dailyResetAlarmId);
+
+      // Use setExactAndAllowWhileIdle for critical timing
+      await AndroidAlarmManager.oneShotAt(
+        nextMidnight,
+        NotificationService._dailyResetAlarmId,
+        _dailyResetAlarmCallback,
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
+
+      debugPrint('✅ DAILY RESET: Next reset scheduled successfully (Android)');
+    } else if (Platform.isIOS) {
+      // iOS: Schedule notification for next midnight
+      final notificationsPlugin = FlutterLocalNotificationsPlugin();
+      const iosSettings = DarwinInitializationSettings();
+      const initSettings = InitializationSettings(iOS: iosSettings);
+      await notificationsPlugin.initialize(initSettings);
+
+      await notificationsPlugin.cancel(NotificationService._dailyResetAlarmId);
+
+      await notificationsPlugin.zonedSchedule(
+        NotificationService._dailyResetAlarmId,
+        'Daily Reset',
+        'Chrono is resetting your daily goals and routines',
+        nextMidnight,
+        const NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            interruptionLevel: InterruptionLevel.timeSensitive,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'daily_reset',
+      );
+
+      debugPrint('✅ DAILY RESET: Next reset scheduled successfully (iOS)');
+    }
   } catch (e, stackTrace) {
     debugPrint('❌ DAILY RESET SCHEDULE ERROR: $e');
     debugPrint('Stack trace: $stackTrace');
@@ -240,9 +269,10 @@ class NotificationService {
             );
       }
 
-      if (!calledFromBackgroundTask) {
-        await _scheduleDailyReset();
-      }
+      // Daily reset is now handled by BackgroundTaskManager (initialized in main.dart)
+      // if (!calledFromBackgroundTask) {
+      //   await _scheduleDailyReset();
+      // }
 
       _isInitialized = true;
     } catch (e, stackTrace) {
@@ -265,6 +295,14 @@ class NotificationService {
 
     try {
       final payload = response.payload!;
+
+      // Handle daily reset notification (iOS)
+      if (payload == 'daily_reset') {
+        debugPrint('🌅 Daily reset notification tapped (iOS)');
+        _performDailyResetIOS();
+        return;
+      }
+
       final parts = payload.split('_');
 
       if (parts.length < 2) {
@@ -311,6 +349,50 @@ class NotificationService {
     }
   }
 
+  // Handle daily reset for iOS
+  Future<void> _performDailyResetIOS() async {
+    try {
+      debugPrint('🌅 iOS DAILY RESET: Starting daily reset at ${DateTime.now()}');
+
+      // Add tolerance check to prevent multiple resets on the same day
+      final prefs = await SharedPreferences.getInstance();
+      final lastResetDateStr = prefs.getString('last_daily_reset_date');
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      if (lastResetDateStr == todayStr) {
+        debugPrint('⚠️ iOS DAILY RESET: Already performed today ($todayStr), skipping');
+        return;
+      }
+
+      final dbManager = DatabaseHelper.instance;
+      final routineService = RoutineService(dbManager);
+      final goalService = GoalService(dbManager);
+
+      // Reset routines and goals
+      final routines = await routineService.getAllRoutines();
+      for (final routine in routines) {
+        await routineService.resetRoutine(routine.id);
+      }
+      await goalService.resetAllGoals();
+
+      // Mark that we've done the reset for today
+      await prefs.setString('last_daily_reset_date', todayStr);
+      debugPrint('✅ iOS DAILY RESET: Completed successfully for $todayStr');
+
+      await checkAndRescheduleRoutines(fromBackgroundTask: false);
+
+      // Schedule next reset - now handled by BackgroundTaskManager
+      // await _scheduleDailyReset();
+
+      // Run optional summarization rollup
+      await Summarizer.instance.runDailySummary();
+    } catch (e, stackTrace) {
+      debugPrint('❌ iOS DAILY RESET ERROR: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
   bool _isBottomSheetAlreadyOpen(BuildContext context) {
     // Check if the current route is a modal bottom sheet
     final ModalRoute? currentRoute = ModalRoute.of(context);
@@ -342,11 +424,9 @@ class NotificationService {
 
   @pragma('vm:entry-point')
   Future<void> _scheduleDailyReset() async {
-    if (!Platform.isAndroid) return;
-
     try {
       final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-      
+
       // Calculate next midnight with precise timezone handling
       tz.TZDateTime nextMidnight = tz.TZDateTime(
         tz.local,
@@ -358,26 +438,53 @@ class NotificationService {
         0, // second = 0
         0, // millisecond = 0
       );
-      
+
       // Handle edge cases where we might be exactly at midnight
       if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
         nextMidnight = nextMidnight.add(const Duration(days: 1));
       }
-      
+
       debugPrint('⏰ INITIAL DAILY RESET: Scheduling first reset for $nextMidnight (timezone: ${tz.local.name})');
 
-      await AndroidAlarmManager.cancel(_dailyResetAlarmId);
+      if (Platform.isAndroid) {
+        // Android: Use AndroidAlarmManager for reliable background execution
+        await AndroidAlarmManager.cancel(_dailyResetAlarmId);
 
-      await AndroidAlarmManager.oneShotAt(
-        nextMidnight,
-        _dailyResetAlarmId,
-        _dailyResetAlarmCallback,
-        exact: true,
-        wakeup: true,
-        rescheduleOnReboot: true,
-      );
-      
-      debugPrint('✅ INITIAL DAILY RESET: Scheduled successfully');
+        await AndroidAlarmManager.oneShotAt(
+          nextMidnight,
+          _dailyResetAlarmId,
+          _dailyResetAlarmCallback,
+          exact: true,
+          wakeup: true,
+          rescheduleOnReboot: true,
+        );
+
+        debugPrint('✅ INITIAL DAILY RESET (Android): Scheduled successfully');
+      } else if (Platform.isIOS) {
+        // iOS: Use flutter_local_notifications
+        // Note: On iOS, this will show a notification at midnight
+        // The actual reset will be triggered when the app becomes active or when the notification is tapped
+        await _notifications.cancel(_dailyResetAlarmId);
+
+        await _notifications.zonedSchedule(
+          _dailyResetAlarmId,
+          'Daily Reset',
+          'Chrono is resetting your daily goals and routines',
+          nextMidnight,
+          const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              interruptionLevel: InterruptionLevel.timeSensitive,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: 'daily_reset',
+        );
+
+        debugPrint('✅ INITIAL DAILY RESET (iOS): Notification scheduled successfully');
+      }
     } catch (e, stackTrace) {
       debugPrint('❌ INITIAL DAILY RESET ERROR: $e');
       debugPrint('Stack trace: $stackTrace');
