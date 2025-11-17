@@ -156,16 +156,15 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _resetDailyData() async {
+  Future<void> _resetRoutines() async {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Reset Routines & Goals'),
+          title: Text('Reset Routines'),
           content: Text(
-              'Are you sure you want to reset all routines and goals for a new day? This will:\n\n'
+              'Are you sure you want to reset all routines? This will:\n\n'
               '• Mark all routines as not done\n'
-              '• Reset all goal completion status\n'
               '• Reschedule all notifications\n\n'
               'This action cannot be undone.'),
           actions: [
@@ -178,7 +177,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 try {
                   final dbManager = DatabaseHelper.instance;
                   final routineService = RoutineService(dbManager);
-                  final goalService = GoalService(dbManager);
 
                   // Reset all routines
                   final routines = await routineService.getAllRoutines();
@@ -186,24 +184,67 @@ class _SettingsPageState extends State<SettingsPage> {
                     await routineService.resetRoutine(routine.id);
                   }
 
-                  // Reset all goals
-                  await goalService.resetAllGoals();
-
                   // Reschedule notifications
                   await _notificationService.checkAndRescheduleRoutines();
 
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Daily data reset successfully')),
+                    SnackBar(content: Text('Routines reset successfully')),
                   );
                 } catch (e) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error resetting daily data: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text('Error resetting routines: $e'), backgroundColor: Colors.red),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: Text('Reset', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _resetGoals() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Reset Goals'),
+          content: Text(
+              'Are you sure you want to reset all goals? This will:\n\n'
+              '• Reset all goal completion status\n'
+              '• Reset time spent to 0\n'
+              '• Stop all active sessions\n\n'
+              'This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final dbManager = DatabaseHelper.instance;
+                  final goalService = GoalService(dbManager);
+
+                  // Reset all goals
+                  await goalService.resetAllGoals();
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Goals reset successfully')),
+                  );
+                } catch (e) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error resetting goals: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
               child: Text('Reset', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -289,10 +330,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _resetDailyData,
-                  child: Text('Reset Routines & Goals'),
+                  onPressed: _resetRoutines,
+                  child: Text('Reset Routines'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: Size(double.infinity, 50),
+                  ),
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _resetGoals,
+                  child: Text('Reset Goals'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     minimumSize: Size(double.infinity, 50),
                   ),
