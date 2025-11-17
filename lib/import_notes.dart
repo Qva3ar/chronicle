@@ -5,6 +5,7 @@ import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/goal_service.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -96,6 +97,13 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             int? oldGoalId = goalData['_id'];
             goalData.remove('_id');
 
+            // Clear daily fields that should be reset (completedAt, timeSpent, session state)
+            // This ensures imported goals start fresh for today
+            goalData[DatabaseColumns.goalCompletedAt] = null;
+            goalData[DatabaseColumns.goalTimeSpentSeconds] = 0;
+            goalData[DatabaseColumns.goalIsActive] = 0;
+            goalData[DatabaseColumns.goalSessionResumedTimestampSeconds] = null;
+
             // Insert goal and get new ID
             Goal goal = Goal.fromMap(goalData);
             int newGoalId = await DatabaseHelper.instance.insertGoal(goal);
@@ -106,6 +114,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             }
           }
           importedItems += goals.length;
+          print('✅ Imported ${goals.length} goals with reset daily fields');
         }
 
         // Import notes and tags LAST (so we can update routine_id and goal_id references)
@@ -151,6 +160,14 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             importedItems += (importData['notes'] as List).length;
           }
           dataController.importSuccess();
+        }
+
+        // Reset all goals to ensure they're ready for today
+        // (in case any stale completedAt values slipped through)
+        if (importData.containsKey('goals')) {
+          final goalService = GoalService(DatabaseHelper.instance);
+          await goalService.resetAllGoals();
+          print('✅ Reset all goals after import to clear any stale completion states');
         }
 
         setState(() {
