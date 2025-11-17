@@ -4,7 +4,6 @@ import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/services/goal_service.dart';
-import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
 import 'package:chrono/ai/summarizer.dart';
@@ -12,9 +11,10 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler;
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Unified background task dispatcher for WorkManager
-/// Handles all background tasks: session completion, daily reset, and insights
+/// Handles all background tasks: session completion, daily reset, insights, and routine notifications
 @pragma('vm:entry-point')
 void backgroundTaskDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -49,6 +49,9 @@ void backgroundTaskDispatcher() {
         case TaskNames.insightGeneration:
           success = await _handleInsightGeneration(inputData);
           break;
+        case TaskNames.routineNotification:
+          success = await _handleRoutineNotification(inputData);
+          break;
         default:
           print('[TaskDispatcher] ❌ Unknown task: $task');
           success = false;
@@ -71,6 +74,7 @@ class TaskNames {
   static const String sessionCompletion = 'com.chrono.session_completion';
   static const String dailyReset = 'com.chrono.daily_reset';
   static const String insightGeneration = 'com.chrono.insight_generation';
+  static const String routineNotification = 'com.chrono.routine_notification';
 }
 
 /// Handle goal session completion
@@ -169,15 +173,15 @@ Future<bool> _handleDailyReset(Map<String, dynamic>? inputData) async {
     print('[DailyReset] 🌅 Starting daily reset at ${DateTime.now()}');
 
     final db = DatabaseHelper.instance;
-    final routineService = RoutineService(db);
     final goalService = GoalService(db);
 
     // Reset routines and goals
-    final routines = await routineService.getAllRoutines();
-    for (final routine in routines) {
-      await routineService.resetRoutine(routine.id);
-    }
+    await db.resetRoutinesDoneStatus();
     await goalService.resetAllGoals();
+
+    // Reschedule routine notifications for the new day
+    final notificationService = NotificationService();
+    await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
 
     print('[DailyReset] ✅ Daily reset completed successfully');
 
@@ -249,6 +253,115 @@ Future<bool> _handleInsightGeneration(Map<String, dynamic>? inputData) async {
     print('[InsightGeneration] ❌ Error: $e');
     print('Stack trace: $stackTrace');
     return false;
+  }
+}
+
+/// Handle routine notification
+Future<bool> _handleRoutineNotification(Map<String, dynamic>? inputData) async {
+  try {
+    if (inputData == null) {
+      print('[RoutineNotification] ❌ No input data provided');
+      return false;
+    }
+
+    final routineId = inputData['routineId'] as int?;
+    final routineName = inputData['routineName'] as String?;
+    final currentRetry = inputData['currentRetry'] as int? ?? 0;
+    final numberOfRetries = inputData['numberOfRetries'] as int? ?? 0;
+
+    if (routineId == null || routineName == null) {
+      print('[RoutineNotification] ❌ Missing required parameters');
+      return false;
+    }
+
+    print('[RoutineNotification] 🔔 Processing routine notification for: "$routineName" (ID: $routineId)');
+    print('   - Current retry: $currentRetry/$numberOfRetries');
+
+    // Check if routine is already marked as done
+    final prefs = await SharedPreferences.getInstance();
+    final isDone = prefs.getBool('routine_${routineId}_done') ?? false;
+
+    if (isDone) {
+      print('[RoutineNotification] ✅ Routine already marked done. Skipping notification.');
+      return true;
+    }
+
+    // Show notification
+    await _showRoutineNotification(routineId, routineName, currentRetry, numberOfRetries);
+
+    print('[RoutineNotification] ✅ Routine notification shown successfully');
+    return true;
+  } catch (e, stackTrace) {
+    print('[RoutineNotification] ❌ Error: $e');
+    print('Stack trace: $stackTrace');
+    return false;
+  }
+}
+
+/// Show routine notification
+Future<void> _showRoutineNotification(
+  int routineId,
+  String routineName,
+  int currentRetry,
+  int numberOfRetries,
+) async {
+  try {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // Initialize notifications in background context
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    await plugin.initialize(initSettings);
+
+    // Determine notification ID and content
+    final notificationId = currentRetry == 0
+        ? 1000 + routineId // Main notification ID
+        : 2000 + (routineId * 5) + currentRetry; // Retry notification ID
+
+    final title = currentRetry == 0
+        ? 'Routine Reminder'
+        : 'Reminder: $routineName';
+
+    final body = currentRetry == 0
+        ? 'Time for: $routineName'
+        : 'It\'s time for your routine: $routineName (Retry ${currentRetry}/$numberOfRetries)';
+
+    const androidDetails = AndroidNotificationDetails(
+      'routine_channel',
+      'Routine Notifications',
+      channelDescription: 'Notifications for daily routines',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await plugin.show(
+      notificationId,
+      title,
+      body,
+      details,
+      payload: 'routine_$routineId',
+    );
+
+    print('[RoutineNotification] ✅ Notification shown (ID: $notificationId)');
+  } catch (e) {
+    print('[RoutineNotification] ⚠️ Failed to show notification: $e');
   }
 }
 
@@ -439,24 +552,20 @@ class BackgroundTaskManager {
     try {
       final now = tz.TZDateTime.now(tz.local);
 
-      // 🧪 TESTING: Schedule every 2 hours instead of midnight
-      const testInterval = Duration(hours: 2);
-      final nextReset = now.add(testInterval);
+      // Calculate next midnight
+      tz.TZDateTime nextMidnight = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day + 1,
+        0, 0, 0,
+      );
 
-      // PRODUCTION: Calculate next midnight
-      // tz.TZDateTime nextMidnight = tz.TZDateTime(
-      //   tz.local,
-      //   now.year,
-      //   now.month,
-      //   now.day + 1,
-      //   0, 0, 0,
-      // );
-      //
-      // if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
-      //   nextMidnight = nextMidnight.add(const Duration(days: 1));
-      // }
+      if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
+        nextMidnight = nextMidnight.add(const Duration(days: 1));
+      }
 
-      final delay = testInterval;
+      final delay = nextMidnight.difference(now);
 
       await Workmanager().registerOneOffTask(
         'daily_reset',
@@ -467,7 +576,7 @@ class BackgroundTaskManager {
         ),
       );
 
-      print('[BackgroundTaskManager] ✅ 🧪 TEST MODE: Daily reset scheduled for $nextReset (every 2 hours)');
+      print('[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule daily reset: $e');
     }
@@ -502,6 +611,64 @@ class BackgroundTaskManager {
       print('[BackgroundTaskManager] ✅ Insight generation scheduled (interval: $actualInterval min)');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule insight generation: $e');
+    }
+  }
+
+  /// Schedule routine notification task
+  static Future<void> scheduleRoutineNotification({
+    required int routineId,
+    required String routineName,
+    required DateTime scheduledTime,
+    int currentRetry = 0,
+    int numberOfRetries = 0,
+  }) async {
+    try {
+      final taskId = currentRetry == 0
+          ? 'routine_$routineId'
+          : 'routine_${routineId}_retry_$currentRetry';
+
+      final delay = scheduledTime.difference(DateTime.now());
+
+      if (delay.isNegative) {
+        print('[BackgroundTaskManager] ⚠️ Routine notification time is in the past, skipping');
+        return;
+      }
+
+      await Workmanager().registerOneOffTask(
+        taskId,
+        TaskNames.routineNotification,
+        initialDelay: delay,
+        inputData: {
+          'routineId': routineId,
+          'routineName': routineName,
+          'currentRetry': currentRetry,
+          'numberOfRetries': numberOfRetries,
+        },
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+        ),
+      );
+
+      print('[BackgroundTaskManager] ✅ Routine notification scheduled for $scheduledTime (retry: $currentRetry/$numberOfRetries)');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to schedule routine notification: $e');
+    }
+  }
+
+  /// Cancel routine notification task
+  static Future<void> cancelRoutineNotification(int routineId, {int maxRetries = 5}) async {
+    try {
+      // Cancel main notification
+      await Workmanager().cancelByUniqueName('routine_$routineId');
+
+      // Cancel all retry notifications
+      for (int i = 1; i <= maxRetries; i++) {
+        await Workmanager().cancelByUniqueName('routine_${routineId}_retry_$i');
+      }
+
+      print('[BackgroundTaskManager] ✅ Cancelled routine notification for routine $routineId');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to cancel routine notification: $e');
     }
   }
 

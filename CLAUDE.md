@@ -71,11 +71,22 @@ This is a Flutter application called "Chrono" - a goal-oriented note-taking and 
 
 ### Key Dependencies
 - `sqflite` - Local SQLite database
-- `provider` - State management  
+- `provider` - State management
 - `grouped_list` - Chronological record display
 - `dart_openai` - GPT API integration
 - `flutter_local_notifications` - Routine reminders
+- `workmanager` - Background task management
 - `intl` - Date formatting and internationalization
+
+### Background Task System
+
+**Unified WorkManager Dispatcher** (`lib/background/task_dispatcher.dart`)
+- Session completion timers
+- Daily reset at midnight
+- Routine notifications with retries
+- AI insight generation
+
+**Important:** All background tasks use WorkManager. AndroidAlarmManager has been fully removed.
 
 ### Development Notes
 
@@ -84,3 +95,38 @@ This is a Flutter application called "Chrono" - a goal-oriented note-taking and 
 - Stream-based communication between components
 - Comprehensive error handling with logging
 - Database schema migrations preserve user data across updates
+
+## Documentation Files
+
+For detailed documentation on specific systems, see:
+
+- **[DAILY_RESET_README.md](DAILY_RESET_README.md)** - Daily reset system, routine streak logic, and critical implementation details
+- **[TIMER_SYSTEM_README.md](TIMER_SYSTEM_README.md)** - Goal session timing and background task handling
+- **[INSIGHTS_SYSTEM_README.md](INSIGHTS_SYSTEM_README.md)** - AI insights generation system
+- **[NOTIFICATION_DEBUG_GUIDE.md](NOTIFICATION_DEBUG_GUIDE.md)** - Debugging notification issues
+- **[MIUI_SETUP_GUIDE.md](MIUI_SETUP_GUIDE.md)** - Setup guide for MIUI devices
+
+## Important Implementation Notes
+
+### Routine Reset Methods ⚠️
+
+When working with daily reset, **always use the correct method**:
+
+✅ **CORRECT for daily reset:**
+```dart
+await db.resetRoutinesDoneStatus();  // Only resets isDone flag
+```
+
+❌ **WRONG for daily reset:**
+```dart
+await routineService.resetRoutine(routine.id);  // Uses toggleRoutineDone - will corrupt streaks!
+```
+
+**Why:** `toggleRoutineDone()` is designed for user undo actions and will restore `previousStreak` if called on the same day as completion. This will break routine streaks during midnight reset. See [DAILY_RESET_README.md](DAILY_RESET_README.md) for details.
+
+### Goal Completion
+
+Goals are **daily recurring tasks** like routines:
+- When completed during the day, app creates a record/note
+- At midnight, `completedAt` is cleared so goal can be worked on again
+- `timeSpentSeconds` resets to 0 for fresh daily timer
