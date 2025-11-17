@@ -81,7 +81,7 @@ void insightCallbackDispatcher() {
 class InsightWorker {
   static const String _taskName = 'com.chrono.insight_generation';
   static const String _uniqueName = 'insight_periodic_task';
-  static const bool _temporarilyDisabled = true;
+  static const bool _temporarilyDisabled = false;
   static bool _pluginInitialized = false;
 
   static Future<bool> _initializePluginIfNeeded({required bool forCleanup}) async {
