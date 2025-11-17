@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:chrono/db_manager.dart';
-import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/record.dart';
 
 class InsightsSettings {
@@ -80,16 +79,6 @@ class ContextBuilder {
 
     // Goals with today's session data
     final goals = await DatabaseHelper.instance.getAllGoals();
-    Goal? primaryGoal;
-    if (goals.isNotEmpty) {
-      primaryGoal = goals.firstWhere(
-        (g) => g.isPrimary,
-        orElse: () => goals.firstWhere(
-          (g) => g.isActive,
-          orElse: () => goals.first,
-        ),
-      );
-    }
 
     // Get today's session data for each active goal
     final goalsWithTodayData = <Map<String, dynamic>>[];
@@ -176,15 +165,7 @@ class ContextBuilder {
         'time_of_day': timeOfDay,
         'day_of_week': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][now.weekday - 1],
       },
-      'primary_goal': primaryGoal != null
-          ? {
-              'id': primaryGoal.id,
-              'title': primaryGoal.title,
-              'progress': primaryGoal.progress,
-              'is_active': primaryGoal.isActive,
-            }
-          : null,
-      'primary_goal_text': primaryGoalText,
+      'primary_goal': primaryGoalText,
       'active_goals_today': goalsWithTodayData,
       'routines_today': {
         'total': routines.length,

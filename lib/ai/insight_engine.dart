@@ -9,6 +9,16 @@ class InsightEngine {
   InsightEngine._();
   static final InsightEngine instance = InsightEngine._();
 
+  /// Build system prompt for preview/debugging
+  String buildSystemPrompt(Map<String, dynamic> ctx) {
+    return _buildSystemPrompt(ctx);
+  }
+
+  /// Build user prompt for preview/debugging
+  String buildUserPrompt(Map<String, dynamic> ctx) {
+    return _buildUserPrompt(ctx);
+  }
+
   String _buildSystemPrompt(Map<String, dynamic> ctx) {
     final timeOfDay = ctx['current_time']?['time_of_day'] ?? '';
     final activeGoals = ctx['active_goals_today'] as List? ?? [];
@@ -52,13 +62,11 @@ class InsightEngine {
   }
 
   String _buildUserPrompt(Map<String, dynamic> ctx) {
-    final pg = ctx['primary_goal'];
-    final pgText = ctx['primary_goal_text'];
+    final primaryGoal = ctx['primary_goal'];
     return jsonEncode({
-      'primary_goal_text': pgText,
-      'primary_goal': pg,
-      'active_goals': ctx['active_goals'],
-      'routines_overview': ctx['routines_overview'],
+      'primary_goal': primaryGoal,
+      'active_goals_today': ctx['active_goals_today'],
+      'routines_today': ctx['routines_today'],
       'recent_interest_signals': ctx['recent_interest_signals'],
       'recent_notes': ctx['recent_notes'],
       'guidelines': {

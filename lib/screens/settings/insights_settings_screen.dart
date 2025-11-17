@@ -33,6 +33,9 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
   List<Map<String, dynamic>> _insights = [];
   bool _contextLoading = false;
   Map<String, dynamic>? _contextPreview;
+  bool _promptsLoading = false;
+  String? _systemPrompt;
+  String? _userPrompt;
 
   @override
   void initState() {
@@ -151,6 +154,36 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
       if (mounted) {
         setState(() {
           _contextLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadPromptsPreview() async {
+    if (!mounted) return;
+    setState(() {
+      _promptsLoading = true;
+    });
+    try {
+      final settings = await ContextBuilder.instance.loadSettings();
+      final ctx = await ContextBuilder.instance.buildInsightsContext(
+        contextDays: settings.contextDays,
+        tokenLimitApprox: settings.tokenLimit,
+        primaryGoalText: settings.mainIntentionText,
+      );
+      final sys = InsightEngine.instance.buildSystemPrompt(ctx);
+      final usr = InsightEngine.instance.buildUserPrompt(ctx);
+      if (!mounted) return;
+      setState(() {
+        _systemPrompt = sys;
+        _userPrompt = usr;
+      });
+    } catch (e) {
+      print('[Settings] ❌ Failed to load prompts preview: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _promptsLoading = false;
         });
       }
     }
@@ -465,6 +498,87 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                         scrollDirection: Axis.horizontal,
                         child: SelectableText(
                           const JsonEncoder.withIndent('  ').convert(_contextPreview!),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'AI Prompts Preview',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  TextButton.icon(
+                    onPressed: _promptsLoading ? null : _loadPromptsPreview,
+                    icon: _promptsLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.build, size: 18),
+                    label: Text(_promptsLoading ? 'Loading...' : 'Build Prompts'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_systemPrompt != null)
+                ExpansionTile(
+                  title: const Text('System Prompt'),
+                  subtitle: Text('${_systemPrompt!.length} characters'),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SelectableText(
+                          _systemPrompt!,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (_userPrompt != null)
+                ExpansionTile(
+                  title: const Text('User Prompt (JSON)'),
+                  subtitle: Text('${_userPrompt!.length} characters'),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SelectableText(
+                          _userPrompt!,
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,
