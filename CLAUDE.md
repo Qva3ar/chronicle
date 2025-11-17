@@ -106,6 +106,13 @@ For detailed documentation on specific systems, see:
 - **[NOTIFICATION_DEBUG_GUIDE.md](NOTIFICATION_DEBUG_GUIDE.md)** - Debugging notification issues
 - **[MIUI_SETUP_GUIDE.md](MIUI_SETUP_GUIDE.md)** - Setup guide for MIUI devices
 
+## Git Commit Guidelines
+
+**IMPORTANT:** When creating git commits for this project:
+- Do NOT include "Generated with Claude Code" footer
+- Do NOT add "Co-Authored-By: Claude" attribution
+- Keep commit messages concise and focused on the actual changes
+
 ## Important Implementation Notes
 
 ### Routine Reset Methods ⚠️
