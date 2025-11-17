@@ -5,6 +5,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/services/goal_service.dart';
+import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -14,6 +15,40 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final NotificationService _notificationService = NotificationService();
+  String _mainIntentionText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMainIntention();
+  }
+
+  Future<void> _loadMainIntention() async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.query(DatabaseTables.appSettings, limit: 1);
+    if (rows.isNotEmpty && mounted) {
+      setState(() {
+        _mainIntentionText = rows.first[DatabaseColumns.settingMainIntentionText] as String? ?? '';
+      });
+    }
+  }
+
+  Future<void> _editMainIntention() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PrimaryGoalScreen(),
+      ),
+    );
+    if (result == true) {
+      _loadMainIntention();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Main intention updated successfully')),
+        );
+      }
+    }
+  }
 
   Future<void> _importRecords() async {
     showDialog(
@@ -192,6 +227,31 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
               children: [
                 SizedBox(height: 100),
+                ElevatedButton(
+                  onPressed: _editMainIntention,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Edit Main Intention'),
+                      if (_mainIntentionText.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            _mainIntentionText,
+                            style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    minimumSize: Size(double.infinity, 60),
+                  ),
+                ),
+                SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: _importRecords,
                   child: Text('Import Records'),

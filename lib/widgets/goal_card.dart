@@ -44,8 +44,8 @@ class GoalCard extends StatelessWidget {
         final realtimeProgress =
             _getRealtimeProgress(timerService, isActiveGoal);
 
-        // Don't allow swipe actions on active goals
-        if (isActiveGoal || (onDelete == null && onEdit == null)) {
+        // Don't allow swipe actions if no actions are provided
+        if (onDelete == null && onEdit == null) {
           return _buildGoalCard(
               context, timerService, isActiveGoal, isRunning, realtimeProgress);
         }
@@ -55,6 +55,16 @@ class GoalCard extends StatelessWidget {
           confirmDismiss: (direction) async {
             if (direction == DismissDirection.endToStart) {
               // Swipe left to delete
+              // Prevent deletion of active goals
+              if (isActiveGoal) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cannot delete an active goal. Stop the session first.'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return false;
+              }
               return await _showDeleteConfirmation(context);
             } else if (direction == DismissDirection.startToEnd) {
               // Swipe right to edit
