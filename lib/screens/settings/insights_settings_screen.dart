@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:chrono/background/insight_worker.dart';
+import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/ai/insight_engine.dart';
@@ -237,8 +237,11 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
       await db.update(DatabaseTables.appSettings, map,
           where: '${DatabaseColumns.id} = ?', whereArgs: [rows.first[DatabaseColumns.id]]);
     }
-    // Re-register background worker schedule
-    await InsightWorker.registerIfEnabled();
+    // Re-register background worker schedule using unified BackgroundTaskManager
+    await BackgroundTaskManager.scheduleInsightGeneration(
+      enabled: _enabled,
+      intervalMinutes: _intervalMinutes,
+    );
 
     // Trigger immediate insight generation
     if (_enabled) {
@@ -272,7 +275,16 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
     }
 
     try {
-      await InsightWorker.generateNow();
+      // Generate insight directly using InsightEngine
+      final result = await InsightEngine.instance.generateAndStoreInsight();
+
+      if (result != null && result['should_notify'] == true) {
+        await NotificationService().showInsightNotification(
+          title: (result['title'] ?? 'Chrono') as String,
+          body: (result['body'] ?? '') as String,
+        );
+      }
+
       await _load(); // Refresh settings including timestamp
       await _loadInsights(); // Refresh the insights list
       if (mounted) {

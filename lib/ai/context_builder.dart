@@ -128,6 +128,18 @@ class ContextBuilder {
       limit: 200,
     );
 
+    // Last 3 insights (to avoid repetition)
+    final lastInsights = await db.query(
+      DatabaseTables.aiInsights,
+      orderBy: '${DatabaseColumns.insightDeliveredAt} DESC',
+      limit: 3,
+    );
+    final previousInsights = lastInsights.map((m) => {
+      'title': m[DatabaseColumns.insightTitle] as String?,
+      'body': m[DatabaseColumns.insightBody] as String?,
+      'delivered_at': m[DatabaseColumns.insightDeliveredAt] as int?,
+    }).toList();
+
     // Truncate notes to fit token limit roughly (very rough: 4 chars ≈ 1 token)
     final int charBudget = tokenLimitApprox * 4;
     int used = 0;
@@ -182,6 +194,7 @@ class ContextBuilder {
               })
           .toList(),
       'recent_notes': compactNotes,
+      'previous_insights': previousInsights,
       'generated_at': DateTime.now().millisecondsSinceEpoch,
     };
 

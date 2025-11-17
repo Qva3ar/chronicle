@@ -23,6 +23,20 @@ class InsightEngine {
     final timeOfDay = ctx['current_time']?['time_of_day'] ?? '';
     final activeGoals = ctx['active_goals_today'] as List? ?? [];
     final routines = ctx['routines_today'] as Map? ?? {};
+    final previousInsights = ctx['previous_insights'] as List? ?? [];
+
+    // Build previous insights text
+    final String previousInsightsText;
+    if (previousInsights.isEmpty) {
+      previousInsightsText = '- Предыдущих инсайтов нет (это первый инсайт)';
+    } else {
+      final insightsLines = previousInsights.map((insight) {
+        final title = insight['title'] ?? '';
+        final body = insight['body'] ?? '';
+        return '  • "$title" - ${body.toString().substring(0, body.toString().length > 100 ? 100 : body.toString().length)}';
+      }).join('\n');
+      previousInsightsText = '- Предыдущие 3 инсайта (НЕ ПОВТОРЯЙ их!):\n$insightsLines';
+    }
 
     return [
       'Ты Chrono — персональный коуч по продуктивности.',
@@ -31,6 +45,7 @@ class InsightEngine {
       '- Время дня: $timeOfDay',
       '- Активных целей с прогрессом на сегодня: ${activeGoals.length}',
       '- Привычек выполнено сегодня: ${routines['completed'] ?? 0}/${routines['total'] ?? 0}',
+      previousInsightsText,
       '',
       'ЗАДАЧА:',
       'Дай КОНКРЕТНУЮ рекомендацию на СЕЙЧАС с учётом:',
@@ -39,6 +54,7 @@ class InsightEngine {
       '3. Какие привычки уже выполнены, какие - нет',
       '4. Недавних заметок и интересов',
       '5. Главного фокуса пользователя',
+      '6. НЕ повторяй предыдущие 3 инсайта - дай что-то НОВОЕ!',
       '',
       'ПРИНЦИПЫ:',
       '- Будь КОНКРЕТНЫМ: "Уделить 25 минут Quran reading сейчас" вместо "Почитай Коран"',
@@ -46,6 +62,7 @@ class InsightEngine {
       '- Используй ПРОГРЕСС: если цель на 10/60 минут, скажи сколько осталось',
       '- Обращай внимание на ПАТТЕРНЫ: если привычки не выполнены - напомни',
       '- ВАРЬИРУЙ: каждый раз новый аспект, не повторяйся',
+      '- НЕ ДУБЛИРУЙ предыдущие инсайты - ищи новые углы и перспективы!',
       '',
       'ВАЖНО: Ответ ТОЛЬКО в виде валидного JSON:',
       '{',
@@ -63,16 +80,19 @@ class InsightEngine {
 
   String _buildUserPrompt(Map<String, dynamic> ctx) {
     final primaryGoal = ctx['primary_goal'];
+    final previousInsights = ctx['previous_insights'] ?? [];
     return jsonEncode({
       'primary_goal': primaryGoal,
       'active_goals_today': ctx['active_goals_today'],
       'routines_today': ctx['routines_today'],
       'recent_interest_signals': ctx['recent_interest_signals'],
       'recent_notes': ctx['recent_notes'],
+      'previous_insights': previousInsights,
       'guidelines': {
         'tone': 'supportive, pragmatic',
         'length': 'short',
         'safety': 'no medical/financial/legal risky advice',
+        'avoid_repetition': 'Do not repeat topics or suggestions from previous_insights',
       }
     });
   }
