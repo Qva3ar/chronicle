@@ -38,11 +38,104 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
 
         int importedItems = 0;
 
-        // Import notes and tags
+        // Maps to track old ID -> new ID for routines and goals
+        Map<int, int> routineIdMap = {};
+        Map<int, int> goalIdMap = {};
+
+        // Import routines FIRST (before notes, so we can remap IDs)
+        if (importData.containsKey('routines')) {
+          setState(() {
+            _statusMessage = "Importing routines...";
+          });
+
+          List<dynamic> routines = importData['routines'];
+          for (var routineData in routines) {
+            routineData = Map<String, dynamic>.from(routineData);
+
+            // Store old ID before removing it
+            int? oldRoutineId = routineData['_id'];
+            routineData.remove('_id');
+
+            // Insert routine and get new ID
+            int newRoutineId = await DatabaseHelper.instance.insertRoutine(routineData);
+
+            // Track the ID mapping
+            if (oldRoutineId != null) {
+              routineIdMap[oldRoutineId] = newRoutineId;
+            }
+
+            // Schedule notifications for the imported routine
+            try {
+              Routine routine = Routine.fromMap({...routineData, '_id': newRoutineId});
+              DateTime nextOccurrence = routine.getNextOccurrence();
+              await _notificationService.scheduleRoutineNotification(
+                routineId: newRoutineId,
+                routineName: routine.name,
+                scheduledTime: nextOccurrence,
+                periodAfter: routine.periodAfter,
+                interval: routine.interval,
+              );
+            } catch (e) {
+              print('Failed to schedule notification for routine ${routineData['name']}: $e');
+            }
+          }
+          importedItems += routines.length;
+        }
+
+        // Import goals SECOND (before notes, so we can remap IDs)
+        if (importData.containsKey('goals')) {
+          setState(() {
+            _statusMessage = "Importing goals...";
+          });
+
+          List<dynamic> goals = importData['goals'];
+          for (var goalData in goals) {
+            goalData = Map<String, dynamic>.from(goalData);
+
+            // Store old ID before removing it
+            int? oldGoalId = goalData['_id'];
+            goalData.remove('_id');
+
+            // Insert goal and get new ID
+            Goal goal = Goal.fromMap(goalData);
+            int newGoalId = await DatabaseHelper.instance.insertGoal(goal);
+
+            // Track the ID mapping
+            if (oldGoalId != null) {
+              goalIdMap[oldGoalId] = newGoalId;
+            }
+          }
+          importedItems += goals.length;
+        }
+
+        // Import notes and tags LAST (so we can update routine_id and goal_id references)
         if (importData.containsKey('notes') || importData.containsKey('tags')) {
           setState(() {
             _statusMessage = "Importing notes and tags...";
           });
+
+          // Update routine_id and goal_id in notes to use new IDs
+          if (importData.containsKey('notes')) {
+            List<dynamic> notes = importData['notes'];
+            for (var note in notes) {
+              if (note is Map<String, dynamic>) {
+                // Remap routine_id if it exists
+                if (note.containsKey('routine_id') && note['routine_id'] != null) {
+                  int oldRoutineId = note['routine_id'];
+                  if (routineIdMap.containsKey(oldRoutineId)) {
+                    note['routine_id'] = routineIdMap[oldRoutineId];
+                  }
+                }
+                // Remap goal_id if it exists
+                if (note.containsKey('goal_id') && note['goal_id'] != null) {
+                  int oldGoalId = note['goal_id'];
+                  if (goalIdMap.containsKey(oldGoalId)) {
+                    note['goal_id'] = goalIdMap[oldGoalId];
+                  }
+                }
+              }
+            }
+          }
 
           // Create a filtered data object with only notes and tags for the importRecords method
           Map<String, dynamic> notesAndTagsData = {};
@@ -58,56 +151,6 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             importedItems += (importData['notes'] as List).length;
           }
           dataController.importSuccess();
-        }
-
-        // Import routines
-        if (importData.containsKey('routines')) {
-          setState(() {
-            _statusMessage = "Importing routines...";
-          });
-
-          List<dynamic> routines = importData['routines'];
-          for (var routineData in routines) {
-            // Remove the id to allow auto-increment
-            routineData = Map<String, dynamic>.from(routineData);
-            routineData.remove('_id');
-
-            int routineId = await DatabaseHelper.instance.insertRoutine(routineData);
-
-            // Schedule notifications for the imported routine
-            try {
-              Routine routine = Routine.fromMap({...routineData, '_id': routineId});
-              DateTime nextOccurrence = routine.getNextOccurrence();
-              await _notificationService.scheduleRoutineNotification(
-                routineId: routineId,
-                routineName: routine.name,
-                scheduledTime: nextOccurrence,
-                periodAfter: routine.periodAfter,
-                interval: routine.interval,
-              );
-            } catch (e) {
-              print('Failed to schedule notification for routine ${routineData['name']}: $e');
-            }
-          }
-          importedItems += routines.length;
-        }
-
-        // Import goals
-        if (importData.containsKey('goals')) {
-          setState(() {
-            _statusMessage = "Importing goals...";
-          });
-
-          List<dynamic> goals = importData['goals'];
-          for (var goalData in goals) {
-            // Remove the id to allow auto-increment and create Goal object
-            goalData = Map<String, dynamic>.from(goalData);
-            goalData.remove('_id');
-
-            Goal goal = Goal.fromMap(goalData);
-            await DatabaseHelper.instance.insertGoal(goal);
-          }
-          importedItems += goals.length;
         }
 
         setState(() {

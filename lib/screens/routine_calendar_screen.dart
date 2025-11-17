@@ -81,19 +81,21 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       return; // Can't backdate today or future dates
     }
 
-    // Check if it's within the 7-day window
-    final int daysDifference = todayNormalized.difference(selectedNormalized).inDays;
-    if (daysDifference > 7) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Can only backdate completions within the last 7 days'),
-            backgroundColor: MyColors.remove,
-          ),
-        );
-      }
-      return;
-    }
+    // No time limit on backdating - users can backdate to any past date
+
+    // TODO: Uncomment to enable backtracking limit (14 days)
+    // final int daysDifference = todayNormalized.difference(selectedNormalized).inDays;
+    // if (daysDifference > 14) {
+    //   if (mounted) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       const SnackBar(
+    //         content: Text('Can only backdate completions within the last 14 days'),
+    //         backgroundColor: MyColors.remove,
+    //       ),
+    //     );
+    //   }
+    //   return;
+    // }
 
     // Check if it's a scheduled day
     if (!_isScheduledDay(selectedDay)) {
@@ -248,7 +250,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Tap any past date (within 7 days) to mark as complete',
+                      'Tap any past date to mark as complete', // TODO: Add "(within 14 days)" when limit enabled
                       style: TextStyle(
                         color: MyColors.fivyColor,
                         fontSize: 13,

@@ -531,7 +531,6 @@ class TimerService extends ChangeNotifier {
 
       // Create completion record
       final record = {
-        DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
         DatabaseColumns.recordText:
             'Goal completed while app was in background after ${formatTime(finalTimeSpent)} of focused work!',
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
@@ -829,7 +828,6 @@ class TimerService extends ChangeNotifier {
 
     // Create a record for the completed goal
     final record = {
-      DatabaseColumns.recordTitle: 'Goal Completed: ${completedGoal.title}',
       DatabaseColumns.recordText: 'Goal is completed: ${completedGoal.title}',
       DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
       DatabaseColumns.recordType: 'goal',

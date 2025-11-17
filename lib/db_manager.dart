@@ -1669,11 +1669,13 @@ class DatabaseHelper {
         throw Exception('Can only backdate to past dates');
       }
 
-      // Validate: Check if within allowed backdating window (7 days)
-      final int daysDifference = todayNormalized.difference(normalizedDate).inDays;
-      if (daysDifference > 7) {
-        throw Exception('Can only backdate up to 7 days in the past');
-      }
+      // No time limit on backdating - users can backdate to any past date
+
+      // TODO: Uncomment to enable backtracking limit (14 days)
+      // final int daysDifference = todayNormalized.difference(normalizedDate).inDays;
+      // if (daysDifference > 14) {
+      //   throw Exception('Can only backdate up to 14 days in the past');
+      // }
 
       // Check if already completed on this date
       final existingRecords = await db.query(
@@ -1704,8 +1706,7 @@ class DatabaseHelper {
       );
 
       final record = {
-        DatabaseColumns.recordTitle: 'Completed Routine: $routineName',
-        DatabaseColumns.recordText: 'Completed routine: $routineName (backdated)',
+        DatabaseColumns.recordText: 'Completed routine: $routineName',
         DatabaseColumns.recordCreatedAt: backdatedTimestamp.millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'routine',
         DatabaseColumns.recordRoutineId: routineId,

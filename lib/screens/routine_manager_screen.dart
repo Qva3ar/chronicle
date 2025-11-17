@@ -72,7 +72,6 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
       try {
         // Create a record for the completed routine
         final record = {
-          DatabaseColumns.recordTitle: 'Completed Routine: ${routine.name}',
           DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
           DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
           DatabaseColumns.recordType: 'routine', // Mark as routine record
