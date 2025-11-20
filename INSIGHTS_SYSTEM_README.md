@@ -11,7 +11,7 @@ This document explains how the Chrono “AI Insights” feature works end‑to�
 | Responsibility | File |
 | --- | --- |
 | User settings UI & preview | `lib/screens/settings/insights_settings_screen.dart` |
-| **Background worker (WorkManager)** | `lib/background/insight_worker.dart` |
+| **Background worker (WorkManager)** | `lib/background/task_dispatcher.dart` |
 | Context gathering & settings loading | `lib/ai/context_builder.dart` |
 | OpenAI client & throttling | `lib/ai/ai_client.dart` |
 | Insight generation + storage | `lib/ai/insight_engine.dart` |
@@ -21,16 +21,16 @@ This document explains how the Chrono “AI Insights” feature works end‑to�
 
 ## 3. Data & Control Flow
 1. **Initialization**
-   - `main.dart` loads persisted API creds (`GPTNoteBindService`), opens the database, initializes notifications/timer services, and calls `InsightWorker.initialize()` to set up the WorkManager dispatcher.
-   - `InsightWorker.registerIfEnabled()` registers the periodic background task when insights are enabled.
-   - `InsightsSettingsScreen` persists values into `app_settings` and calls `InsightWorker.registerIfEnabled()` to update the background task schedule.
+   - `main.dart` loads persisted API creds (`GPTNoteBindService`), opens the database, initializes notifications/timer services, and calls `BackgroundTaskManager.initialize()` to set up the unified WorkManager dispatcher.
+   - `BackgroundTaskManager.scheduleInsightGeneration()` registers the periodic background task when insights are enabled.
+   - `InsightsSettingsScreen` persists values into `app_settings` and calls `BackgroundTaskManager.scheduleInsightGeneration()` to update the background task schedule.
 
 2. **Scheduling (WorkManager)**
    - Scheduling via `Workmanager.registerPeriodicTask()` manages periodic insight generation.
    - **Android:** Uses WorkManager/JobScheduler for reliable background execution.
    - **iOS:** Uses BGTaskScheduler via the same plugin.
    - Minimum interval is 15 minutes with a network connectivity constraint.
-   - The callback (`insightCallbackDispatcher`) runs in a background isolate with proper network access permissions.
+   - The unified callback (`backgroundTaskDispatcher`) runs in a background isolate and handles all background tasks including insights, daily reset, session completion, and routine notifications.
 
 3. **Context Building (`ContextBuilder`)**
    - Reads from `app_settings`, `ai_interest_signals`, `ai_context_summaries`, `goals`, `routines`, and `record` tables.
@@ -133,21 +133,20 @@ Relevant tables/columns (see `lib/db_manager.dart` for complete definitions):
 
 ## 8. Manual Testing Checklist
 
-> ⚠️ WorkManager scheduling is disabled right now, so steps mentioning periodic task registration/background execution are historical. Use manual insight generation to validate the pipeline until the AlarmManager conflict is fixed.
 1. Set API key & model via the API key popup (stored in `SharedPreferences` by `GPTNoteBindService`).
 2. In Insight Settings, enable insights, set interval to 15 minutes, quiet hours blank.
-3. Save settings (watch logs for `[InsightWorker] ✅ Periodic task registered`).
+3. Save settings (watch logs for `[BackgroundTaskManager] ✅ Insight generation scheduled`).
 4. Click "Test Insight Generation Now" button:
-   - Watch logs for `[InsightWorker] 🧪 Manual insight generation triggered`
+   - Watch logs for `[InsightGeneration] 🔄 Starting insight generation`
    - Verify notification appears immediately
    - Check "Stored insights" list shows new entry
-5. **Android:** Wait 15 minutes, verify background task fires (`[InsightWorker] 🔄 Background task started`)
+5. **Android:** Wait 15 minutes, verify background task fires (`[TaskDispatcher] 🔄 Background task started: com.chrono.insight_generation`)
 6. **iOS:** Background task execution is opportunistic - may not fire exactly on schedule
 7. Verify:
    - Push notification arrives (outside quiet hours).
    - Home banner shows the same text after returning to the app.
    - Settings screen "Stored insights" list updates with `delivered_as = notification`.
-8. Toggle insights off → confirm `[InsightWorker] ✅ All insight tasks cancelled` appears.
+8. Toggle insights off → confirm `[BackgroundTaskManager] ℹ️ Insight generation disabled` appears.
 
 Keeping this flow in mind should let any contributor – human or AI – reason about expected behavior, diagnose discrepancies, and implement new functionality confidently.
 

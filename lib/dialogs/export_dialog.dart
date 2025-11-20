@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ExportDialog extends StatefulWidget {
   @override
@@ -13,7 +14,9 @@ class _ExportDialogState extends State<ExportDialog> {
   bool _includeRoutines = true;
   bool _includeGoals = true;
   bool _isExporting = false;
+  bool _exportCompleted = false;
   String _statusMessage = "Select data to export";
+  File? _exportedFile;
 
   Future<void> _exportData() async {
     if (!_includeNotes && !_includeRoutines && !_includeGoals) {
@@ -36,10 +39,10 @@ class _ExportDialogState extends State<ExportDialog> {
         includeGoals: _includeGoals,
       );
 
-      await _sendEmailWithAttachment(file);
-
       setState(() {
-        _statusMessage = "Export completed and email sent!";
+        _exportedFile = file;
+        _exportCompleted = true;
+        _statusMessage = "Export completed! Choose how to share your backup.";
       });
     } catch (e) {
       setState(() {
@@ -52,21 +55,66 @@ class _ExportDialogState extends State<ExportDialog> {
     }
   }
 
-  Future<void> _sendEmailWithAttachment(File file) async {
-    List<String> dataTypes = [];
-    if (_includeNotes) dataTypes.add('notes');
-    if (_includeRoutines) dataTypes.add('routines');
-    if (_includeGoals) dataTypes.add('goals');
+  Future<void> _shareFile() async {
+    if (_exportedFile == null) return;
 
-    final Email email = Email(
-      body: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
-      subject: 'Chrono Data Backup',
-      recipients: [],
-      attachmentPaths: [file.path],
-      isHTML: false,
-    );
+    try {
+      List<String> dataTypes = [];
+      if (_includeNotes) dataTypes.add('notes');
+      if (_includeRoutines) dataTypes.add('routines');
+      if (_includeGoals) dataTypes.add('goals');
 
-    await FlutterEmailSender.send(email);
+      final result = await Share.shareXFiles(
+        [XFile(_exportedFile!.path)],
+        subject: 'Chrono Data Backup',
+        text: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
+      );
+
+      if (result.status == ShareResultStatus.success) {
+        setState(() {
+          _statusMessage = "Backup shared successfully!";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _statusMessage = "Share failed: ${e.toString()}";
+      });
+    }
+  }
+
+  Future<void> _sendEmailWithAttachment() async {
+    if (_exportedFile == null) return;
+
+    try {
+      List<String> dataTypes = [];
+      if (_includeNotes) dataTypes.add('notes');
+      if (_includeRoutines) dataTypes.add('routines');
+      if (_includeGoals) dataTypes.add('goals');
+
+      final Email email = Email(
+        body: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
+        subject: 'Chrono Data Backup',
+        recipients: [],
+        attachmentPaths: [_exportedFile!.path],
+        isHTML: false,
+      );
+
+      await FlutterEmailSender.send(email);
+      setState(() {
+        _statusMessage = "Email composer opened!";
+      });
+    } catch (e) {
+      // Handle "no email client" error gracefully
+      if (e.toString().contains('not_available') || e.toString().contains('No email clients')) {
+        setState(() {
+          _statusMessage = "No email app found. Please use 'Share' instead.";
+        });
+      } else {
+        setState(() {
+          _statusMessage = "Email failed: ${e.toString()}";
+        });
+      }
+    }
   }
 
   @override
@@ -79,7 +127,7 @@ class _ExportDialogState extends State<ExportDialog> {
         children: [
           Text(_statusMessage),
           SizedBox(height: 16),
-          if (!_isExporting) ...[
+          if (!_isExporting && !_exportCompleted) ...[
             Text(
               'Select data to export:',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -120,10 +168,17 @@ class _ExportDialogState extends State<ExportDialog> {
             ),
           ],
           if (_isExporting) Center(child: CircularProgressIndicator()),
+          if (_exportCompleted && !_isExporting) ...[
+            SizedBox(height: 8),
+            Text(
+              'Backup created successfully!',
+              style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+            ),
+          ],
         ],
       ),
       actions: [
-        if (!_isExporting) ...[
+        if (!_isExporting && !_exportCompleted) ...[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text('Cancel'),
@@ -132,10 +187,27 @@ class _ExportDialogState extends State<ExportDialog> {
             onPressed: _exportData,
             child: Text('Export'),
           ),
-        ] else
+        ],
+        if (_exportCompleted && !_isExporting) ...[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text('Close'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _sendEmailWithAttachment,
+            icon: Icon(Icons.email),
+            label: Text('Email'),
+          ),
+          ElevatedButton.icon(
+            onPressed: _shareFile,
+            icon: Icon(Icons.share),
+            label: Text('Share'),
+          ),
+        ],
+        if (_isExporting)
+          TextButton(
+            onPressed: null,
+            child: Text('Please wait...'),
           ),
       ],
     );

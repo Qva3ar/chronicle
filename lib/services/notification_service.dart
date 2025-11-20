@@ -324,30 +324,79 @@ class NotificationService {
         (periodAfter > 0 && interval > 0) ? (periodAfter / interval).floor() : 0;
 
     try {
-      // Schedule main notification using WorkManager
-      await BackgroundTaskManager.scheduleRoutineNotification(
-        routineId: routineId,
-        routineName: routineName,
-        scheduledTime: scheduledTime,
-        currentRetry: 0,
-        numberOfRetries: numberOfRetries,
-      );
+      if (Platform.isIOS) {
+        // iOS: Use flutter_local_notifications zonedSchedule for exact timing
+        // Schedule main notification
+        await _notifications.zonedSchedule(
+          _getMainNotificationId(routineId),
+          'Routine Reminder',
+          'Time for: $routineName',
+          tzScheduledTime,
+          const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              interruptionLevel: InterruptionLevel.timeSensitive,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: 'routine_$routineId',
+        );
 
-      // Schedule retry notifications if needed
-      if (numberOfRetries > 0) {
-        for (int retry = 1; retry <= numberOfRetries && retry <= _maxRetries; retry++) {
-          final retryTime = scheduledTime.add(Duration(minutes: retry * interval));
-          await BackgroundTaskManager.scheduleRoutineNotification(
-            routineId: routineId,
-            routineName: routineName,
-            scheduledTime: retryTime,
-            currentRetry: retry,
-            numberOfRetries: numberOfRetries,
-          );
+        // Schedule retry notifications if needed
+        if (numberOfRetries > 0) {
+          for (int retry = 1; retry <= numberOfRetries && retry <= _maxRetries; retry++) {
+            final retryTime = tz.TZDateTime.from(
+              scheduledTime.add(Duration(minutes: retry * interval)),
+              tz.local,
+            );
+            if (retryTime.isAfter(now)) {
+              await _notifications.zonedSchedule(
+                _getRetryNotificationId(routineId, retry),
+                'Reminder: $routineName',
+                'It\'s time for your routine: $routineName (Retry $retry/$numberOfRetries)',
+                retryTime,
+                const NotificationDetails(
+                  iOS: DarwinNotificationDetails(
+                    presentAlert: true,
+                    presentBadge: true,
+                    presentSound: true,
+                    interruptionLevel: InterruptionLevel.timeSensitive,
+                  ),
+                ),
+                androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+                payload: 'routine_${routineId}_retry_$retry',
+              );
+            }
+          }
         }
-      }
+        debugPrint('✅ iOS: Scheduled routine notifications for $routineName at $scheduledTime with $numberOfRetries retries');
+      } else {
+        // Android: Use WorkManager for background execution
+        await BackgroundTaskManager.scheduleRoutineNotification(
+          routineId: routineId,
+          routineName: routineName,
+          scheduledTime: scheduledTime,
+          currentRetry: 0,
+          numberOfRetries: numberOfRetries,
+        );
 
-      debugPrint('✅ Scheduled routine notification for $routineName at $scheduledTime with $numberOfRetries retries');
+        // Schedule retry notifications if needed
+        if (numberOfRetries > 0) {
+          for (int retry = 1; retry <= numberOfRetries && retry <= _maxRetries; retry++) {
+            final retryTime = scheduledTime.add(Duration(minutes: retry * interval));
+            await BackgroundTaskManager.scheduleRoutineNotification(
+              routineId: routineId,
+              routineName: routineName,
+              scheduledTime: retryTime,
+              currentRetry: retry,
+              numberOfRetries: numberOfRetries,
+            );
+          }
+        }
+        debugPrint('✅ Android: Scheduled routine notification for $routineName at $scheduledTime with $numberOfRetries retries');
+      }
     } catch (e, stackTrace) {
       debugPrint('Error scheduling notification for $routineName: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -481,6 +530,7 @@ class NotificationService {
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
+            interruptionLevel: InterruptionLevel.active,
           ),
         ),
         payload: 'insight',

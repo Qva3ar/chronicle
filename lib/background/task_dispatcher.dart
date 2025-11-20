@@ -496,6 +496,14 @@ class BackgroundTaskManager {
       );
 
       print('[BackgroundTaskManager] ✅ WorkManager initialized');
+
+      // Clean up old insight task registration from deprecated insight_worker.dart
+      try {
+        await Workmanager().cancelByUniqueName('insight_periodic_task');
+        print('[BackgroundTaskManager] 🧹 Cleaned up old insight task registration');
+      } catch (e) {
+        print('[BackgroundTaskManager] ℹ️ No old insight task to clean up: $e');
+      }
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to initialize WorkManager: $e');
     }

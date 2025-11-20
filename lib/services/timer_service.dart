@@ -89,9 +89,10 @@ Future<void> _showBackgroundRunningNotification(
     );
 
     const iosDetails = DarwinNotificationDetails(
-      presentAlert: true, // Changed from false to show alert
+      presentAlert: true,
       presentBadge: true,
-      presentSound: true, // Changed from false to play sound
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
     );
 
     final details = NotificationDetails(
@@ -767,9 +768,17 @@ class TimerService extends ChangeNotifier {
           await _handleGoalCompletion();
           return;
         }
+
+        // 🎯 NEW: Check if session has completed (WorkManager is unreliable for precise timing)
+        if (sessionElapsed >= sessionDuration) {
+          print('🎉 FOREGROUND SESSION COMPLETION: Session completed');
+          print('   Session time: ${formatTime(sessionElapsed)}/${formatTime(sessionDuration)}');
+          await _handleSessionCompletion(sessionElapsed);
+          return;
+        }
       }
 
-      // Just update UI and notifications - alarm handles the actual completion
+      // Just update UI and notifications
       if (sessionElapsed % 10 == 0) {
         // Reduce log frequency
         print(
@@ -899,6 +908,131 @@ class TimerService extends ChangeNotifier {
       print('✅ Goal completion session notification sent');
     } catch (e) {
       print('❌ Failed to show goal completion session notification: $e');
+    }
+  }
+
+  // 🎯 NEW: Handle session completion (when session ends but goal is not complete)
+  Future<void> _handleSessionCompletion(int sessionElapsed) async {
+    print('🎉 Session completion detected');
+
+    if (_activeGoal == null) return;
+
+    // Check if the goal has already been completed or marked inactive in the DB
+    final latestGoal = await _db.getGoal(_activeGoal!.id!);
+    if (latestGoal == null) {
+      print('ℹ️ SESSION COMPLETION: Goal not found. Cleaning up.');
+      await _cleanupSession('Goal not found');
+      return;
+    }
+
+    if (latestGoal.completedAt != null) {
+      print('ℹ️ SESSION COMPLETION: Goal already completed. Cleaning up.');
+      await _cleanupSession('Goal already completed');
+      return;
+    }
+
+    if (!latestGoal.isActive) {
+      print('ℹ️ SESSION COMPLETION: Goal already inactive. Cleaning up.');
+      await _cleanupSession('Goal already inactive');
+      return;
+    }
+
+    // Cancel the scheduled background task since we're handling completion in foreground
+    try {
+      await BackgroundTaskManager.cancelSessionCompletion(_activeGoal!.id!);
+      print('🚫 Cancelled background task for session completion');
+    } catch (e) {
+      print('❌ Failed to cancel background task: $e');
+    }
+
+    // Calculate and save progress
+    final sessionDuration = _getSessionDuration();
+    final newTimeSpent = _baselineTimeSpent + sessionDuration;
+    final goalTarget = _activeGoal!.totalSeconds;
+    final clampedTimeSpent = newTimeSpent > goalTarget ? goalTarget : newTimeSpent;
+
+    print('💾 SESSION COMPLETION: Saving progress');
+    print('   - Session duration: ${formatTime(sessionDuration)}');
+    print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
+    print('   - New time spent: ${formatTime(clampedTimeSpent)}');
+
+    // Update goal in database
+    final updatedGoal = _activeGoal!.copyWith(
+      timeSpentSeconds: clampedTimeSpent,
+      isActive: false,
+      sessionResumedTimestampSeconds: null,
+      clearSessionResumedTimestamp: true,
+    );
+
+    await _db.updateGoal(updatedGoal);
+    print('✅ SESSION COMPLETION: Goal updated successfully');
+
+    // Stop the timer
+    _isRunning = false;
+    _updateTimer?.cancel();
+
+    // Show session completion notification with "Continue" button
+    await _showSessionCompletionNotification(sessionDuration);
+
+    // Hide running notification
+    await _hideNotification();
+
+    // Update local state
+    _activeGoal = updatedGoal;
+    _sessionStartTime = 0;
+    _baselineTimeSpent = 0;
+
+    notifyListeners();
+    print('✅ SESSION COMPLETION: Session stopped, goal can be resumed later');
+  }
+
+  // 🎯 NEW: Show session completion notification with "Continue" action
+  Future<void> _showSessionCompletionNotification(int sessionDuration) async {
+    if (_activeGoal == null) return;
+
+    try {
+      // Add "Continue" button for resuming session
+      const androidDetails = AndroidNotificationDetails(
+        'session_complete_channel',
+        'Session Completed',
+        channelDescription: 'Notifications when a session is completed',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+        actions: [
+          AndroidNotificationAction(
+            'CONTINUE_SESSION_ACTION',
+            'Continue',
+          ),
+        ],
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'default',
+        badgeNumber: 1,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _notificationsPlugin.show(
+        2,
+        'Session Completed! 🎉',
+        '${_activeGoal!.title} - ${formatTime(sessionDuration)} session finished. Great work!',
+        details,
+        payload: 'session_complete_${_activeGoal!.id}',
+      );
+
+      print('✅ Session completion notification sent');
+    } catch (e) {
+      print('❌ Failed to show session completion notification: $e');
     }
   }
 
@@ -1089,10 +1223,14 @@ class TimerService extends ChangeNotifier {
       progress: progressPercentage,
     );
 
+    // iOS: Show alert with sound for running sessions
+    // Note: iOS doesn't support persistent/ongoing notifications like Android
+    // So we show a regular notification that can be dismissed
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: false,
+      presentAlert: true,
       presentBadge: true,
-      presentSound: false,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
     );
 
     return NotificationDetails(

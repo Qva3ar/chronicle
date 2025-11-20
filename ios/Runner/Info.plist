@@ -53,8 +53,9 @@
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+		<string>processing</string>
 	</array>
-	<key>NSUserNotificationUsageDescription</key>
-	<string>We need to send you notifications for your daily routines.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Chrono needs to send you notifications for routines, goal sessions, and daily insights.</string>
 </dict>
 </plist>
