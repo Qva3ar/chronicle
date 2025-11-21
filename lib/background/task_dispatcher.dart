@@ -3,15 +3,15 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/record.service.dart';
-import 'package:chrono/services/goal_service.dart';
+import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
-import 'package:chrono/ai/summarizer.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 /// Unified background task dispatcher for WorkManager
 /// Handles all background tasks: session completion, daily reset, insights, and routine notifications
@@ -170,30 +170,16 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
 /// Handle daily reset
 Future<bool> _handleDailyReset(Map<String, dynamic>? inputData) async {
   try {
-    print('[DailyReset] 🌅 Starting daily reset at ${DateTime.now()}');
+    print('[DailyReset] 🌅 Starting WorkManager daily reset at ${DateTime.now()}');
 
-    final db = DatabaseHelper.instance;
-    final goalService = GoalService(db);
-
-    // Reset routines and goals
-    await db.resetRoutinesDoneStatus();
-    await goalService.resetAllGoals();
-
-    // Reschedule routine notifications for the new day
-    final notificationService = NotificationService();
-    await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
+    // Use the shared daily reset service which handles all reset logic
+    // and stores the last reset date in SharedPreferences
+    await DailyResetService.instance.performDailyResetAndStoreDate();
 
     print('[DailyReset] ✅ Daily reset completed successfully');
 
-    // Schedule next reset
+    // Schedule next reset for tomorrow at midnight
     await BackgroundTaskManager.scheduleDailyReset();
-
-    // Run optional summarization rollup
-    try {
-      await Summarizer.instance.runDailySummary();
-    } catch (e) {
-      print('[DailyReset] ⚠️ Summary generation failed: $e');
-    }
 
     return true;
   } catch (e, stackTrace) {
@@ -556,38 +542,66 @@ class BackgroundTaskManager {
   }
 
   /// Schedule daily reset task
+  /// ⚠️ TEST MODE: Schedules reset every 2 hours instead of midnight
   static Future<void> scheduleDailyReset() async {
     try {
-      final now = tz.TZDateTime.now(tz.local);
+      // ⚠️ TEST MODE: Schedule every 2 hours
+      const bool testMode = true;
+      const Duration testInterval = Duration(hours: 2);
 
-      // Calculate next midnight
-      tz.TZDateTime nextMidnight = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day + 1,
-        0, 0, 0,
-      );
+      if (testMode) {
+        // TEST MODE: Schedule reset in 2 hours
+        final now = DateTime.now();
+        final nextReset = now.add(testInterval);
 
-      if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
-        nextMidnight = nextMidnight.add(const Duration(days: 1));
+        await Workmanager().registerOneOffTask(
+          'daily_reset',
+          TaskNames.dailyReset,
+          initialDelay: testInterval,
+          constraints: Constraints(
+            networkType: NetworkType.notRequired,
+          ),
+        );
+
+        print('[BackgroundTaskManager] 🧪 TEST MODE: Reset scheduled for ${_formatDateTime(nextReset)} (in ${testInterval.inHours} hours)');
+      } else {
+        // PRODUCTION MODE: Schedule at midnight
+        final now = tz.TZDateTime.now(tz.local);
+
+        // Calculate next midnight
+        tz.TZDateTime nextMidnight = tz.TZDateTime(
+          tz.local,
+          now.year,
+          now.month,
+          now.day + 1,
+          0, 0, 0,
+        );
+
+        if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
+          nextMidnight = nextMidnight.add(const Duration(days: 1));
+        }
+
+        final delay = nextMidnight.difference(now);
+
+        await Workmanager().registerOneOffTask(
+          'daily_reset',
+          TaskNames.dailyReset,
+          initialDelay: delay,
+          constraints: Constraints(
+            networkType: NetworkType.notRequired,
+          ),
+        );
+
+        print('[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
       }
-
-      final delay = nextMidnight.difference(now);
-
-      await Workmanager().registerOneOffTask(
-        'daily_reset',
-        TaskNames.dailyReset,
-        initialDelay: delay,
-        constraints: Constraints(
-          networkType: NetworkType.notRequired,
-        ),
-      );
-
-      print('[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule daily reset: $e');
     }
+  }
+
+  /// Format DateTime for logging (helper for test mode)
+  static String _formatDateTime(DateTime dt) {
+    return DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
   }
 
   /// Schedule periodic insight generation

@@ -5,6 +5,7 @@ import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 
@@ -44,8 +45,13 @@ void main() async {
     await BackgroundTaskManager.initialize();
     print('Background task manager initialized');
 
-    // Schedule daily reset
+    // Schedule daily reset (Android WorkManager)
     await BackgroundTaskManager.scheduleDailyReset();
+
+    // Run fallback daily reset check (all platforms)
+    // This ensures reset happens even if WorkManager doesn't run
+    print('Checking if daily reset needed (fallback)...');
+    await DailyResetService.instance.runDailyResetIfNeeded();
 
     print('Starting app...');
     runApp(const MyApp());

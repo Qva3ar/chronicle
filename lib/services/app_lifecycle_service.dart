@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'timer_service.dart';
+import 'daily_reset_service.dart';
 
 class AppLifecycleService extends WidgetsBindingObserver {
   static final AppLifecycleService instance = AppLifecycleService._init();
@@ -63,6 +64,17 @@ class AppLifecycleService extends WidgetsBindingObserver {
 
   void _onAppForeground() {
     print('App resumed - checking for background progress');
+
+    // Check if daily reset is needed (fallback mechanism)
+    // This ensures reset happens even if WorkManager didn't run
+    DailyResetService.instance.runDailyResetIfNeeded().then((resetPerformed) {
+      if (resetPerformed) {
+        print('Daily reset performed on app resume');
+      }
+    }).catchError((error) {
+      print('Error checking daily reset on resume: $error');
+    });
+
     final timerService = TimerService.instance;
 
     // Refresh timer state from database in case session was completed in background
