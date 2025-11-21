@@ -13,8 +13,8 @@ class DailyResetService {
 
   static const String _lastResetDateKey = 'last_daily_reset_date';
 
-  // ⚠️ TEST MODE: Reset every 2 hours instead of daily
-  static const bool _testMode = true;
+  // Test mode disabled - resets at midnight (start of new day)
+  static const bool _testMode = false;
   static const Duration _testInterval = Duration(hours: 2);
   static const String _lastResetTimestampKey = 'last_reset_timestamp';
 

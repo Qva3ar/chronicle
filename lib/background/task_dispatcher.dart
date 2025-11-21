@@ -570,11 +570,11 @@ class BackgroundTaskManager {
   }
 
   /// Schedule daily reset task
-  /// ⚠️ TEST MODE: Schedules reset every 2 hours instead of midnight
+  /// Schedules reset at midnight (start of new day)
   static Future<void> scheduleDailyReset() async {
     try {
-      // ⚠️ TEST MODE: Schedule every 2 hours
-      const bool testMode = true;
+      // Test mode disabled - resets at midnight
+      const bool testMode = false;
       const Duration testInterval = Duration(hours: 2);
 
       if (testMode) {
