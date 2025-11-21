@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Chrono</string>
+    <string name="widget_description_small">Chrono Quick Note</string>
+    <string name="widget_description_medium">Chrono Insights</string>
+    <string name="widget_description_large">Chrono Insights Full</string>
+</resources>

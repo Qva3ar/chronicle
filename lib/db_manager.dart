@@ -1976,4 +1976,22 @@ class DatabaseHelper {
 
     return records;
   }
+
+  /// Get insights for home screen widget
+  /// Returns the latest non-expired, non-dismissed insight
+  Future<List<Map<String, dynamic>>> getInsightsForWidget() async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final rows = await db.query(
+      DatabaseTables.aiInsights,
+      where:
+          '${DatabaseColumns.insightExpiresAt} > ? AND (${DatabaseColumns.insightDismissedAt} IS NULL OR ${DatabaseColumns.insightDismissedAt} = 0)',
+      whereArgs: [now],
+      orderBy: '${DatabaseColumns.insightDeliveredAt} DESC',
+      limit: 1,
+    );
+
+    return rows;
+  }
 }

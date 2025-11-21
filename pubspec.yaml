@@ -59,6 +59,7 @@ dependencies:
   provider: ^6.1.5
   table_calendar: ^3.1.2
   share_plus: ^7.2.1
+  home_widget: ^0.6.0
 
 dev_dependencies:
   flutter_launcher_icons: "^0.13.1"

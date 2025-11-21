@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:home_widget/home_widget.dart';
 
 /// Unified background task dispatcher for WorkManager
 /// Handles all background tasks: session completion, daily reset, insights, and routine notifications
@@ -229,6 +230,33 @@ Future<bool> _handleInsightGeneration(Map<String, dynamic>? inputData) async {
         print('[InsightGeneration] ✅ Notification sent successfully');
       } catch (e) {
         print('[InsightGeneration] ⚠️ Failed to send notification: $e');
+      }
+
+      // Update home screen widget with new insight
+      try {
+        print('[InsightGeneration] 🔄 Updating home screen widget...');
+        await HomeWidget.saveWidgetData<bool>('has_insight', true);
+        await HomeWidget.saveWidgetData<String>('insight_title', result['title'] as String? ?? 'Insight');
+        await HomeWidget.saveWidgetData<String>('insight_body', result['body'] as String? ?? '');
+        await HomeWidget.saveWidgetData<String>('insight_tags', result['tags'] as String? ?? '[]');
+        await HomeWidget.saveWidgetData<String>('app_name', 'Chrono');
+        await HomeWidget.saveWidgetData<String>('placeholder_text', 'No insights yet');
+        // Update all three Android widget sizes
+        await HomeWidget.updateWidget(
+          name: 'ChronoSmallWidgetProvider',
+          iOSName: 'ChronoWidget',
+        );
+        await HomeWidget.updateWidget(
+          name: 'ChronoMediumWidgetProvider',
+          iOSName: 'ChronoWidget',
+        );
+        await HomeWidget.updateWidget(
+          name: 'ChronoLargeWidgetProvider',
+          iOSName: 'ChronoWidget',
+        );
+        print('[InsightGeneration] ✅ Widget updated successfully');
+      } catch (e) {
+        print('[InsightGeneration] ⚠️ Failed to update widget: $e');
       }
     } else {
       print('[InsightGeneration] ℹ️ No insight generated or notification not requested');

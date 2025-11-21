@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/services/widget_service.dart';
 
 class InsightBanner extends StatefulWidget {
   const InsightBanner({super.key});
@@ -61,6 +62,15 @@ class _InsightBannerState extends State<InsightBanner> {
       where: '${DatabaseColumns.id} = ?',
       whereArgs: [_insight![DatabaseColumns.id]],
     );
+
+    // Update widget to show next insight or placeholder
+    try {
+      final widgetService = WidgetService(DatabaseHelper.instance);
+      await widgetService.updateWidget();
+    } catch (e) {
+      print('[InsightBanner] Error updating widget after dismiss: $e');
+    }
+
     if (!mounted) return;
     setState(() {
       _insight = null;

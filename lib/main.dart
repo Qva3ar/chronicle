@@ -6,6 +6,7 @@ import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
+import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 
@@ -52,6 +53,12 @@ void main() async {
     // This ensures reset happens even if WorkManager doesn't run
     print('Checking if daily reset needed (fallback)...');
     await DailyResetService.instance.runDailyResetIfNeeded();
+
+    // Initialize widget service for home screen widgets
+    print('Initializing widget service...');
+    final widgetService = WidgetService(DatabaseHelper.instance);
+    await widgetService.initialize();
+    print('Widget service initialized');
 
     print('Starting app...');
     runApp(const MyApp());
