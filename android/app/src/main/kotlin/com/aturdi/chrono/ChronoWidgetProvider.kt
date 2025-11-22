@@ -28,7 +28,7 @@ abstract class BaseChronoWidgetProvider : AppWidgetProvider() {
         val intent = Intent(context, MainActivity::class.java).apply {
             this.action = action
             this.data = Uri.parse(action)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         return PendingIntent.getActivity(
             context,

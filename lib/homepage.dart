@@ -98,9 +98,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         print('[HomePage] Widget launch detected: $uri');
 
         if (uri.host == 'create_note') {
-          // Show quick note capture dialog
+          // Open create note screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showQuickNoteDialog();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CardDetailPage(
+                  title: "",
+                  text: "",
+                  recordId: null,
+                  recordsTag: [],
+                )
+              )
+            );
           });
         } else if (uri.host == 'open_insight') {
           // Show latest insight banner (already displayed on home page)
@@ -110,87 +120,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (e) {
       print('[HomePage] Error handling widget launch: $e');
     }
-  }
-
-  void _showQuickNoteDialog() {
-    final textController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: cardColor,
-        title: const Text(
-          'Quick Note',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          maxLines: 5,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Enter your note...',
-            hintStyle: TextStyle(color: Colors.white54),
-            border: OutlineInputBorder(),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: MyColors.primaryColor),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (textController.text.trim().isEmpty) {
-                Navigator.pop(context);
-                return;
-              }
-
-              try {
-                // Create record
-                final recordData = {
-                  DatabaseColumns.recordTitle: '',
-                  DatabaseColumns.recordText: textController.text.trim(),
-                  DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-                  DatabaseColumns.recordType: 'regular',
-                };
-
-                await recordService.createRecord(recordData, []);
-
-                if (!mounted) return;
-                Navigator.pop(context);
-
-                // Refresh records list
-                loadRecords();
-
-                // Show success message
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Note created successfully')),
-                );
-              } catch (e) {
-                print('[HomePage] Error creating note: $e');
-                if (!mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Error creating note')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MyColors.primaryColor,
-            ),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _maybeShowOnboarding() async {

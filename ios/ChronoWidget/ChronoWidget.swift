@@ -66,7 +66,7 @@ struct SmallWidgetView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(entry.hasInsight ? entry.title : "Chrono")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
 
@@ -74,7 +74,7 @@ struct SmallWidgetView: View {
 
                 Link(destination: URL(string: "chrono://create_note")!) {
                     Text("+ Note")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -97,16 +97,16 @@ struct MediumWidgetView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("💡")
-                        .font(.system(size: 18))
+                        .font(.system(size: 20))
                     Text(entry.hasInsight ? entry.title : "Chrono")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     Spacer()
                 }
 
                 Text(entry.body)
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
                     .foregroundColor(Color(white: 0.8))
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -117,7 +117,7 @@ struct MediumWidgetView: View {
                     Spacer()
                     Link(destination: URL(string: "chrono://create_note")!) {
                         Text("+ Note")
-                            .font(.system(size: 12))
+                            .font(.system(size: 14))
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -141,20 +141,20 @@ struct LargeWidgetView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("💡")
-                        .font(.system(size: 24))
+                        .font(.system(size: 26))
                     Text("Chrono Insights")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
                 }
 
                 Text(entry.hasInsight ? entry.title : "Chrono")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
 
                 Text(entry.body)
-                    .font(.system(size: 14))
+                    .font(.system(size: 16))
                     .foregroundColor(Color(white: 0.8))
                     .lineSpacing(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -166,7 +166,7 @@ struct LargeWidgetView: View {
                     if entry.hasInsight {
                         Link(destination: URL(string: "chrono://open_insight")!) {
                             Text("View")
-                                .font(.system(size: 12))
+                                .font(.system(size: 14))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
@@ -176,7 +176,7 @@ struct LargeWidgetView: View {
                     }
                     Link(destination: URL(string: "chrono://create_note")!) {
                         Text("+ Note")
-                            .font(.system(size: 12))
+                            .font(.system(size: 14))
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)

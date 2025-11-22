@@ -19,7 +19,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="💡"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:layout_marginEnd="8dp" />
 
         <!-- Title -->
@@ -30,7 +30,7 @@
             android:layout_weight="1"
             android:text="Chrono"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -44,7 +44,7 @@
         android:layout_weight="1"
         android:text="No insights yet"
         android:textColor="#CCCCCC"
-        android:textSize="13sp"
+        android:textSize="15sp"
         android:maxLines="3"
         android:ellipsize="end"
         android:layout_marginBottom="12dp" />
@@ -62,7 +62,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="+ Note"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:background="@drawable/widget_button_background"
             android:textColor="#FFFFFF"
             android:padding="8dp"

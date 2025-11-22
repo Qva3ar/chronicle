@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:text="Chrono"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
+        android:textSize="17sp"
         android:textStyle="bold"
         android:maxLines="2"
         android:ellipsize="end"
@@ -25,7 +25,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="+ Note"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:background="@drawable/widget_button_background"
         android:textColor="#FFFFFF"
         android:padding="8dp" />

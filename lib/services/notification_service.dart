@@ -28,6 +28,7 @@ class NotificationService {
   static const String _routineChannelDesc = 'Notifications for daily routines';
   bool _isInitialized = false;
   bool _isInitializing = false; // Guard against re-entrant initialization
+  bool _isBottomSheetOpen = false; // Track if bottom sheet is currently open
 
   // Constants for notification IDs
   static const int _baseNotificationId = 1000;
@@ -168,10 +169,8 @@ class NotificationService {
 
       debugPrint('🚀 Navigating to $type details for ID: $id');
 
-      // Check if a bottom sheet is already open
-      final isBottomSheetOpen = _isBottomSheetAlreadyOpen(context);
-
-      if (isBottomSheetOpen) {
+      // Check if a bottom sheet is already open using our flag
+      if (_isBottomSheetOpen) {
         debugPrint('⚠️ Bottom sheet already open, skipping duplicate');
         return;
       }
@@ -234,33 +233,34 @@ class NotificationService {
     }
   }
 
-  bool _isBottomSheetAlreadyOpen(BuildContext context) {
-    // Check if the current route is a modal bottom sheet
-    final ModalRoute? currentRoute = ModalRoute.of(context);
-    if (currentRoute == null) return false;
-
-    // Check if there's a modal route being presented
-    return currentRoute.isCurrent &&
-           Navigator.of(context).canPop() &&
-           currentRoute is! PageRoute;
-  }
-
   void _showRoutineBottomSheet(BuildContext context) {
+    _isBottomSheetOpen = true;
+    debugPrint('🔓 Bottom sheet opened (routine)');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const RoutineManagerScreen(),
-    );
+    ).whenComplete(() {
+      _isBottomSheetOpen = false;
+      debugPrint('🔒 Bottom sheet closed (routine)');
+    });
   }
 
   void _showGoalBottomSheet(BuildContext context) {
+    _isBottomSheetOpen = true;
+    debugPrint('🔓 Bottom sheet opened (goal)');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const GoalsScreen(),
-    );
+    ).whenComplete(() {
+      _isBottomSheetOpen = false;
+      debugPrint('🔒 Bottom sheet closed (goal)');
+    });
   }
 
 
