@@ -19,6 +19,7 @@ class CardDetailPage extends StatefulWidget {
   final String text;
   final int? recordId;
   final List<int>? recordsTag;
+  final bool isLocked;
 
   const CardDetailPage({
     Key? key,
@@ -26,6 +27,7 @@ class CardDetailPage extends StatefulWidget {
     required this.text,
     this.recordId,
     this.recordsTag,
+    this.isLocked = false,
   }) : super(key: key);
   @override
   _CardDetailPageState createState() => _CardDetailPageState();
@@ -48,6 +50,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   GPTService gpt = GPTService();
 
   bool _isListeningToStream = false;
+  bool _isLocked = false;
 
   List<String> undoStack = [];
   List<String> redoStack = [];
@@ -60,6 +63,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
     recordService.clearTagIds();
     if (!_isListeningToStream) {
       _isListeningToStream = true;
+      _isLocked = widget.isLocked;
 
       // 🎯 CRITICAL: Set record ID first to establish edit vs create mode
       recordService.setCurrentRecordId(widget.recordId);
@@ -190,6 +194,19 @@ class _CardDetailPageState extends State<CardDetailPage> {
       // Save the redone text to database
       handleText(_descriptionController.text);
     }
+  }
+
+  void toggleLock() {
+    setState(() {
+      _isLocked = !_isLocked;
+    });
+    recordService.handleLock(_isLocked);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isLocked ? 'Note locked' : 'Note unlocked'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
 
   @override
@@ -516,6 +533,11 @@ class _CardDetailPageState extends State<CardDetailPage> {
               onPressed: redoStack.isNotEmpty
                   ? redo
                   : null, // Кнопка redo активна, если есть отмененные изменения
+            ),
+            IconButton(
+              icon: Icon(_isLocked ? Icons.lock : Icons.lock_open),
+              color: _isLocked ? Colors.redAccent : Colors.white30,
+              onPressed: toggleLock,
             ),
           ],
         ),

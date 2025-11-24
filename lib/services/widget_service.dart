@@ -24,8 +24,9 @@ class WidgetService {
     try {
       developer.log('[WidgetService] Initializing widget service', name: 'widget');
 
-      // Register callback for widget interactions
-      HomeWidget.registerInteractivityCallback(_handleWidgetInteraction);
+    // Callback registration is now handled centrally in main.dart
+      // via UnifiedWidgetHandler to support multiple widgets
+      // HomeWidget.registerInteractivityCallback(_handleWidgetInteraction);
 
       // Initial widget update
       await updateWidget();
@@ -118,7 +119,7 @@ class WidgetService {
   }
 
   /// Handle widget interaction callbacks
-  static Future<void> _handleWidgetInteraction(Uri? uri) async {
+  static Future<void> handleWidgetInteraction(Uri? uri) async {
     developer.log('[WidgetService] Widget interaction received: $uri', name: 'widget');
 
     if (uri == null) return;

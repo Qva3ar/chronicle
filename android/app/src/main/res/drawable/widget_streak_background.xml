@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#33C3C5C9" /> <!-- fivyColor with ~20% alpha -->
+    <corners android:radius="12dp" />
+</shape>
+

@@ -52,6 +52,7 @@ class RecordService {
   final _titleSubject = BehaviorSubject<String>.seeded('');
   final _textSubject = BehaviorSubject<String>.seeded('');
   final _tagIdsSubject = BehaviorSubject<List<int>?>.seeded([]);
+  final _isLockedSubject = BehaviorSubject<bool>.seeded(false);
   final _tags = BehaviorSubject<List<Tag>>.seeded([]);
   final gptSelectedTags = PublishSubject<String>();
   final _recordCreatedSubject = PublishSubject<Record>();
@@ -107,6 +108,7 @@ class RecordService {
 
   void clearTagIds() {
     _tagIdsSubject.add([]);
+    _isLockedSubject.add(false);
   }
 
   void setCurrentRecordId(int? recordId) {
@@ -149,6 +151,14 @@ class RecordService {
     
     Map<String, dynamic> updatedRow = {
       DatabaseColumns.recordText: text,
+    };
+    _handleTitleAndText(updatedRow);
+  }
+
+  void handleLock(bool isLocked) {
+    _isLockedSubject.add(isLocked);
+    Map<String, dynamic> updatedRow = {
+      DatabaseColumns.recordIsLocked: isLocked ? 1 : 0,
     };
     _handleTitleAndText(updatedRow);
   }

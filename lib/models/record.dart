@@ -1,4 +1,3 @@
-import 'package:intl/intl.dart';
 import 'package:chrono/db_manager.dart';
 
 class Record {
@@ -10,6 +9,7 @@ class Record {
   String recordType;
   int? goalId;
   int? routineId;
+  bool isLocked;
 
   Record({
     required this.id,
@@ -20,6 +20,7 @@ class Record {
     this.recordType = 'regular',
     this.goalId,
     this.routineId,
+    this.isLocked = false,
   });
 
   // Добавьте метод для сериализации объекта в Map
@@ -32,7 +33,8 @@ class Record {
       DatabaseColumns.recordCreatedAt: createdAt,
       DatabaseColumns.recordType: recordType,
       DatabaseColumns.recordGoalId: goalId,
-      DatabaseColumns.recordRoutineId: routineId
+      DatabaseColumns.recordRoutineId: routineId,
+      DatabaseColumns.recordIsLocked: isLocked ? 1 : 0,
     };
   }
 
@@ -58,6 +60,7 @@ class Record {
       recordType: map[DatabaseColumns.recordType] ?? 'regular',
       goalId: map[DatabaseColumns.recordGoalId],
       routineId: map[DatabaseColumns.recordRoutineId],
+      isLocked: (map[DatabaseColumns.recordIsLocked] ?? 0) == 1,
     );
   }
 

@@ -692,6 +692,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             text: item.text ?? '',
                             recordId: item.id as int,
                             recordsTag: item.tagIds,
+                            isLocked: item.isLocked,
                           ),
                         ),
                       ).then((value) => loadRecords(refresh: true));

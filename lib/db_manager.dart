@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 27;
+  static const int databaseVersion = 28;
   static const int pageSize = 20;
 }
 
@@ -46,6 +46,7 @@ class DatabaseColumns {
   static const String recordType = 'record_type';
   static const String recordGoalId = 'goal_id';
   static const String recordRoutineId = 'routine_id';
+  static const String recordIsLocked = 'is_locked';
 
   // Instructions table columns
   static const String instructionText = 'text';
@@ -248,7 +249,8 @@ class DatabaseHelper {
           ${DatabaseColumns.recordCreatedAt} INTEGER NOT NULL,
           ${DatabaseColumns.recordType} TEXT DEFAULT 'regular',
           ${DatabaseColumns.recordGoalId} INTEGER,
-          ${DatabaseColumns.recordRoutineId} INTEGER
+          ${DatabaseColumns.recordRoutineId} INTEGER,
+          ${DatabaseColumns.recordIsLocked} INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -674,6 +676,15 @@ class DatabaseHelper {
           ADD COLUMN ${DatabaseColumns.settingLastBackgroundRunAt} INTEGER
         ''');
         log('Upgraded database to v27: Added last_background_run_at to app_settings.');
+      }
+
+      if (oldVersion < 28) {
+        // Add is_locked column to record table
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.record}
+          ADD COLUMN ${DatabaseColumns.recordIsLocked} INTEGER NOT NULL DEFAULT 0
+        ''');
+        log('Upgraded database to v28: Added is_locked to record table.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -1344,6 +1355,7 @@ class DatabaseHelper {
               DatabaseColumns.id: note['id'],
               DatabaseColumns.recordText: noteText,
               DatabaseColumns.recordCreatedAt: _parseDateToTimestamp(note['created_at']),
+              DatabaseColumns.recordIsLocked: note['is_locked'] ?? 0,
             };
 
             // Preserve additional fields if they exist

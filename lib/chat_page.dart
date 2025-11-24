@@ -84,7 +84,9 @@ class _ChatPageState extends State<ChatPage> {
 
     allRecords.clear();
     if (newRecords.isNotEmpty) {
-      allRecords.addAll(newRecords);
+      // Filter out locked records to prevent them from being sent to AI
+      final unlockedRecords = newRecords.where((r) => !r.isLocked).toList();
+      allRecords.addAll(unlockedRecords);
     }
 
     final count = await processMessages(allRecords);

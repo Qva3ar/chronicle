@@ -70,7 +70,7 @@ class ContextBuilder {
     // Recent notes
     final notesMaps = await db.query(
       DatabaseTables.record,
-      where: '${DatabaseColumns.recordCreatedAt} >= ?',
+      where: '${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordIsLocked} = 0',
       whereArgs: [since],
       orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
       limit: 500,

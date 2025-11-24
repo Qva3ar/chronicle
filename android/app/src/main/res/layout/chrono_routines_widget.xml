@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:backgroundTint="#2D2E33"
+    android:backgroundTintMode="src_over"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Routine Manager"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- Add Button (Visual only) -->
+        <ImageView
+            android:id="@+id/widget_button_open_routines"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@android:drawable/ic_menu_add"
+            android:tint="#FFFFFF"
+            android:contentDescription="Open App" />
+            
+        <!-- Stats hidden but kept if needed later -->
+        <TextView
+            android:id="@+id/widget_routines_stats"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0/0"
+            android:textColor="#C3C5C9"
+            android:textSize="14sp" 
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <!-- Content Area -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- No routines message -->
+        <TextView
+            android:id="@+id/widget_no_routines"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No routines for today"
+            android:textColor="#7E8287"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:padding="16dp"
+            android:visibility="gone" />
+
+        <!-- Scrollable Routines List -->
+        <ListView
+            android:id="@+id/widget_routines_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:scrollbars="none"
+            android:visibility="visible"
+            android:paddingTop="4dp"
+            android:clipToPadding="false" />
+
+    </FrameLayout>
+
+</LinearLayout>

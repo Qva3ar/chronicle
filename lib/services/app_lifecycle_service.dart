@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'timer_service.dart';
 import 'daily_reset_service.dart';
 import 'widget_service.dart';
+import 'routine_widget_service.dart';
+import 'goal_widget_service.dart';
 import '../db_manager.dart';
 
 class AppLifecycleService extends WidgetsBindingObserver {
@@ -77,11 +79,25 @@ class AppLifecycleService extends WidgetsBindingObserver {
       print('Error checking daily reset on resume: $error');
     });
 
-    // Update home screen widget with latest insights
+    // Update home screen widgets with latest data
     WidgetService(DatabaseHelper.instance).updateWidget().then((_) {
-      print('Widget updated on app resume');
+      print('Insights widget updated on app resume');
     }).catchError((error) {
-      print('Error updating widget on resume: $error');
+      print('Error updating insights widget on resume: $error');
+    });
+
+    // Update routines widget
+    RoutineWidgetService(DatabaseHelper.instance).updateWidget().then((_) {
+      print('Routines widget updated on app resume');
+    }).catchError((error) {
+      print('Error updating routines widget on resume: $error');
+    });
+
+    // Update goals widget
+    GoalWidgetService(DatabaseHelper.instance).updateWidget().then((_) {
+      print('Goals widget updated on app resume');
+    }).catchError((error) {
+      print('Error updating goals widget on resume: $error');
     });
 
     final timerService = TimerService.instance;

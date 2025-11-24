@@ -4,4 +4,6 @@
     <string name="widget_description_small">Chrono Quick Note</string>
     <string name="widget_description_medium">Chrono Insights</string>
     <string name="widget_description_large">Chrono Insights Full</string>
+    <string name="widget_description_routines">Chrono Daily Routines</string>
+    <string name="widget_description_goals">Chrono Goals Tracker</string>
 </resources>

@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:backgroundTint="#2D2E33"
+    android:backgroundTintMode="src_over"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Goal Manager"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- Add Button (Opens App) -->
+        <ImageView
+            android:id="@+id/widget_button_open_goals"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@android:drawable/ic_menu_add"
+            android:tint="#FFFFFF"
+            android:contentDescription="Open App" />
+    </LinearLayout>
+
+    <!-- Goals List -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- No goals message -->
+        <TextView
+            android:id="@+id/widget_no_goals"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No active goals"
+            android:textColor="#C3C5C9"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:padding="16dp"
+            android:visibility="gone" />
+
+        <!-- Goal 1 -->
+        <LinearLayout
+            android:id="@+id/goal_1"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/widget_card_background"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <!-- Icon Container -->
+            <FrameLayout
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:background="@drawable/widget_icon_container_background">
+                
+                <ImageView
+                    android:id="@+id/goal_play_button_1"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Start goal" />
+            </FrameLayout>
+
+            <!-- Text Content -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/goal_title_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Goal Title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="normal"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                     <TextView
+                        android:id="@+id/goal_time_spent_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Time spent: 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                     <TextView
+                        android:id="@+id/goal_total_time_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" / 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                </LinearLayout>
+
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
+
+                    <ProgressBar
+                        android:id="@+id/goal_progress_1"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="4dp"
+                        android:layout_weight="1"
+                        android:progress="50"
+                        android:max="100"
+                        android:progressTint="#2196F3"
+                        android:progressBackgroundTint="#7E8287" />
+
+                    <TextView
+                        android:id="@+id/goal_percentage_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="50%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="normal"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginStart="12dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Goal 2 -->
+        <LinearLayout
+            android:id="@+id/goal_2"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/widget_card_background"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:background="@drawable/widget_icon_container_background">
+                <ImageView
+                    android:id="@+id/goal_play_button_2"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Start goal" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/goal_title_2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Goal Title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="normal"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                     <TextView
+                        android:id="@+id/goal_time_spent_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Time spent: 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                     <TextView
+                        android:id="@+id/goal_total_time_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" / 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
+
+                    <ProgressBar
+                        android:id="@+id/goal_progress_2"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="4dp"
+                        android:layout_weight="1"
+                        android:progress="0"
+                        android:max="100"
+                        android:progressTint="#2196F3"
+                        android:progressBackgroundTint="#7E8287" />
+
+                    <TextView
+                        android:id="@+id/goal_percentage_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="normal"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginStart="12dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Goal 3 -->
+        <LinearLayout
+            android:id="@+id/goal_3"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/widget_card_background"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:background="@drawable/widget_icon_container_background">
+                <ImageView
+                    android:id="@+id/goal_play_button_3"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Start goal" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/goal_title_3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Goal Title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="normal"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                     <TextView
+                        android:id="@+id/goal_time_spent_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Time spent: 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                     <TextView
+                        android:id="@+id/goal_total_time_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" / 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
+
+                    <ProgressBar
+                        android:id="@+id/goal_progress_3"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="4dp"
+                        android:layout_weight="1"
+                        android:progress="0"
+                        android:max="100"
+                        android:progressTint="#2196F3"
+                        android:progressBackgroundTint="#7E8287" />
+
+                    <TextView
+                        android:id="@+id/goal_percentage_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="normal"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginStart="12dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Goal 4 -->
+        <LinearLayout
+            android:id="@+id/goal_4"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/widget_card_background"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:background="@drawable/widget_icon_container_background">
+                <ImageView
+                    android:id="@+id/goal_play_button_4"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_media_play"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Start goal" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/goal_title_4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Goal Title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="normal"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                     <TextView
+                        android:id="@+id/goal_time_spent_4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Time spent: 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                     <TextView
+                        android:id="@+id/goal_total_time_4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" / 00:00:00"
+                        android:textColor="#C3C5C9"
+                        android:textSize="12sp"
+                        android:layout_marginTop="0dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
+
+                    <ProgressBar
+                        android:id="@+id/goal_progress_4"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="4dp"
+                        android:layout_weight="1"
+                        android:progress="0"
+                        android:max="100"
+                        android:progressTint="#2196F3"
+                        android:progressBackgroundTint="#7E8287" />
+
+                    <TextView
+                        android:id="@+id/goal_percentage_4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="normal"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginStart="12dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

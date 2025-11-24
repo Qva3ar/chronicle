@@ -45,6 +45,18 @@
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
+            </intent-filter>
+        </receiver>
+        <service
+            android:name="es.antonborri.home_widget.HomeWidgetBackgroundService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true"/>
+
         <!-- Home screen widgets -->
         <receiver
             android:name=".ChronoSmallWidgetProvider"
@@ -75,6 +87,35 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/chrono_widget_info_large" />
+        </receiver>
+
+        <!-- Routines widget -->
+        <receiver
+            android:name=".ChronoRoutinesWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/chrono_routines_widget_info" />
+        </receiver>
+        
+        <service
+            android:name=".ChronoRoutinesWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <!-- Goals widget -->
+        <receiver
+            android:name=".ChronoGoalsWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/chrono_goals_widget_info" />
         </receiver>
     </application>
 

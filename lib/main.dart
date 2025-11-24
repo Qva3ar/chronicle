@@ -7,6 +7,10 @@ import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/services/widget_service.dart';
+import 'package:chrono/services/routine_widget_service.dart';
+import 'package:chrono/services/goal_widget_service.dart';
+import 'package:chrono/services/unified_widget_handler.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 
@@ -54,11 +58,22 @@ void main() async {
     print('Checking if daily reset needed (fallback)...');
     await DailyResetService.instance.runDailyResetIfNeeded();
 
-    // Initialize widget service for home screen widgets
-    print('Initializing widget service...');
+    // Initialize widget services for home screen widgets
+    print('Initializing widget services...');
+    
+    // Register the unified callback for ALL widgets
+    // This must be done only once to handle all widget types (Goals, Routines, Insights)
+    HomeWidget.registerInteractivityCallback(unifiedWidgetCallback);
+    
     final widgetService = WidgetService(DatabaseHelper.instance);
     await widgetService.initialize();
-    print('Widget service initialized');
+
+    final routineWidgetService = RoutineWidgetService(DatabaseHelper.instance);
+    await routineWidgetService.initialize();
+
+    final goalWidgetService = GoalWidgetService(DatabaseHelper.instance);
+    await goalWidgetService.initialize();
+    print('Widget services initialized');
 
     print('Starting app...');
     runApp(const MyApp());

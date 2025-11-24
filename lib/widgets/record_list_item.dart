@@ -109,6 +109,15 @@ class RecordListItem extends StatelessWidget {
                       fontStyle: FontStyle.italic,
                     ),
                   ),
+                  if (item.isLocked)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Icon(
+                        Icons.lock,
+                        size: 18,
+                        color: Colors.white30,
+                      ),
+                    ),
                   IconButton(
                     onPressed: () => onDelete(item.id),
                     icon: const Icon(
