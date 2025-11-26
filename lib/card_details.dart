@@ -360,12 +360,11 @@ class _CardDetailPageState extends State<CardDetailPage> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
           // Force save any pending changes before leaving
-          if (_descriptionController.text.isNotEmpty) {
-            print("💾 CardDetailPage: Forcing save on pop");
-            recordService.handleText(_descriptionController.text);
-            // Give time for save to process (match debounce timing)
-            await Future.delayed(Duration(milliseconds: 600));
-          }
+          // 🎯 FIXED: Save even if empty to trigger deletion if needed
+          print("💾 CardDetailPage: Forcing save on pop");
+          recordService.handleText(_descriptionController.text);
+          // Give time for save to process (match debounce timing)
+          await Future.delayed(Duration(milliseconds: 600));
         }
       },
       child: Scaffold(

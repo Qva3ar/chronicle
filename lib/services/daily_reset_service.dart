@@ -4,6 +4,7 @@ import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:rxdart/rxdart.dart';
 
 /// Service for managing daily reset operations for routines and goals
 /// Supports both WorkManager (Android) and manual fallback (all platforms)
@@ -17,6 +18,9 @@ class DailyResetService {
   static const bool _testMode = false;
   static const Duration _testInterval = Duration(hours: 2);
   static const String _lastResetTimestampKey = 'last_reset_timestamp';
+
+  final _resetCompletedSubject = PublishSubject<void>();
+  Stream<void> get onResetComplete => _resetCompletedSubject.stream;
 
   /// Run daily reset if needed (fallback mechanism for all platforms)
   /// This checks if today's date is different from the last reset date
@@ -149,6 +153,9 @@ class DailyResetService {
       print('[DailyResetService] ⚠️ Summary generation failed (non-critical): $e');
       // Don't rethrow - summary is optional
     }
+
+    // 🎯 Notify listeners that reset is complete
+    _resetCompletedSubject.add(null);
   }
 
   /// Get today's date as YYYY-MM-DD string

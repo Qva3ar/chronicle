@@ -1,8 +1,10 @@
 import 'dart:developer';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/screens/routine_calendar_screen.dart';
 
@@ -13,15 +15,40 @@ class RoutineManagerScreen extends StatefulWidget {
   State<RoutineManagerScreen> createState() => _RoutineManagerScreenState();
 }
 
-class _RoutineManagerScreenState extends State<RoutineManagerScreen> {
+class _RoutineManagerScreenState extends State<RoutineManagerScreen> with WidgetsBindingObserver {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notifications = NotificationService();
   List<Routine> _routines = [];
+  
+  // ignore: cancel_subscriptions
+  StreamSubscription? _resetSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadRoutines();
+    
+    // 🎯 Listen for daily reset events to update UI
+    _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) {
+      print("🔄 RoutineManagerScreen: Daily reset detected, reloading routines");
+      _loadRoutines();
+    });
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _resetSubscription?.cancel();
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print("📱 RoutineManagerScreen: App resumed, reloading routines");
+      _loadRoutines();
+    }
   }
 
   Future<void> _loadRoutines() async {

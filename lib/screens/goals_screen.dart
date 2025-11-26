@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
 import '../widgets/goal_card.dart';
 import 'add_goal_screen.dart';
 import '../services/timer_service.dart';
+import '../services/daily_reset_service.dart';
 import '../colors.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -17,6 +19,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   List<Goal> _goals = [];
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
+  StreamSubscription? _resetSubscription;
 
   @override
   void initState() {
@@ -25,12 +28,19 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     _loadGoals();
     // Listen to timer service updates to refresh goal progress
     TimerService.instance.addListener(_onTimerUpdate);
+    
+    // 🎯 Listen for daily reset events to update UI
+    _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) {
+      print("🔄 GoalsScreen: Daily reset detected, reloading goals");
+      _loadGoals();
+    });
   }
 
   @override
   void dispose() {
     TimerService.instance.removeListener(_onTimerUpdate);
     WidgetsBinding.instance.removeObserver(this);
+    _resetSubscription?.cancel();
     super.dispose();
   }
 

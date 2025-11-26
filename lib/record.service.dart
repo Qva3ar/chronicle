@@ -1,5 +1,4 @@
 import 'package:chrono/models/record.dart';
-import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:chrono/db_manager.dart';
@@ -136,7 +135,12 @@ class RecordService {
   void prepareText(String text) {
     // 🎯 ENHANCED: Skip empty text and prevent duplicate processing
     if (text.isEmpty || text.trim().isEmpty) {
-      print("⏭️ RecordService: Skipping empty text");
+      if (_currentRecordId != null) {
+        print("🗑️ RecordService: Empty text for existing record, deleting ID: $_currentRecordId");
+        deleteRecord(_currentRecordId!);
+      } else {
+        print("⏭️ RecordService: Skipping empty text for new record");
+      }
       return;
     }
     
@@ -155,6 +159,12 @@ class RecordService {
     _handleTitleAndText(updatedRow);
   }
 
+  Future<void> deleteRecord(int id) async {
+    await dbHelper.deleteContact(id);
+    _currentRecordId = null; // Clear ID after deletion
+    _lastProcessedText = ''; // Reset text
+  }
+
   void handleLock(bool isLocked) {
     _isLockedSubject.add(isLocked);
     Map<String, dynamic> updatedRow = {
@@ -165,13 +175,12 @@ class RecordService {
 
   Future<Record?> createRecord(Map<String, dynamic> row, List<int> tags) async {
     final id = await dbHelper.insertRecord(row, tags);
-    if (id != null) {
-      final newRecords = await dbHelper.getRecordsByIds(id.toString());
-      if (newRecords.isNotEmpty) {
-        final newRecord = newRecords.first;
-        _recordCreatedSubject.sink.add(newRecord);
-        return newRecord;
-      }
+    // id is int, so it's never null, but keeping check for logic flow or if type changes
+    final newRecords = await dbHelper.getRecordsByIds(id.toString());
+    if (newRecords.isNotEmpty) {
+      final newRecord = newRecords.first;
+      _recordCreatedSubject.sink.add(newRecord);
+      return newRecord;
     }
     return null;
   }
