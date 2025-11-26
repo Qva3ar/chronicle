@@ -77,6 +77,26 @@ class ContextBuilder {
     );
     final recentNotes = notesMaps.map((m) => Record.fromMap(m)).toList();
 
+    // Fetch all tags to build a dictionary
+    final tagsRows = await db.query(DatabaseTables.category);
+    final tagsDict = <String, String>{};
+    for (final row in tagsRows) {
+      tagsDict['${row[DatabaseColumns.id]}'] =
+          row[DatabaseColumns.tagName] as String;
+    }
+
+    // Attach tag IDs to notes
+    for (var note in recentNotes) {
+      final tagsData = await db.query(
+        DatabaseTables.recordTag,
+        columns: ['tagId'],
+        where: 'recordId = ?',
+        whereArgs: [note.id],
+      );
+      note.tagIds = tagsData.map((tag) => tag['tagId'] as int).toList();
+    }
+
+
     // Goals with today's session data
     final goals = await DatabaseHelper.instance.getAllGoals();
 
@@ -112,10 +132,10 @@ class ContextBuilder {
     final routines = await DatabaseHelper.instance.getAllRoutines();
     final routinesWithStatus = routines.map((r) {
       return {
-        'title': r['title'] as String?,
-        'scheduled_time': r['scheduled_time'] as String?,
-        'is_done': (r['is_done'] ?? 0) == 1,
-        'is_skipped': (r['is_skipped'] ?? 0) == 1,
+        'title': r[DatabaseColumns.routineName] as String?,
+        'scheduled_time': r[DatabaseColumns.routineTime] as String?,
+        'is_done': (r[DatabaseColumns.routineIsDone] ?? 0) == 1,
+        'is_skipped': false, // Not currently tracked in DB
       };
     }).toList();
 
@@ -149,10 +169,24 @@ class ContextBuilder {
       final cut = text.substring(0, text.length > 600 ? 600 : text.length);
       if (used + cut.length > charBudget) break;
       used += cut.length;
-      compactNotes.add({
-        'created_at': n.createdAt,
-        'text': cut,
-      });
+      
+      // Determine type for AI context
+      String type = 'note'; // default
+      if (n.goalId != null) type = 'goal';
+      else if (n.routineId != null) type = 'routine';
+      else if (n.recordType.isNotEmpty && n.recordType != 'regular') type = n.recordType;
+
+      final Map<String, dynamic> noteMap = {
+        'd': _formatDate(DateTime.fromMillisecondsSinceEpoch(n.createdAt)), // created_at -> d (formatted)
+        'txt': cut,        // text -> txt
+        'tp': type,        // type -> tp
+      };
+      
+      if (n.tagIds.isNotEmpty) {
+        noteMap['t'] = n.tagIds; // t -> tag_ids
+      }
+      
+      compactNotes.add(noteMap);
     }
 
     // Time context
@@ -193,6 +227,7 @@ class ContextBuilder {
                 'created_at': m[DatabaseColumns.aiCreatedAt],
               })
           .toList(),
+      'tags_map': tagsDict,
       'recent_notes': compactNotes,
       'previous_insights': previousInsights,
       'generated_at': DateTime.now().millisecondsSinceEpoch,
@@ -201,5 +236,23 @@ class ContextBuilder {
     // Also provide a compact JSON string if needed
     context['context_json'] = jsonEncode(context);
     return context;
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(Duration(days: 1));
+    final checkDate = DateTime(date.year, date.month, date.day);
+
+    final timeStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+
+    if (checkDate == today) {
+      return 'Сегодня $timeStr';
+    } else if (checkDate == yesterday) {
+      return 'Вчера $timeStr';
+    } else {
+      final month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][date.month - 1];
+      return '${date.day} $month $timeStr';
+    }
   }
 }

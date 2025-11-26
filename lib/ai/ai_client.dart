@@ -75,12 +75,12 @@ class AiClient {
             ? await OpenAI.instance.chat.create(
                 model: _bind.getModel,
                 messages: messages,
-              )
+              ).timeout(const Duration(seconds: 120))
             : await OpenAI.instance.chat.create(
                 model: _bind.getModel,
                 temperature: temperature,
                 messages: messages,
-              );
+              ).timeout(const Duration(seconds: 120));
 
         final String content = response.choices.first.message.content?.first.text ?? '';
         print('AiClient: ✅ API call successful! Response length: ${content.length} chars');
