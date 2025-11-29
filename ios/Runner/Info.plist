@@ -57,5 +57,11 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Chrono needs to send you notifications for routines, goal sessions, and daily insights.</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>https</string>
+      <string>http</string>
+      <string>mailto</string>
+    </array>
 </dict>
 </plist>
