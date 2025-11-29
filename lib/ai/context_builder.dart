@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/record.dart';
 
@@ -47,16 +46,22 @@ class ContextBuilder {
     final map = rows.first;
     return InsightsSettings(
       insightEnabled: (map[DatabaseColumns.settingInsightEnabled] ?? 1) == 1,
-      intervalMinutes: (map[DatabaseColumns.settingInsightIntervalMinutes] as int?) ?? 60,
-      contextDays: (map[DatabaseColumns.settingInsightContextDays] as int?) ?? 7,
-      tokenLimit: (map[DatabaseColumns.settingInsightTokenLimit] as int?) ?? 4000,
+      intervalMinutes:
+          (map[DatabaseColumns.settingInsightIntervalMinutes] as int?) ?? 60,
+      contextDays:
+          (map[DatabaseColumns.settingInsightContextDays] as int?) ?? 7,
+      tokenLimit:
+          (map[DatabaseColumns.settingInsightTokenLimit] as int?) ?? 4000,
       quietStart: map[DatabaseColumns.settingQuietHoursStart] as String?,
       quietEnd: map[DatabaseColumns.settingQuietHoursEnd] as String?,
       primaryGoalId: map[DatabaseColumns.settingPrimaryGoalId] as int?,
-      mainIntentionText: map[DatabaseColumns.settingMainIntentionText] as String?,
+      mainIntentionText:
+          map[DatabaseColumns.settingMainIntentionText] as String?,
     );
   }
 
+  /// Builds a narrative context for the AI.
+  /// Instead of a raw data dump, this creates a structured "story" of the user's current state.
   Future<Map<String, dynamic>> buildInsightsContext({
     required int contextDays,
     required int tokenLimitApprox,
@@ -64,45 +69,31 @@ class ContextBuilder {
   }) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
-    final since = now.subtract(Duration(days: contextDays)).millisecondsSinceEpoch;
-    final todayStart = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final todayStart =
+        DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    
+    // --- 1. Time Context ---
+    final hour = now.hour;
+    String timeOfDay;
+    if (hour < 5) timeOfDay = 'Late Night / Early Morning';
+    else if (hour < 12) timeOfDay = 'Morning';
+    else if (hour < 17) timeOfDay = 'Afternoon';
+    else if (hour < 21) timeOfDay = 'Evening';
+    else timeOfDay = 'Night';
+    
+    final weekday = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+    ][now.weekday - 1];
 
-    // Recent notes
-    final notesMaps = await db.query(
-      DatabaseTables.record,
-      where: '${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordIsLocked} = 0',
-      whereArgs: [since],
-      orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
-      limit: 500,
-    );
-    final recentNotes = notesMaps.map((m) => Record.fromMap(m)).toList();
+    final timeString = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-    // Fetch all tags to build a dictionary
-    final tagsRows = await db.query(DatabaseTables.category);
-    final tagsDict = <String, String>{};
-    for (final row in tagsRows) {
-      tagsDict['${row[DatabaseColumns.id]}'] =
-          row[DatabaseColumns.tagName] as String;
-    }
-
-    // Attach tag IDs to notes
-    for (var note in recentNotes) {
-      final tagsData = await db.query(
-        DatabaseTables.recordTag,
-        columns: ['tagId'],
-        where: 'recordId = ?',
-        whereArgs: [note.id],
-      );
-      note.tagIds = tagsData.map((tag) => tag['tagId'] as int).toList();
-    }
-
-
-    // Goals with today's session data
+    // --- 2. Goals (Primary & Active) ---
     final goals = await DatabaseHelper.instance.getAllGoals();
-
-    // Get today's session data for each active goal
-    final goalsWithTodayData = <Map<String, dynamic>>[];
-    for (final goal in goals.where((g) => g.isActive)) {
+    final activeGoals = goals.where((g) => g.isActive).toList();
+    
+    // Calculate today's progress
+    final List<String> goalSummaries = [];
+    for (final goal in activeGoals) {
       final sessions = await db.query(
         DatabaseTables.sessions,
         where: 'goal_id = ? AND start_time >= ?',
@@ -113,146 +104,114 @@ class ContextBuilder {
       for (final session in sessions) {
         todaySeconds += (session['actual_duration_seconds'] as int?) ?? 0;
       }
-
-      final targetSeconds = goal.hours * 3600 + goal.minutes * 60;
-      final remainingSeconds = targetSeconds - todaySeconds;
-
-      goalsWithTodayData.add({
-        'id': goal.id,
-        'title': goal.title,
-        'progress': goal.progress,
-        'target_today_minutes': (targetSeconds / 60).round(),
-        'completed_today_minutes': (todaySeconds / 60).round(),
-        'remaining_today_minutes': (remainingSeconds / 60).round(),
-        'is_on_track': todaySeconds >= targetSeconds,
-      });
+      final todayMinutes = (todaySeconds / 60).round();
+      final targetMinutes = (goal.hours * 60) + goal.minutes;
+      
+      String status = "Target: ${targetMinutes}m, Done: ${todayMinutes}m";
+      if (todayMinutes >= targetMinutes) status += " (Done ✅)";
+      
+      String prefix = goal.isPrimary ? "[PRIMARY GOAL] " : "";
+      goalSummaries.add("- $prefix${goal.title}: $status");
     }
 
-    // Routines with completion status
+    // --- 3. Routines ---
     final routines = await DatabaseHelper.instance.getAllRoutines();
-    final routinesWithStatus = routines.map((r) {
-      return {
-        'title': r[DatabaseColumns.routineName] as String?,
-        'scheduled_time': r[DatabaseColumns.routineTime] as String?,
-        'is_done': (r[DatabaseColumns.routineIsDone] ?? 0) == 1,
-        'is_skipped': false, // Not currently tracked in DB
-      };
-    }).toList();
-
-    // Interest signals
-    final interestRows = await db.query(
-      DatabaseTables.aiInterestSignals,
-      where: '${DatabaseColumns.aiCreatedAt} >= ?',
-      whereArgs: [since],
-      orderBy: '${DatabaseColumns.aiCreatedAt} DESC',
-      limit: 200,
-    );
-
-    // Last 3 insights (to avoid repetition)
-    final lastInsights = await db.query(
-      DatabaseTables.aiInsights,
-      orderBy: '${DatabaseColumns.insightDeliveredAt} DESC',
-      limit: 3,
-    );
-    final previousInsights = lastInsights.map((m) => {
-      'title': m[DatabaseColumns.insightTitle] as String?,
-      'body': m[DatabaseColumns.insightBody] as String?,
-      'delivered_at': m[DatabaseColumns.insightDeliveredAt] as int?,
-    }).toList();
-
-    // Truncate notes to fit token limit roughly (very rough: 4 chars ≈ 1 token)
-    final int charBudget = tokenLimitApprox * 4;
-    int used = 0;
-    final List<Map<String, dynamic>> compactNotes = [];
-    for (final n in recentNotes) {
-      final text = (n.title.isNotEmpty ? '${n.title}\n' : '') + n.text;
-      final cut = text.substring(0, text.length > 600 ? 600 : text.length);
-      if (used + cut.length > charBudget) break;
-      used += cut.length;
+    int routinesDone = 0;
+    int routinesTotal = 0;
+    final List<String> pendingRoutines = [];
+    
+    // Filter relevant routines for today
+    for (final r in routines) {
+      // Logic to check if routine is for today would be good, 
+      // but for now we look at all active routines or check db structure.
+      // The routines table has `days_of_week` string like "1,0,1..."
+      final daysStr = r[DatabaseColumns.routineDaysOfWeek] as String;
+      final days = daysStr.split(',').map((e) => e == '1').toList();
+      final isForToday = days.length > (now.weekday - 1) && days[now.weekday - 1];
       
-      // Determine type for AI context
-      String type = 'note'; // default
-      if (n.goalId != null) type = 'goal';
-      else if (n.routineId != null) type = 'routine';
-      else if (n.recordType.isNotEmpty && n.recordType != 'regular') type = n.recordType;
-
-      final Map<String, dynamic> noteMap = {
-        'd': _formatDate(DateTime.fromMillisecondsSinceEpoch(n.createdAt)), // created_at -> d (formatted)
-        'txt': cut,        // text -> txt
-        'tp': type,        // type -> tp
-      };
-      
-      if (n.tagIds.isNotEmpty) {
-        noteMap['t'] = n.tagIds; // t -> tag_ids
+      if (isForToday) {
+        routinesTotal++;
+        final isDone = (r[DatabaseColumns.routineIsDone] ?? 0) == 1;
+        if (isDone) {
+          routinesDone++;
+        } else {
+          pendingRoutines.add("- ${r[DatabaseColumns.routineName]} (${r[DatabaseColumns.routineTime]})");
+        }
       }
+    }
+
+    // --- 4. Recent Notes (Thoughts) ---
+    // Fetch last 10 notes from today/yesterday to get "headspace"
+    final yesterdayStart = now.subtract(const Duration(days: 1)).millisecondsSinceEpoch;
+    final notesMaps = await db.query(
+      DatabaseTables.record,
+      where: '${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordIsLocked} = 0',
+      whereArgs: [yesterdayStart],
+      orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      limit: 10,
+    );
+    
+    final List<String> recentThoughts = [];
+    for (final m in notesMaps) {
+      final note = Record.fromMap(m);
+      // Skip system logs if possible (simple heuristic: too short or specific patterns)
+      if (note.text.length < 5) continue; 
       
-      compactNotes.add(noteMap);
+      // Determine context
+      String type = "Note";
+      if (note.goalId != null) type = "Goal Log";
+      else if (note.routineId != null) type = "Routine Log";
+      
+      // Format: [14:30] Note: Text
+      final dt = DateTime.fromMillisecondsSinceEpoch(note.createdAt);
+      final tm = "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
+      
+      // Truncate long notes
+      String text = note.text.replaceAll('\n', ' ');
+      if (text.length > 100) text = text.substring(0, 100) + "...";
+      
+      recentThoughts.add("[$tm] $type: $text");
     }
 
-    // Time context
-    final hour = now.hour;
-    String timeOfDay;
-    if (hour < 6) {
-      timeOfDay = 'ночь';
-    } else if (hour < 12) {
-      timeOfDay = 'утро';
-    } else if (hour < 18) {
-      timeOfDay = 'день';
-    } else if (hour < 22) {
-      timeOfDay = 'вечер';
+    // --- 5. Construct Narrative ---
+    final buffer = StringBuffer();
+    buffer.writeln("CURRENT CONTEXT:");
+    buffer.writeln("Date: $weekday, $timeString ($timeOfDay).");
+    if (primaryGoalText != null && primaryGoalText.isNotEmpty) {
+      buffer.writeln("User's Main Intention: \"$primaryGoalText\"");
+    }
+    
+    buffer.writeln("\nGOALS STATUS (Today):");
+    if (goalSummaries.isEmpty) {
+      buffer.writeln("No active goals tracked today.");
     } else {
-      timeOfDay = 'ночь';
+      goalSummaries.forEach(buffer.writeln);
     }
+    
+    buffer.writeln("\nROUTINES (Today):");
+    buffer.writeln("Progress: $routinesDone / $routinesTotal completed.");
+    if (pendingRoutines.isNotEmpty) {
+      buffer.writeln("Remaining:");
+      pendingRoutines.forEach(buffer.writeln);
+    } else if (routinesTotal > 0) {
+      buffer.writeln("All routines completed!");
+    }
+    
+    buffer.writeln("\nRECENT THOUGHTS (Last 24h):");
+    if (recentThoughts.isEmpty) {
+      buffer.writeln("No recent notes.");
+    } else {
+      recentThoughts.forEach(buffer.writeln);
+    }
+    
+    final narrative = buffer.toString();
 
-    final context = {
-      'current_time': {
-        'hour': now.hour,
-        'minute': now.minute,
-        'time_of_day': timeOfDay,
-        'day_of_week': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][now.weekday - 1],
-      },
-      'primary_goal': primaryGoalText,
-      'active_goals_today': goalsWithTodayData,
-      'routines_today': {
-        'total': routines.length,
-        'completed': routinesWithStatus.where((r) => r['is_done'] == true).length,
-        'pending': routinesWithStatus.where((r) => r['is_done'] == false && r['is_skipped'] == false).length,
-        'details': routinesWithStatus,
-      },
-      'recent_interest_signals': interestRows
-          .map((m) => {
-                'topic': m[DatabaseColumns.aiTopic],
-                'intent': m[DatabaseColumns.aiIntent],
-                'confidence': m[DatabaseColumns.aiConfidence],
-                'created_at': m[DatabaseColumns.aiCreatedAt],
-              })
-          .toList(),
-      'tags_map': tagsDict,
-      'recent_notes': compactNotes,
-      'previous_insights': previousInsights,
-      'generated_at': DateTime.now().millisecondsSinceEpoch,
+    // Return map compatible with existing structure but with new 'narrative' field
+    return {
+      'narrative': narrative,
+      // Keep some raw fields for UI preview if needed, or minimal set
+      'context_json': jsonEncode({'narrative': narrative}), // Simplified JSON
+      'generated_at': now.millisecondsSinceEpoch,
     };
-
-    // Also provide a compact JSON string if needed
-    context['context_json'] = jsonEncode(context);
-    return context;
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(Duration(days: 1));
-    final checkDate = DateTime(date.year, date.month, date.day);
-
-    final timeStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-
-    if (checkDate == today) {
-      return 'Сегодня $timeStr';
-    } else if (checkDate == yesterday) {
-      return 'Вчера $timeStr';
-    } else {
-      final month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][date.month - 1];
-      return '${date.day} $month $timeStr';
-    }
   }
 }
