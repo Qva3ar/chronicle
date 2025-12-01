@@ -23,6 +23,8 @@ class _TagsManagerState extends State<TagsManager> {
   final dbHelper = DatabaseHelper.instance;
 
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
 
   int? selectedChipIndex;
   List<Tag> allTags = [];
@@ -74,12 +76,16 @@ class _TagsManagerState extends State<TagsManager> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedTag = getSelectedTag();
+    final filteredTags = allTags.where((tag) => 
+      tag.name.toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList();
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
@@ -131,7 +137,7 @@ class _TagsManagerState extends State<TagsManager> {
                 child: Wrap(
                   spacing: 8.0,
                   runSpacing: 8.0,
-                  children: allTags.map((tag) {
+                  children: filteredTags.map((tag) {
                     final int id = tag.id;
 
                     return ChoiceChip(
@@ -160,6 +166,30 @@ class _TagsManagerState extends State<TagsManager> {
                   }).toList(),
                 ),
               ),
+            ),
+            SizedBox(height: 12),
+            // Search Input
+            TextField(
+              controller: _searchController,
+              style: TextStyle(color: white),
+              decoration: InputDecoration(
+                hintText: 'Search tags...',
+                hintStyle: TextStyle(color: white.withOpacity(0.5)),
+                prefixIcon: Icon(Icons.search, color: white),
+                filled: true,
+                fillColor: white.withOpacity(0.1),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                isDense: true,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
             // Selected tag indicator at the bottom
             if (selectedTag != null) ...[
