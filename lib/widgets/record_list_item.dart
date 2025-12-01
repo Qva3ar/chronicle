@@ -3,8 +3,6 @@ import 'package:chrono/models/record.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_linkify/flutter_linkify.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class RecordListItem extends StatelessWidget {
   final Record item;
@@ -49,19 +47,12 @@ class RecordListItem extends StatelessWidget {
                     _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent),
                   SizedBox(
                       height: (item.recordType == 'routine' || item.recordType == 'goal') ? 8 : 0),
-                  Linkify(
-                    onOpen: (link) async {
-                      final Uri uri = Uri.parse(link.url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    text: "${item.text}",
+                  Text(
+                    "${item.text}",
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white,
                     ),
-                    linkStyle: TextStyle(color: Colors.lightBlueAccent),
                   ),
                   if (item.goalId != null || item.routineId != null) ...[
                     SizedBox(height: 8),

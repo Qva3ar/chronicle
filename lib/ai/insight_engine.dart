@@ -27,8 +27,6 @@ Your goal is to help the user live a balanced, productive life based on their cu
 # INSTRUCTIONS
 1. Analyze the User Context provided.
 2. Identify ONE meaningful thing to say. It could be:
-   - A gentle nudge if they are procrastination on a primary goal.
-   - A celebration of good progress (completion of routines).
    - A suggestion to rest if it's late and they've worked hard.
    - A question about a recent note/thought.
 3. **TONE**: Natural, human, supportive. NOT robotic. NOT a statistician.
@@ -106,7 +104,7 @@ JSON Structure:
       raw = await AiClient.instance.completeJson(
         systemPrompt: sys,
         userPrompt: usr,
-        temperature: 0.7, // Slightly creative
+        // temperature: 0.7, // Removed to fix "Unsupported value" error on certain models
       );
       print('[Insights] Raw response: $raw');
     } catch (e) {

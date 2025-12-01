@@ -11,8 +11,8 @@ import 'package:chrono/colors.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:chrono/screens/tag_form_screen.dart';
+import 'package:chrono/helpers/link_text_span_builder.dart';
+import 'package:extended_text_field/extended_text_field.dart';
 
 class CardDetailPage extends StatefulWidget {
   final String title;
@@ -469,9 +469,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
       Expanded(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: TextField(
+          child: ExtendedTextField(
             maxLines: null,
             maxLength: 2000,
+            specialTextSpanBuilder: LinkTextSpanBuilder(),
             autofocus: true,
             scrollController: _scrollController,
             textCapitalization: TextCapitalization.sentences,
