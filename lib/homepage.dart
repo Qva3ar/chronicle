@@ -22,6 +22,7 @@ import 'mydrawal.dart';
 import 'db_manager.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
+import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
@@ -102,16 +103,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           // Open create note screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardDetailPage(
-                  title: "",
-                  text: "",
-                  recordId: null,
-                  recordsTag: [],
-                )
-              )
-            );
+                context,
+                MaterialPageRoute(
+                    builder: (_) => CardDetailPage(
+                          title: "",
+                          text: "",
+                          recordId: null,
+                          recordsTag: [],
+                        )));
           });
         } else if (uri.host == 'open_insight') {
           // Show latest insight banner (already displayed on home page)
@@ -467,25 +466,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         child: Icon(Icons.add, color: MyColors.fivyColor), //icon inside button
       ),
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      //floating action button location to left
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      //floating action button location to right top
 
       bottomNavigationBar: BottomAppBar(
-        notchMargin: 4.0,
-
         //bottom navigation bar on scaffold
         color: MyColors.primaryColor,
         height: 60, // Устанавливаем фиксированную высоту
-        shape: const AutomaticNotchedShape(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(8),
-            ),
-          ),
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-          ),
-        ), //shape of notch
         // notchMargin:
         //     5, //notche margin between floating button and bottom appbar
         child: Padding(
@@ -537,7 +524,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: Colors.white,
                     size: 24.0,
                   )),
-              const SizedBox(width: 70),
+              IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const TodoListScreen(),
+                    ).then((shouldRefresh) {
+                      if (shouldRefresh == true) {
+                        loadRecords(refresh: true);
+                      }
+                    });
+                  },
+                  icon: const Icon(
+                    // <-- Icon
+                    Icons.checklist,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
               IconButton(
                 onPressed: () {
                   FocusManager.instance.primaryFocus?.unfocus();

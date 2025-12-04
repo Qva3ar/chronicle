@@ -206,6 +206,41 @@ class ContextBuilder {
       buffer.writeln("All routines completed!");
     }
 
+    // --- 3.5. Active Todos ---
+    final todos = await DatabaseHelper.instance.getActiveTodos();
+    final List<String> todosList = [];
+    for (final todo in todos) {
+      String todoText = "- ${todo.title}";
+      if (todo.targetDateTime != null) {
+        final dt = todo.targetDateTime!;
+        final isToday = dt.day == now.day && dt.month == now.month && dt.year == now.year;
+        final isTomorrow = dt.day == now.add(const Duration(days: 1)).day &&
+            dt.month == now.add(const Duration(days: 1)).month &&
+            dt.year == now.add(const Duration(days: 1)).year;
+
+        if (isToday) {
+          todoText += " (Due today at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')})";
+        } else if (isTomorrow) {
+          todoText += " (Due tomorrow at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')})";
+        } else {
+          todoText += " (Due ${dt.day}/${dt.month})";
+        }
+      }
+      if (todo.description != null && todo.description!.isNotEmpty) {
+        String desc = todo.description!.replaceAll('\n', ' ');
+        if (desc.length > 50) desc = desc.substring(0, 50) + "...";
+        todoText += ": $desc";
+      }
+      todosList.add(todoText);
+    }
+
+    buffer.writeln("\nTODOS:");
+    if (todosList.isEmpty) {
+      buffer.writeln("No active todos.");
+    } else {
+      todosList.forEach(buffer.writeln);
+    }
+
     buffer.writeln("\nRECENT THOUGHTS (Last 24h):");
     if (recentThoughts.isEmpty) {
       buffer.writeln("No recent notes.");

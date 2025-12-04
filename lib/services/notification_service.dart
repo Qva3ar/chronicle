@@ -13,6 +13,7 @@ import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/main.dart';
 import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
+import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
@@ -213,6 +214,12 @@ class NotificationService {
         } else {
           debugPrint('⚠️ Unknown checkin type: $checkinTypeStr');
         }
+      } else if (type == 'todo') {
+        // payload format: "todo_<id>"
+        final todoIdStr = parts.length > 1 ? parts[1] : null;
+        if (todoIdStr != null) {
+          _showTodoBottomSheet(context, int.tryParse(todoIdStr));
+        }
       } else {
         debugPrint('⚠️ Unknown notification type: $type');
       }
@@ -293,6 +300,21 @@ class NotificationService {
     ).whenComplete(() {
       _isBottomSheetOpen = false;
       debugPrint('🔒 Bottom sheet closed (goal)');
+    });
+  }
+
+  void _showTodoBottomSheet(BuildContext context, int? todoId) {
+    _isBottomSheetOpen = true;
+    debugPrint('🔓 Bottom sheet opened (todo: $todoId)');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TodoListScreen(highlightTodoId: todoId),
+    ).whenComplete(() {
+      _isBottomSheetOpen = false;
+      debugPrint('🔒 Bottom sheet closed (todo)');
     });
   }
 

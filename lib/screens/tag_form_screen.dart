@@ -88,6 +88,19 @@ class _TagFormScreenState extends State<TagFormScreen> {
   Future<void> removeTag() async {
     if (widget.existingTag == null) return;
 
+    // Check if tag is a system tag
+    if (widget.existingTag!.isSystem) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('System tags cannot be deleted'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -206,7 +219,7 @@ class _TagFormScreenState extends State<TagFormScreen> {
                       ),
                     ),
                   ),
-                  if (isEditing) ...[
+                  if (isEditing && !(widget.existingTag?.isSystem ?? false)) ...[
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(

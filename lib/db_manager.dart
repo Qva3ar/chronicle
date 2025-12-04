@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/models/record.dart';
+import 'package:chrono/models/todo.model.dart';
+import 'package:chrono/models/todo_reminder.model.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,7 +14,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 28;
+  static const int databaseVersion = 30;
   static const int pageSize = 20;
 }
 
@@ -29,6 +31,8 @@ class DatabaseTables {
   static const String aiContextSummaries = 'ai_context_summaries';
   static const String aiInsights = 'ai_insights';
   static const String appSettings = 'app_settings';
+  static const String todos = 'todos';
+  static const String todoReminders = 'todo_reminders';
 }
 
 class DatabaseColumns {
@@ -38,6 +42,7 @@ class DatabaseColumns {
   // Category table columns
   static const String tagName = 'name';
   static const String tagColor = 'color';
+  static const String tagIsSystem = 'is_system';
 
   // Record table columns
   static const String recordTitle = 'title';
@@ -114,6 +119,20 @@ class DatabaseColumns {
   static const String settingPrimaryGoalId = 'primary_goal_id';
   static const String settingMainIntentionText = 'main_intention_text';
   static const String settingLastBackgroundRunAt = 'last_background_run_at';
+
+  // Todo table columns
+  static const String todoTitle = 'title';
+  static const String todoDescription = 'description';
+  static const String todoIsDone = 'is_done';
+  static const String todoTargetDateTime = 'target_datetime';
+  static const String todoCreatedAt = 'created_at';
+  static const String todoCompletedAt = 'completed_at';
+
+  // Todo reminders columns
+  static const String todoReminderTodoId = 'todo_id';
+  static const String todoReminderType = 'reminder_type';
+  static const String todoReminderCustomOffsetMinutes = 'custom_offset_minutes';
+  static const String todoReminderScheduledAt = 'scheduled_at';
 }
 
 /// A singleton class that manages the SQLite database operations
@@ -236,7 +255,8 @@ class DatabaseHelper {
         CREATE TABLE ${DatabaseTables.category} (
           ${DatabaseColumns.id} INTEGER PRIMARY KEY,
           ${DatabaseColumns.tagName} TEXT NOT NULL,
-          ${DatabaseColumns.tagColor} TEXT NOT NULL 
+          ${DatabaseColumns.tagColor} TEXT NOT NULL,
+          ${DatabaseColumns.tagIsSystem} INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -399,7 +419,33 @@ class DatabaseHelper {
         )
       ''');
 
+      // Create todos table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.todos} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.todoTitle} TEXT NOT NULL,
+          ${DatabaseColumns.todoDescription} TEXT,
+          ${DatabaseColumns.todoIsDone} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.todoTargetDateTime} INTEGER,
+          ${DatabaseColumns.todoCreatedAt} INTEGER NOT NULL,
+          ${DatabaseColumns.todoCompletedAt} INTEGER
+        )
+      ''');
+
+      // Create todo reminders table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${DatabaseTables.todoReminders} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.todoReminderTodoId} INTEGER NOT NULL,
+          ${DatabaseColumns.todoReminderType} TEXT NOT NULL,
+          ${DatabaseColumns.todoReminderCustomOffsetMinutes} INTEGER,
+          ${DatabaseColumns.todoReminderScheduledAt} INTEGER,
+          FOREIGN KEY (${DatabaseColumns.todoReminderTodoId}) REFERENCES ${DatabaseTables.todos}(${DatabaseColumns.id}) ON DELETE CASCADE
+        )
+      ''');
+
       await _insertDefaultInstructions(db);
+      await _insertChronoTag(db);
     } catch (e) {
       log('Error creating database tables: $e');
       rethrow;
@@ -686,6 +732,48 @@ class DatabaseHelper {
         ''');
         log('Upgraded database to v28: Added is_locked to record table.');
       }
+
+      if (oldVersion < 29) {
+        // Create todos table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.todos} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.todoTitle} TEXT NOT NULL,
+            ${DatabaseColumns.todoDescription} TEXT,
+            ${DatabaseColumns.todoIsDone} INTEGER NOT NULL DEFAULT 0,
+            ${DatabaseColumns.todoTargetDateTime} INTEGER,
+            ${DatabaseColumns.todoCreatedAt} INTEGER NOT NULL,
+            ${DatabaseColumns.todoCompletedAt} INTEGER
+          )
+        ''');
+
+        // Create todo reminders table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS ${DatabaseTables.todoReminders} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.todoReminderTodoId} INTEGER NOT NULL,
+            ${DatabaseColumns.todoReminderType} TEXT NOT NULL,
+            ${DatabaseColumns.todoReminderCustomOffsetMinutes} INTEGER,
+            ${DatabaseColumns.todoReminderScheduledAt} INTEGER,
+            FOREIGN KEY (${DatabaseColumns.todoReminderTodoId}) REFERENCES ${DatabaseTables.todos}(${DatabaseColumns.id}) ON DELETE CASCADE
+          )
+        ''');
+
+        log('Upgraded database to v29: Added todos and todo_reminders tables.');
+      }
+
+      if (oldVersion < 30) {
+        // Add is_system column to tags table
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.category}
+          ADD COLUMN ${DatabaseColumns.tagIsSystem} INTEGER NOT NULL DEFAULT 0
+        ''');
+
+        // Insert default "Chrono" system tag if it doesn't exist
+        await _insertChronoTag(db);
+
+        log('Upgraded database to v30: Added is_system column to tags and created Chrono tag.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -708,6 +796,32 @@ class DatabaseHelper {
           DatabaseColumns.visibility: instruction['visibility'],
         },
       );
+    }
+  }
+
+  /// Insert default "Chrono" system tag
+  Future<void> _insertChronoTag(Database db) async {
+    try {
+      // Check if Chrono tag already exists
+      final existing = await db.query(
+        DatabaseTables.category,
+        where: '${DatabaseColumns.tagName} = ?',
+        whereArgs: ['Chrono'],
+      );
+
+      if (existing.isEmpty) {
+        await db.insert(
+          DatabaseTables.category,
+          {
+            DatabaseColumns.tagName: 'Chrono',
+            DatabaseColumns.tagColor: 'ffc77e', // Orange color for chronology
+            DatabaseColumns.tagIsSystem: 1, // Mark as system tag
+          },
+        );
+        log('✅ Created default "Chrono" system tag');
+      }
+    } catch (e) {
+      log('❌ Error creating Chrono tag: $e');
     }
   }
 
@@ -1933,6 +2047,165 @@ class DatabaseHelper {
       return Goal.fromMap(maps.first);
     }
     return null;
+  }
+
+  // Todo CRUD operations
+  Future<int> insertTodo(Todo todo) async {
+    try {
+      final db = await database;
+      return await db.insert(DatabaseTables.todos, todo.toMap());
+    } catch (e) {
+      log('Error inserting todo: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Todo>> getAllTodos() async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todos,
+        orderBy: '${DatabaseColumns.todoIsDone} ASC, ${DatabaseColumns.todoTargetDateTime} ASC, ${DatabaseColumns.todoCreatedAt} DESC',
+      );
+      return maps.map((map) => Todo.fromMap(map)).toList();
+    } catch (e) {
+      log('Error getting all todos: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Todo>> getActiveTodos() async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todos,
+        where: '${DatabaseColumns.todoIsDone} = ?',
+        whereArgs: [0],
+        orderBy: '${DatabaseColumns.todoTargetDateTime} ASC, ${DatabaseColumns.todoCreatedAt} DESC',
+      );
+      return maps.map((map) => Todo.fromMap(map)).toList();
+    } catch (e) {
+      log('Error getting active todos: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Todo>> getCompletedTodos() async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todos,
+        where: '${DatabaseColumns.todoIsDone} = ?',
+        whereArgs: [1],
+        orderBy: '${DatabaseColumns.todoCompletedAt} DESC',
+      );
+      return maps.map((map) => Todo.fromMap(map)).toList();
+    } catch (e) {
+      log('Error getting completed todos: $e');
+      rethrow;
+    }
+  }
+
+  Future<Todo?> getTodo(int id) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todos,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+      if (maps.isNotEmpty) {
+        return Todo.fromMap(maps.first);
+      }
+      return null;
+    } catch (e) {
+      log('Error getting todo: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> updateTodo(Todo todo) async {
+    try {
+      final db = await database;
+      return await db.update(
+        DatabaseTables.todos,
+        todo.toMap(),
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [todo.id],
+      );
+    } catch (e) {
+      log('Error updating todo: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> deleteTodo(int id) async {
+    try {
+      final db = await database;
+      // Reminders will be deleted automatically via CASCADE
+      return await db.delete(
+        DatabaseTables.todos,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      log('Error deleting todo: $e');
+      rethrow;
+    }
+  }
+
+  // TodoReminder CRUD operations
+  Future<int> insertTodoReminder(TodoReminder reminder) async {
+    try {
+      final db = await database;
+      return await db.insert(DatabaseTables.todoReminders, reminder.toMap());
+    } catch (e) {
+      log('Error inserting todo reminder: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TodoReminder>> getTodoReminders(int todoId) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todoReminders,
+        where: '${DatabaseColumns.todoReminderTodoId} = ?',
+        whereArgs: [todoId],
+      );
+      return maps.map((map) => TodoReminder.fromMap(map)).toList();
+    } catch (e) {
+      log('Error getting todo reminders: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> deleteTodoReminder(int id) async {
+    try {
+      final db = await database;
+      return await db.delete(
+        DatabaseTables.todoReminders,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      log('Error deleting todo reminder: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> deleteTodoRemindersByTodoId(int todoId) async {
+    try {
+      final db = await database;
+      return await db.delete(
+        DatabaseTables.todoReminders,
+        where: '${DatabaseColumns.todoReminderTodoId} = ?',
+        whereArgs: [todoId],
+      );
+    } catch (e) {
+      log('Error deleting todo reminders by todo id: $e');
+      rethrow;
+    }
   }
 
   Future<List<Record>> getNewerRecords(int lastTimestamp, {int? tagId, String? searchText}) async {
