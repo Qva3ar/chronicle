@@ -9,6 +9,7 @@ class SliderInput extends StatelessWidget {
   final List<HintRange>? hints;
   final int minValue;
   final int maxValue;
+  final int? previousValue;
 
   const SliderInput({
     Key? key,
@@ -17,6 +18,7 @@ class SliderInput extends StatelessWidget {
     this.hints,
     this.minValue = 0,
     this.maxValue = 10,
+    this.previousValue,
   }) : super(key: key);
 
   /// Find hint description for current value
@@ -29,6 +31,25 @@ class SliderInput extends StatelessWidget {
       }
     }
     return null;
+  }
+
+  /// Check if there's a change from previous value
+  bool get _hasChange => previousValue != null && value != previousValue;
+
+  /// Get change icon
+  IconData? get _changeIcon {
+    if (previousValue == null) return null;
+    if (value > previousValue!) return Icons.arrow_upward;
+    if (value < previousValue!) return Icons.arrow_downward;
+    return Icons.remove;
+  }
+
+  /// Get change color
+  Color? get _changeColor {
+    if (previousValue == null) return null;
+    if (value > previousValue!) return Colors.green;
+    if (value < previousValue!) return Colors.red;
+    return Colors.grey;
   }
 
   @override
@@ -75,19 +96,62 @@ class SliderInput extends StatelessWidget {
             children: List.generate(maxValue - minValue + 1, (index) {
               final number = minValue + index;
               final isSelected = number == value;
+              final isPrevious = number == previousValue;
               return Text(
                 '$number',
                 style: TextStyle(
                   color: isSelected
                       ? MyColors.orangeDivider
-                      : MyColors.fivyColor.withOpacity(0.5),
-                  fontSize: isSelected ? 14 : 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      : isPrevious
+                          ? MyColors.fivyColor.withOpacity(0.7)
+                          : MyColors.fivyColor.withOpacity(0.5),
+                  fontSize: isSelected ? 14 : isPrevious ? 12 : 11,
+                  fontWeight: isSelected
+                      ? FontWeight.bold
+                      : isPrevious
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                 ),
               );
             }),
           ),
         ),
+
+        // Previous value comparison (if exists)
+        if (previousValue != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Text(
+                  'Прошлый раз: $previousValue',
+                  style: TextStyle(
+                    color: MyColors.fivyColor.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ),
+                if (_changeIcon != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    _changeIcon,
+                    size: 14,
+                    color: _changeColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${(value - previousValue!).abs()}',
+                    style: TextStyle(
+                      color: _changeColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
 
         // Hint description for current value
         if (currentHint != null) ...[

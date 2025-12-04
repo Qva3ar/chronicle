@@ -20,6 +20,9 @@ class CheckinProvider with ChangeNotifier {
   // Metric values (key -> value)
   final Map<String, int> _values = {};
 
+  // Previous checkin values (for comparison)
+  Map<String, int>? _previousValues;
+
   // Configuration (hidden metrics)
   CheckinConfig _config = const CheckinConfig();
 
@@ -30,6 +33,7 @@ class CheckinProvider with ChangeNotifier {
   CheckinProvider({required CheckinType checkinType}) : _checkinType = checkinType {
     _initializeValues();
     _loadConfig();
+    _loadPreviousCheckin();
   }
 
   // Getters
@@ -91,6 +95,20 @@ class CheckinProvider with ChangeNotifier {
     }
   }
 
+  /// Load previous checkin values for comparison
+  Future<void> _loadPreviousCheckin() async {
+    try {
+      final previousCheckin = await _checkinRepo.getLastCheckin(_checkinType);
+      if (previousCheckin != null) {
+        final text = previousCheckin['record_text'] as String;
+        _previousValues = _checkinRepo.parseCheckinValues(text, allMetrics);
+        notifyListeners();
+      }
+    } catch (e) {
+      log('Error loading previous checkin: $e');
+    }
+  }
+
   /// Update value for a metric
   void updateValue(String key, int value) {
     _values[key] = value;
@@ -100,6 +118,12 @@ class CheckinProvider with ChangeNotifier {
   /// Get value for a metric
   int getValue(String key) {
     return _values[key] ?? 0;
+  }
+
+  /// Get previous value for a metric (for comparison)
+  /// Returns null if no previous checkin exists
+  int? getPreviousValue(String key) {
+    return _previousValues?[key];
   }
 
   /// Toggle metric visibility (hide/show)

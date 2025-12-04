@@ -95,6 +95,7 @@ class MetricCard extends StatelessWidget {
                 // Slider input
                 SliderInput(
                   value: checkinProvider.getValue(metric.key),
+                  previousValue: checkinProvider.getPreviousValue(metric.key),
                   hints: metric.hints,
                   minValue: metric.minValue,
                   maxValue: metric.maxValue,
@@ -106,6 +107,7 @@ class MetricCard extends StatelessWidget {
                 // Number input
                 NumberInput(
                   value: checkinProvider.getValue(metric.key),
+                  previousValue: checkinProvider.getPreviousValue(metric.key),
                   onChanged: (value) {
                     checkinProvider.updateValue(metric.key, value);
                   },

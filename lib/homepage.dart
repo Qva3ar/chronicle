@@ -11,6 +11,7 @@ import 'package:chrono/card_details.dart';
 import 'package:chrono/chat_page.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/models/record.dart';
+import 'package:chrono/models/record_type.dart';
 import 'package:chrono/record.service.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -684,6 +685,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     tags: tags,
                     onTap: () {
                       FocusManager.instance.primaryFocus?.unfocus();
+
+                      // Check if it's a checkin older than today
+                      if (item.recordType == RecordType.morningCheckin ||
+                          item.recordType == RecordType.eveningCheckin) {
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        final recordDate = DateTime(
+                          item.createdAtDate.year,
+                          item.createdAtDate.month,
+                          item.createdAtDate.day,
+                        );
+
+                        if (recordDate.isBefore(today)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Нельзя редактировать чекины старше одного дня'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(

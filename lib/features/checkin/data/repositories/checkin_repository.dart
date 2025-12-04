@@ -107,4 +107,68 @@ class CheckinRepository {
         .map((record) => record.toMap())
         .toList();
   }
+
+  /// Get the last (most recent) checkin of a specific type
+  /// Returns null if no previous checkin exists
+  Future<Map<String, dynamic>?> getLastCheckin(CheckinType type) async {
+    final allRecords = await _db.queryAllRecords();
+
+    final expectedRecordType = type == CheckinType.morning
+        ? RecordType.morningCheckin
+        : RecordType.eveningCheckin;
+
+    // Filter by type and sort by createdAt descending
+    final checkins = allRecords
+        .where((record) => record.recordType == expectedRecordType)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (checkins.isEmpty) {
+      return null;
+    }
+
+    return checkins.first.toMap();
+  }
+
+  /// Parse checkin text back into metric values
+  /// Format: "Label: value" or "Label: value unit"
+  /// Example: "Качество сна: 7" or "Шаги: 8450 шагов"
+  Map<String, int> parseCheckinValues(
+    String text,
+    List<CheckinMetric> metrics,
+  ) {
+    final values = <String, int>{};
+    final lines = text.split('\n');
+
+    for (final line in lines) {
+      if (line.trim().isEmpty) continue;
+
+      // Split by ": "
+      final parts = line.split(': ');
+      if (parts.length != 2) continue;
+
+      final label = parts[0].trim();
+      final valueStr = parts[1].trim();
+
+      // Find matching metric by label
+      final metric = metrics.firstWhere(
+        (m) => m.label == label,
+        orElse: () => metrics.first, // fallback
+      );
+
+      try {
+        // Extract number (first sequence of digits)
+        final numberMatch = RegExp(r'\d+').firstMatch(valueStr);
+        if (numberMatch != null) {
+          final value = int.parse(numberMatch.group(0)!);
+          values[metric.key] = value;
+        }
+      } catch (e) {
+        // Skip if parsing fails
+        continue;
+      }
+    }
+
+    return values;
+  }
 }
