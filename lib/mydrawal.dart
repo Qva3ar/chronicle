@@ -4,9 +4,12 @@ import 'package:chrono/instuction_page.dart';
 import 'package:chrono/shared/api-key-popup.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
+import 'package:chrono/features/checkin/data/models/checkin_type.dart';
+import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 import 'package:chrono/screens/settings/insights_settings_screen.dart';
+import 'package:chrono/features/checkin/presentation/screens/checkin_time_settings_screen.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
@@ -70,6 +73,23 @@ class MyDrawal extends StatelessWidget {
             ),
             ListTile(
               title: const Text(
+                'CHECKIN TIME SETTINGS',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CheckinTimeSettingsScreen()),
+                );
+              },
+            ),
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            ListTile(
+              title: const Text(
                 'PROMPTS',
                 style: TextStyle(color: Colors.white),
               ),
@@ -108,6 +128,44 @@ class MyDrawal extends StatelessWidget {
               },
             ),
 
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.wb_sunny_outlined,
+                color: MyColors.orangeDivider,
+              ),
+              title: const Text(
+                'MORNING CHECKIN',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                CheckinDialog.show(context, CheckinType.morning);
+              },
+            ),
+            Divider(
+              color: MyColors.drawalDivider,
+              height: 2,
+              thickness: 2,
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.nightlight_outlined,
+                color: MyColors.contactDivider,
+              ),
+              title: const Text(
+                'EVENING CHECKIN',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                CheckinDialog.show(context, CheckinType.evening);
+              },
+            ),
             Divider(
               color: MyColors.drawalDivider,
               height: 2,

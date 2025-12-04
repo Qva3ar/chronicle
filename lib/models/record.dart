@@ -1,4 +1,5 @@
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/models/record_type.dart';
 
 class Record {
   int id;
@@ -6,7 +7,7 @@ class Record {
   String text;
   List<int> tagIds;
   int createdAt;
-  String recordType;
+  RecordType recordType;
   int? goalId;
   int? routineId;
   bool isLocked;
@@ -17,7 +18,7 @@ class Record {
     required this.text,
     required this.tagIds,
     required this.createdAt,
-    this.recordType = 'regular',
+    this.recordType = RecordType.regular,
     this.goalId,
     this.routineId,
     this.isLocked = false,
@@ -31,7 +32,7 @@ class Record {
       DatabaseColumns.recordText: text,
       'tagIds': tagIds.join(','), // Преобразуем список ID тегов в строку
       DatabaseColumns.recordCreatedAt: createdAt,
-      DatabaseColumns.recordType: recordType,
+      DatabaseColumns.recordType: recordType.toDbValue(),
       DatabaseColumns.recordGoalId: goalId,
       DatabaseColumns.recordRoutineId: routineId,
       DatabaseColumns.recordIsLocked: isLocked ? 1 : 0,
@@ -57,7 +58,7 @@ class Record {
       text: map[DatabaseColumns.recordText] ?? '',
       tagIds: tagIds,
       createdAt: map[DatabaseColumns.recordCreatedAt],
-      recordType: map[DatabaseColumns.recordType] ?? 'regular',
+      recordType: recordTypeFromDbValue(map[DatabaseColumns.recordType] ?? 'regular'),
       goalId: map[DatabaseColumns.recordGoalId],
       routineId: map[DatabaseColumns.recordRoutineId],
       isLocked: (map[DatabaseColumns.recordIsLocked] ?? 0) == 1,

@@ -1,5 +1,6 @@
 import 'package:chrono/colors.dart';
 import 'package:chrono/models/record.dart';
+import 'package:chrono/models/record_type.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -41,12 +42,16 @@ class RecordListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (item.recordType == 'routine')
+                  if (item.recordType == RecordType.routine)
                     _buildStatusRow('Routine Completed', Icons.check_circle, Colors.orange),
-                  if (item.recordType == 'goal')
+                  if (item.recordType == RecordType.goal)
                     _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent),
+                  if (item.recordType == RecordType.morningCheckin)
+                    _buildStatusRow('Morning Checkin', Icons.wb_sunny, MyColors.orangeDivider),
+                  if (item.recordType == RecordType.eveningCheckin)
+                    _buildStatusRow('Evening Checkin', Icons.nightlight, MyColors.contactDivider),
                   SizedBox(
-                      height: (item.recordType == 'routine' || item.recordType == 'goal') ? 8 : 0),
+                      height: _shouldShowStatusRow() ? 8 : 0),
                   Text(
                     "${item.text}",
                     style: TextStyle(
@@ -134,12 +139,23 @@ class RecordListItem extends StatelessWidget {
     );
   }
 
+  bool _shouldShowStatusRow() {
+    return item.recordType == RecordType.routine ||
+        item.recordType == RecordType.goal ||
+        item.recordType == RecordType.morningCheckin ||
+        item.recordType == RecordType.eveningCheckin;
+  }
+
   Color _getCardColor() {
     switch (item.recordType) {
-      case 'routine':
-        return Color.fromARGB(255, 100, 80, 80);
-      case 'goal':
-        return Color.fromARGB(255, 60, 90, 60);
+      case RecordType.routine:
+        return const Color.fromARGB(255, 100, 80, 80);
+      case RecordType.goal:
+        return const Color.fromARGB(255, 60, 90, 60);
+      case RecordType.morningCheckin:
+        return const Color.fromARGB(255, 90, 80, 60); // Morning warm color
+      case RecordType.eveningCheckin:
+        return const Color.fromARGB(255, 60, 70, 90); // Evening cool color
       default:
         return MyColors.primaryColor;
     }
@@ -147,10 +163,14 @@ class RecordListItem extends StatelessWidget {
 
   BorderSide _getBorderSide() {
     switch (item.recordType) {
-      case 'routine':
-        return BorderSide(color: Colors.orange, width: 1);
-      case 'goal':
-        return BorderSide(color: Colors.greenAccent, width: 1);
+      case RecordType.routine:
+        return const BorderSide(color: Colors.orange, width: 1);
+      case RecordType.goal:
+        return const BorderSide(color: Colors.greenAccent, width: 1);
+      case RecordType.morningCheckin:
+        return const BorderSide(color: MyColors.orangeDivider, width: 1);
+      case RecordType.eveningCheckin:
+        return const BorderSide(color: MyColors.contactDivider, width: 1);
       default:
         return BorderSide.none;
     }

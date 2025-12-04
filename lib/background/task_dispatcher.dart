@@ -53,6 +53,9 @@ void backgroundTaskDispatcher() {
         case TaskNames.routineNotification:
           success = await _handleRoutineNotification(inputData);
           break;
+        case TaskNames.checkinNotification:
+          success = await _handleCheckinNotification(inputData);
+          break;
         default:
           print('[TaskDispatcher] ❌ Unknown task: $task');
           success = false;
@@ -76,6 +79,7 @@ class TaskNames {
   static const String dailyReset = 'com.chrono.daily_reset';
   static const String insightGeneration = 'com.chrono.insight_generation';
   static const String routineNotification = 'com.chrono.routine_notification';
+  static const String checkinNotification = 'com.chrono.checkin_notification';
 }
 
 /// Handle goal session completion
@@ -309,6 +313,90 @@ Future<bool> _handleRoutineNotification(Map<String, dynamic>? inputData) async {
     print('[RoutineNotification] ❌ Error: $e');
     print('Stack trace: $stackTrace');
     return false;
+  }
+}
+
+/// Handle checkin notification
+Future<bool> _handleCheckinNotification(Map<String, dynamic>? inputData) async {
+  try {
+    if (inputData == null) {
+      print('[CheckinNotification] ❌ No input data provided');
+      return false;
+    }
+
+    final checkinType = inputData['checkinType'] as String?;
+    final notificationId = inputData['notificationId'] as int?;
+
+    if (checkinType == null || notificationId == null) {
+      print('[CheckinNotification] ❌ Missing required parameters');
+      return false;
+    }
+
+    print('[CheckinNotification] 🔔 Processing checkin notification for: $checkinType');
+
+    // Show notification
+    await _showCheckinNotification(checkinType, notificationId);
+
+    print('[CheckinNotification] ✅ Checkin notification shown successfully');
+    return true;
+  } catch (e, stackTrace) {
+    print('[CheckinNotification] ❌ Error: $e');
+    print('Stack trace: $stackTrace');
+    return false;
+  }
+}
+
+/// Show checkin notification
+Future<void> _showCheckinNotification(String checkinType, int notificationId) async {
+  try {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // Initialize notifications in background context
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    await plugin.initialize(initSettings);
+
+    final title = checkinType == 'morning' ? 'Утренний чекин' : 'Вечерний чекин';
+    final body = checkinType == 'morning'
+        ? 'Доброе утро! Время для утреннего чекина'
+        : 'Добрый вечер! Время для вечернего чекина';
+
+    const androidDetails = AndroidNotificationDetails(
+      'checkin_channel',
+      'Daily Checkin Notifications',
+      channelDescription: 'Notifications for morning and evening checkins',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await plugin.show(
+      notificationId,
+      title,
+      body,
+      details,
+      payload: 'checkin_$checkinType',
+    );
+
+    print('[CheckinNotification] ✅ Notification shown (ID: $notificationId, type: $checkinType)');
+  } catch (e) {
+    print('[CheckinNotification] ⚠️ Failed to show notification: $e');
   }
 }
 
@@ -719,6 +807,51 @@ class BackgroundTaskManager {
       print('[BackgroundTaskManager] ✅ Cancelled routine notification for routine $routineId');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to cancel routine notification: $e');
+    }
+  }
+
+  /// Schedule checkin notification task
+  static Future<void> scheduleCheckinNotification({
+    required String checkinType,
+    required int notificationId,
+    required DateTime scheduledTime,
+  }) async {
+    try {
+      final taskId = 'checkin_$checkinType';
+
+      final delay = scheduledTime.difference(DateTime.now());
+
+      if (delay.isNegative) {
+        print('[BackgroundTaskManager] ⚠️ Checkin notification time is in the past, skipping');
+        return;
+      }
+
+      await Workmanager().registerOneOffTask(
+        taskId,
+        TaskNames.checkinNotification,
+        initialDelay: delay,
+        inputData: {
+          'checkinType': checkinType,
+          'notificationId': notificationId,
+        },
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+        ),
+      );
+
+      print('[BackgroundTaskManager] ✅ Checkin notification scheduled for $scheduledTime (type: $checkinType)');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to schedule checkin notification: $e');
+    }
+  }
+
+  /// Cancel checkin notification task
+  static Future<void> cancelCheckinNotification(String checkinType) async {
+    try {
+      await Workmanager().cancelByUniqueName('checkin_$checkinType');
+      print('[BackgroundTaskManager] ✅ Cancelled checkin notification for $checkinType');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to cancel checkin notification: $e');
     }
   }
 

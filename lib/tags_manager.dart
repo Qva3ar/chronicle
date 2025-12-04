@@ -87,155 +87,158 @@ class _TagsManagerState extends State<TagsManager> {
       tag.name.toLowerCase().contains(_searchQuery.toLowerCase())
     ).toList();
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.5,
-      decoration: const BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Search by Tag",
-                  style: TextStyle(
-                    color: white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.5,
+        decoration: const BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Search by Tag",
+                    style: TextStyle(
+                      color: white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      // Edit button (only shown when tag is selected)
+                      if (selectedTag != null)
+                        IconButton(
+                          icon: Icon(Icons.edit, color: white, size: 20),
+                          onPressed: () => navigateToTagForm(selectedTag),
+                          tooltip: 'Edit tag',
+                        ),
+                      // Create new tag button
+                      IconButton(
+                        icon: Icon(Icons.add, color: white, size: 24),
+                        onPressed: () => navigateToTagForm(),
+                        tooltip: 'Create new tag',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              // Scrollable tags section
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: filteredTags.map((tag) {
+                      final int id = tag.id;
+
+                      return ChoiceChip(
+                        label: Text(
+                          tag.name,
+                          style: TextStyle(
+                            color: white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        selected: selectedChipIndex == id,
+                        side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
+                        backgroundColor: Color(int.parse(tag.color!)),
+                        onSelected: (bool selected) {
+                          setState(() {
+                            if (selected) {
+                              widget.onTagSelected(id);
+                              selectedChipIndex = id;
+                            } else {
+                              widget.onTagSelected(null);
+                              selectedChipIndex = null;
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
                 ),
-                Row(
-                  children: [
-                    // Edit button (only shown when tag is selected)
-                    if (selectedTag != null)
-                      IconButton(
-                        icon: Icon(Icons.edit, color: white, size: 20),
-                        onPressed: () => navigateToTagForm(selectedTag),
-                        tooltip: 'Edit tag',
+              ),
+              SizedBox(height: 12),
+              // Search Input
+              TextField(
+                controller: _searchController,
+                style: TextStyle(color: white),
+                decoration: InputDecoration(
+                  hintText: 'Search tags...',
+                  hintStyle: TextStyle(color: white.withOpacity(0.5)),
+                  prefixIcon: Icon(Icons.search, color: white),
+                  filled: true,
+                  fillColor: white.withOpacity(0.1),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  isDense: true,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
+              // Selected tag indicator at the bottom
+              if (selectedTag != null) ...[
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: MyColors.primaryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Color(int.parse(selectedTag.color!)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    // Create new tag button
-                    IconButton(
-                      icon: Icon(Icons.add, color: white, size: 24),
-                      onPressed: () => navigateToTagForm(),
-                      tooltip: 'Create new tag',
-                    ),
-                  ],
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Selected: ${selectedTag.name}',
+                          style: TextStyle(
+                            color: white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: white, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            selectedChipIndex = null;
+                          });
+                          widget.onTagSelected(null);
+                        },
+                        tooltip: 'Clear selection',
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ),
-            SizedBox(height: 12),
-            // Scrollable tags section
-            Flexible(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Wrap(
-                  spacing: 8.0,
-                  runSpacing: 8.0,
-                  children: filteredTags.map((tag) {
-                    final int id = tag.id;
-
-                    return ChoiceChip(
-                      label: Text(
-                        tag.name,
-                        style: TextStyle(
-                          color: white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      selected: selectedChipIndex == id,
-                      side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
-                      backgroundColor: Color(int.parse(tag.color!)),
-                      onSelected: (bool selected) {
-                        setState(() {
-                          if (selected) {
-                            widget.onTagSelected(id);
-                            selectedChipIndex = id;
-                          } else {
-                            widget.onTagSelected(null);
-                            selectedChipIndex = null;
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            SizedBox(height: 12),
-            // Search Input
-            TextField(
-              controller: _searchController,
-              style: TextStyle(color: white),
-              decoration: InputDecoration(
-                hintText: 'Search tags...',
-                hintStyle: TextStyle(color: white.withOpacity(0.5)),
-                prefixIcon: Icon(Icons.search, color: white),
-                filled: true,
-                fillColor: white.withOpacity(0.1),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                isDense: true,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-            // Selected tag indicator at the bottom
-            if (selectedTag != null) ...[
-              SizedBox(height: 16),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: MyColors.primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Color(int.parse(selectedTag.color!)),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Selected: ${selectedTag.name}',
-                        style: TextStyle(
-                          color: white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: white, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          selectedChipIndex = null;
-                        });
-                        widget.onTagSelected(null);
-                      },
-                      tooltip: 'Clear selection',
-                    ),
-                  ],
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );

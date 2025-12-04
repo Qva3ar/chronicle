@@ -15,6 +15,9 @@ import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:chrono/background/task_dispatcher.dart';
+import 'package:chrono/features/checkin/data/models/checkin_type.dart';
+import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
+import 'package:chrono/features/checkin/data/repositories/checkin_time_settings_repository.dart';
 
 @pragma('vm:entry-point') // vm:entry-point should be on the callback itself
 class NotificationService {
@@ -26,6 +29,11 @@ class NotificationService {
   static const String _routineChannelId = 'routine_channel';
   static const String _routineChannelName = 'Routine Notifications';
   static const String _routineChannelDesc = 'Notifications for daily routines';
+
+  static const String _checkinChannelId = 'checkin_channel';
+  static const String _checkinChannelName = 'Daily Checkin Notifications';
+  static const String _checkinChannelDesc = 'Notifications for morning and evening checkins';
+
   bool _isInitialized = false;
   bool _isInitializing = false; // Guard against re-entrant initialization
   bool _isBottomSheetOpen = false; // Track if bottom sheet is currently open
@@ -34,6 +42,10 @@ class NotificationService {
   static const int _baseNotificationId = 1000;
   static const int _baseRetryId = 2000;
   static const int _maxRetries = 5;
+
+  // Checkin notification IDs
+  static const int _morningCheckinNotificationId = 3000;
+  static const int _eveningCheckinNotificationId = 3001;
 
   @pragma('vm:entry-point')
   static int _getMainNotificationId(int routineId) => _baseNotificationId + routineId;
@@ -109,6 +121,17 @@ class NotificationService {
                 importance: Importance.high,
               ),
             );
+
+        await _notifications
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(
+              const AndroidNotificationChannel(
+                _checkinChannelId,
+                _checkinChannelName,
+                description: _checkinChannelDesc,
+                importance: Importance.high,
+              ),
+            );
       }
 
       // Daily reset is now handled by BackgroundTaskManager (initialized in main.dart)
@@ -180,6 +203,16 @@ class NotificationService {
         _showRoutineBottomSheet(context);
       } else if (type == 'goal' || type == 'running' || type == 'session') {
         _showGoalBottomSheet(context);
+      } else if (type == 'checkin') {
+        // payload format: "checkin_morning" or "checkin_evening"
+        final checkinTypeStr = parts.length > 1 ? parts[1] : null;
+        if (checkinTypeStr == 'morning') {
+          _showCheckinDialog(context, CheckinType.morning);
+        } else if (checkinTypeStr == 'evening') {
+          _showCheckinDialog(context, CheckinType.evening);
+        } else {
+          debugPrint('⚠️ Unknown checkin type: $checkinTypeStr');
+        }
       } else {
         debugPrint('⚠️ Unknown notification type: $type');
       }
@@ -260,6 +293,16 @@ class NotificationService {
     ).whenComplete(() {
       _isBottomSheetOpen = false;
       debugPrint('🔒 Bottom sheet closed (goal)');
+    });
+  }
+
+  void _showCheckinDialog(BuildContext context, CheckinType checkinType) {
+    _isBottomSheetOpen = true;
+    debugPrint('🔓 Bottom sheet opened (checkin: ${checkinType.name})');
+
+    CheckinDialog.show(context, checkinType).whenComplete(() {
+      _isBottomSheetOpen = false;
+      debugPrint('🔒 Bottom sheet closed (checkin)');
     });
   }
 
@@ -538,5 +581,128 @@ class NotificationService {
     } catch (e) {
       debugPrint('❌ Error showing insight notification: $e');
     }
+  }
+
+  /// Schedule daily checkin notifications
+  Future<void> scheduleCheckinNotifications() async {
+    if (!_isInitialized) {
+      await initialize();
+      if (!_isInitialized) return;
+    }
+
+    try {
+      final timeSettingsRepo = CheckinTimeSettingsRepository();
+      final morningTime = await timeSettingsRepo.loadMorningTime();
+      final eveningTime = await timeSettingsRepo.loadEveningTime();
+
+      await _scheduleCheckinNotification(
+        CheckinType.morning,
+        morningTime,
+        _morningCheckinNotificationId,
+      );
+
+      await _scheduleCheckinNotification(
+        CheckinType.evening,
+        eveningTime,
+        _eveningCheckinNotificationId,
+      );
+
+      debugPrint('✅ Scheduled checkin notifications: Morning ${morningTime.hour}:${morningTime.minute}, Evening ${eveningTime.hour}:${eveningTime.minute}');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error scheduling checkin notifications: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Schedule a single checkin notification
+  Future<void> _scheduleCheckinNotification(
+    CheckinType checkinType,
+    TimeOfDay time,
+    int notificationId,
+  ) async {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledTime = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
+
+    // If the time has already passed today, schedule for tomorrow
+    if (scheduledTime.isBefore(now)) {
+      scheduledTime = scheduledTime.add(const Duration(days: 1));
+    }
+
+    final title = checkinType == CheckinType.morning
+        ? 'Утренний чекин'
+        : 'Вечерний чекин';
+    final body = checkinType == CheckinType.morning
+        ? 'Доброе утро! Время для утреннего чекина'
+        : 'Добрый вечер! Время для вечернего чекина';
+    final payload = 'checkin_${checkinType.name}';
+
+    try {
+      if (Platform.isIOS) {
+        // iOS: Use flutter_local_notifications zonedSchedule for exact timing
+        await _notifications.cancel(notificationId);
+
+        await _notifications.zonedSchedule(
+          notificationId,
+          title,
+          body,
+          scheduledTime,
+          const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              interruptionLevel: InterruptionLevel.timeSensitive,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: payload,
+        );
+
+        debugPrint('✅ iOS: Scheduled $title at $scheduledTime');
+      } else {
+        // Android: Use WorkManager for reliable background execution
+        await BackgroundTaskManager.scheduleCheckinNotification(
+          checkinType: checkinType.name,
+          notificationId: notificationId,
+          scheduledTime: scheduledTime.toLocal(),
+        );
+
+        debugPrint('✅ Android: Scheduled $title at $scheduledTime via WorkManager');
+      }
+
+      debugPrint('   Current time: $now');
+      debugPrint('   Time until notification: ${scheduledTime.difference(now).inMinutes} minutes');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error scheduling $title: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Cancel all checkin notifications
+  Future<void> cancelCheckinNotifications() async {
+    await _notifications.cancel(_morningCheckinNotificationId);
+    await _notifications.cancel(_eveningCheckinNotificationId);
+
+    // Also cancel WorkManager tasks on Android
+    if (!Platform.isIOS) {
+      await BackgroundTaskManager.cancelCheckinNotification('morning');
+      await BackgroundTaskManager.cancelCheckinNotification('evening');
+    }
+
+    debugPrint('🚫 Cancelled all checkin notifications');
+  }
+
+  /// Reschedule checkin notifications (call after time settings change)
+  Future<void> rescheduleCheckinNotifications() async {
+    await cancelCheckinNotifications();
+    await scheduleCheckinNotifications();
+    debugPrint('♻️ Rescheduled checkin notifications');
   }
 }

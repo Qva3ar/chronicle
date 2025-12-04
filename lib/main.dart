@@ -45,6 +45,11 @@ void main() async {
     await NotificationService().initialize();
     print('Notification service initialized');
 
+    // Schedule checkin notifications
+    print('Scheduling checkin notifications...');
+    await NotificationService().scheduleCheckinNotifications();
+    print('Checkin notifications scheduled');
+
     // Initialize unified WorkManager for all background tasks
     print('Initializing background task manager...');
     await BackgroundTaskManager.initialize();
