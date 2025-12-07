@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:chrono/db_manager.dart';
 import 'package:chrono/features/checkin/data/models/checkin_metric.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/data/models/checkin_config.dart';
@@ -15,7 +16,10 @@ class CheckinProvider with ChangeNotifier {
   final CheckinRepository _checkinRepo = CheckinRepository();
 
   // Current checkin type
-  CheckinType _checkinType;
+  final CheckinType _checkinType;
+
+  // Existing record data (if viewing/editing existing checkin)
+  final Map<String, dynamic>? _existingRecord;
 
   // Metric values (key -> value)
   final Map<String, int> _values = {};
@@ -30,10 +34,66 @@ class CheckinProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isSaving = false;
 
-  CheckinProvider({required CheckinType checkinType}) : _checkinType = checkinType {
+  // Read-only mode (when viewing locked checkin)
+  late final bool isReadOnly;
+
+  // Existing record ID (for updating instead of creating new)
+  int? _existingRecordId;
+
+  CheckinProvider({
+    required CheckinType checkinType,
+    Map<String, dynamic>? existingRecord,
+  })  : _checkinType = checkinType,
+        _existingRecord = existingRecord {
+    // Set read-only mode if:
+    // 1. Record is locked OR
+    // 2. Record is from a previous day (not today)
+    bool isLocked = existingRecord != null && (existingRecord[DatabaseColumns.recordIsLocked] == 1);
+    bool isOldRecord = false;
+
+    if (existingRecord != null) {
+      // Check if record is from a previous day
+      final recordCreatedAt = existingRecord[DatabaseColumns.recordCreatedAt] as int;
+      final recordDate = DateTime.fromMillisecondsSinceEpoch(recordCreatedAt);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final recordDay = DateTime(recordDate.year, recordDate.month, recordDate.day);
+
+      isOldRecord = recordDay.isBefore(today);
+    }
+
+    isReadOnly = isLocked || isOldRecord;
+
+    // Store existing record ID for updates
+    if (existingRecord != null) {
+      _existingRecordId = existingRecord[DatabaseColumns.id] as int?;
+    }
+
     _initializeValues();
-    _loadConfig();
-    _loadPreviousCheckin();
+    _loadData();
+  }
+
+  /// Load both config and previous checkin data
+  Future<void> _loadData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Load config always, but only load previous checkin if NOT in read-only mode
+      if (isReadOnly) {
+        // In read-only mode, only load config
+        await _loadConfigInternal();
+      } else {
+        // In edit mode, load both config and previous checkin in parallel
+        await Future.wait([
+          _loadConfigInternal(),
+          _loadPreviousCheckin(),
+        ]);
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   // Getters
@@ -67,50 +127,80 @@ class CheckinProvider with ChangeNotifier {
         : _config.isEveningMetricHidden(key);
   }
 
-  /// Initialize default values for all metrics
+  /// Initialize values - either from existing record or with defaults
   void _initializeValues() {
-    for (final metric in allMetrics) {
-      if (metric.inputType == MetricInputType.slider) {
-        // For sliders, use middle of the range
-        _values[metric.key] = ((metric.minValue + metric.maxValue) / 2).round();
-      } else {
-        // For number inputs, start with 0
-        _values[metric.key] = 0;
+    if (_existingRecord != null) {
+      // Load values from existing record
+      final text = _existingRecord![DatabaseColumns.recordText] as String;
+      final parsedValues = _checkinRepo.parseCheckinValues(text, allMetrics);
+
+      // Set parsed values
+      for (final entry in parsedValues.entries) {
+        _values[entry.key] = entry.value;
+      }
+
+      // Fill missing metrics with defaults
+      for (final metric in allMetrics) {
+        if (!_values.containsKey(metric.key)) {
+          if (metric.inputType == MetricInputType.slider) {
+            _values[metric.key] = ((metric.minValue + metric.maxValue) / 2).round();
+          } else {
+            _values[metric.key] = 0;
+          }
+        }
+      }
+
+      log('Loaded ${_values.length} values from existing record');
+    } else {
+      // Initialize with default values
+      for (final metric in allMetrics) {
+        if (metric.inputType == MetricInputType.slider) {
+          // For sliders, use middle of the range
+          _values[metric.key] = ((metric.minValue + metric.maxValue) / 2).round();
+        } else {
+          // For number inputs, start with 0
+          _values[metric.key] = 0;
+        }
       }
     }
   }
 
-  /// Load configuration from repository
-  Future<void> _loadConfig() async {
-    _isLoading = true;
-    notifyListeners();
-
+  /// Load configuration from repository (internal, without managing loading state)
+  Future<void> _loadConfigInternal() async {
     try {
       _config = await _configRepo.loadConfig();
     } catch (e) {
       log('Error loading config: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
   /// Load previous checkin values for comparison
   Future<void> _loadPreviousCheckin() async {
     try {
+      log('Loading previous checkin for type: $_checkinType');
       final previousCheckin = await _checkinRepo.getLastCheckin(_checkinType);
+      log('Previous checkin found: ${previousCheckin != null}');
+
       if (previousCheckin != null) {
-        final text = previousCheckin['record_text'] as String;
+        final text = previousCheckin[DatabaseColumns.recordText] as String;
+        log('Previous checkin text: $text');
+
         _previousValues = _checkinRepo.parseCheckinValues(text, allMetrics);
-        notifyListeners();
+        log('Parsed previous values: $_previousValues');
+      } else {
+        log('No previous checkin found for type: $_checkinType');
       }
     } catch (e) {
       log('Error loading previous checkin: $e');
     }
   }
 
-  /// Update value for a metric
+  /// Update value for a metric (ignored in read-only mode)
   void updateValue(String key, int value) {
+    if (isReadOnly) {
+      log('Ignoring value update in read-only mode');
+      return;
+    }
     _values[key] = value;
     notifyListeners();
   }
@@ -123,7 +213,9 @@ class CheckinProvider with ChangeNotifier {
   /// Get previous value for a metric (for comparison)
   /// Returns null if no previous checkin exists
   int? getPreviousValue(String key) {
-    return _previousValues?[key];
+    final value = _previousValues?[key];
+    log('getPreviousValue($key) = $value, _previousValues = $_previousValues');
+    return value;
   }
 
   /// Toggle metric visibility (hide/show)

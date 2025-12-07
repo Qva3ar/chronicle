@@ -8,6 +8,7 @@ class NumberInput extends StatefulWidget {
   final ValueChanged<int> onChanged;
   final String? unit;
   final int? previousValue;
+  final bool enabled;
 
   const NumberInput({
     Key? key,
@@ -15,6 +16,7 @@ class NumberInput extends StatefulWidget {
     required this.onChanged,
     this.unit,
     this.previousValue,
+    this.enabled = true,
   }) : super(key: key);
 
   @override
@@ -77,6 +79,7 @@ class _NumberInputState extends State<NumberInput> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   controller: _controller,
+                  enabled: widget.enabled,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,

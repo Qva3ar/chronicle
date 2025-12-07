@@ -28,6 +28,8 @@ import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/widgets/insight_banner.dart';
+import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
+import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -693,28 +695,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     onTap: () {
                       FocusManager.instance.primaryFocus?.unfocus();
 
-                      // Check if it's a checkin older than today
+                      // Check if it's a checkin - open CheckinDialog instead of CardDetailPage
                       if (item.recordType == RecordType.morningCheckin ||
                           item.recordType == RecordType.eveningCheckin) {
-                        final now = DateTime.now();
-                        final today = DateTime(now.year, now.month, now.day);
-                        final recordDate = DateTime(
-                          item.createdAtDate.year,
-                          item.createdAtDate.month,
-                          item.createdAtDate.day,
-                        );
+                        // Determine checkin type
+                        final checkinType = item.recordType == RecordType.morningCheckin
+                            ? CheckinType.morning
+                            : CheckinType.evening;
 
-                        if (recordDate.isBefore(today)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Нельзя редактировать чекины старше одного дня'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          return;
-                        }
+                        // Open checkin dialog with existing record
+                        CheckinDialog.show(
+                          context,
+                          checkinType,
+                          existingRecord: item.toMap(),
+                        ).then((_) => loadRecords(refresh: true));
+                        return;
                       }
 
+                      // For non-checkin records, open normal edit page
                       Navigator.push(
                         context,
                         MaterialPageRoute(

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/features/checkin/data/constants/evening_metrics.dart';
 import 'package:chrono/features/checkin/data/constants/morning_metrics.dart';
@@ -108,7 +109,8 @@ class CheckinRepository {
         .toList();
   }
 
-  /// Get the last (most recent) checkin of a specific type
+  /// Get the last (most recent) checkin of a specific type from a PREVIOUS day
+  /// Excludes checkins created today to show yesterday's values for comparison
   /// Returns null if no previous checkin exists
   Future<Map<String, dynamic>?> getLastCheckin(CheckinType type) async {
     final allRecords = await _db.queryAllRecords();
@@ -117,16 +119,36 @@ class CheckinRepository {
         ? RecordType.morningCheckin
         : RecordType.eveningCheckin;
 
-    // Filter by type and sort by createdAt descending
+    // Get start of today (00:00:00)
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfTodayMs = startOfToday.millisecondsSinceEpoch;
+
+    log('🔍 getLastCheckin - Type: $type, Expected RecordType: $expectedRecordType');
+    log('🔍 Start of today: $startOfToday (${startOfTodayMs}ms)');
+    log('🔍 Total records in DB: ${allRecords.length}');
+
+    // Filter by type, exclude today's checkins, and sort by createdAt descending
     final checkins = allRecords
-        .where((record) => record.recordType == expectedRecordType)
+        .where((record) {
+          final matches = record.recordType == expectedRecordType &&
+              record.createdAt < startOfTodayMs;
+          if (record.recordType == expectedRecordType) {
+            log('🔍 Found matching type record: createdAt=${record.createdAt}, before today=${record.createdAt < startOfTodayMs}');
+          }
+          return matches;
+        })
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    log('🔍 Filtered checkins count: ${checkins.length}');
+
     if (checkins.isEmpty) {
+      log('🔍 No previous checkins found');
       return null;
     }
 
+    log('🔍 Returning most recent checkin: ${checkins.first.toMap()}');
     return checkins.first.toMap();
   }
 
@@ -137,6 +159,9 @@ class CheckinRepository {
     String text,
     List<CheckinMetric> metrics,
   ) {
+    log('📝 Parsing checkin text: $text');
+    log('📝 Available metrics: ${metrics.map((m) => '${m.key}:${m.label}').join(', ')}');
+
     final values = <String, int>{};
     final lines = text.split('\n');
 
@@ -145,10 +170,15 @@ class CheckinRepository {
 
       // Split by ": "
       final parts = line.split(': ');
-      if (parts.length != 2) continue;
+      if (parts.length != 2) {
+        log('📝 Skipping line (wrong format): $line');
+        continue;
+      }
 
       final label = parts[0].trim();
       final valueStr = parts[1].trim();
+
+      log('📝 Processing line - label: "$label", valueStr: "$valueStr"');
 
       // Find matching metric by label
       final metric = metrics.firstWhere(
@@ -156,19 +186,26 @@ class CheckinRepository {
         orElse: () => metrics.first, // fallback
       );
 
+      log('📝 Matched metric: ${metric.key} (${metric.label})');
+
       try {
         // Extract number (first sequence of digits)
         final numberMatch = RegExp(r'\d+').firstMatch(valueStr);
         if (numberMatch != null) {
           final value = int.parse(numberMatch.group(0)!);
           values[metric.key] = value;
+          log('📝 Extracted value: $value for key ${metric.key}');
+        } else {
+          log('📝 No number found in valueStr: $valueStr');
         }
       } catch (e) {
         // Skip if parsing fails
+        log('📝 Error parsing: $e');
         continue;
       }
     }
 
+    log('📝 Final parsed values: $values');
     return values;
   }
 }

@@ -10,7 +10,14 @@ import 'package:provider/provider.dart';
 /// Modal dialog for checkin - shown as bottom sheet over current screen
 class CheckinDialog {
   /// Show checkin dialog as a modal bottom sheet
-  static Future<void> show(BuildContext context, CheckinType checkinType) {
+  ///
+  /// [checkinType] - type of checkin (morning/evening)
+  /// [existingRecord] - optional existing record to view/edit
+  static Future<void> show(
+    BuildContext context,
+    CheckinType checkinType, {
+    Map<String, dynamic>? existingRecord,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -18,7 +25,10 @@ class CheckinDialog {
       builder: (context) => MultiProvider(
         providers: [
           ChangeNotifierProvider(
-            create: (_) => CheckinProvider(checkinType: checkinType),
+            create: (_) => CheckinProvider(
+              checkinType: checkinType,
+              existingRecord: existingRecord,
+            ),
           ),
           ChangeNotifierProvider(
             create: (_) => EditModeProvider(),
@@ -86,30 +96,46 @@ class _CheckinDialogContent extends StatelessWidget {
 
                 // Title
                 Expanded(
-                  child: Text(
-                    checkinType.displayName,
-                    style: const TextStyle(
-                      color: white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        checkinType.displayName,
+                        style: const TextStyle(
+                          color: white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      // Read-only indicator
+                      if (checkinProvider.isReadOnly)
+                        const Text(
+                          'Только просмотр',
+                          style: TextStyle(
+                            color: MyColors.forthyColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
 
-                // Edit button
-                TextButton(
-                  onPressed: () {
-                    editModeProvider.toggleEditMode();
-                  },
-                  child: Text(
-                    editModeProvider.isEditMode ? 'Готово' : 'Изменить',
-                    style: const TextStyle(
-                      color: MyColors.orangeDivider,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                // Edit button (only if not read-only)
+                if (!checkinProvider.isReadOnly)
+                  TextButton(
+                    onPressed: () {
+                      editModeProvider.toggleEditMode();
+                    },
+                    child: Text(
+                      editModeProvider.isEditMode ? 'Готово' : 'Изменить',
+                      style: const TextStyle(
+                        color: MyColors.orangeDivider,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -143,8 +169,8 @@ class _CheckinDialogContent extends StatelessWidget {
 
                         const SizedBox(height: 24),
 
-                        // Save button (only when not in edit mode)
-                        if (!editModeProvider.isEditMode)
+                        // Save button (only when not in edit mode and not read-only)
+                        if (!editModeProvider.isEditMode && !checkinProvider.isReadOnly)
                           ElevatedButton(
                             onPressed: checkinProvider.isSaving
                                 ? null

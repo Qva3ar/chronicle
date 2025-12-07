@@ -10,6 +10,7 @@ class SliderInput extends StatelessWidget {
   final int minValue;
   final int maxValue;
   final int? previousValue;
+  final bool enabled;
 
   const SliderInput({
     Key? key,
@@ -19,6 +20,7 @@ class SliderInput extends StatelessWidget {
     this.minValue = 0,
     this.maxValue = 10,
     this.previousValue,
+    this.enabled = true,
   }) : super(key: key);
 
   /// Find hint description for current value
@@ -82,9 +84,11 @@ class SliderInput extends StatelessWidget {
             max: maxValue.toDouble(),
             divisions: maxValue - minValue,
             label: '$value',
-            onChanged: (double newValue) {
-              onChanged(newValue.round());
-            },
+            onChanged: enabled
+                ? (double newValue) {
+                    onChanged(newValue.round());
+                  }
+                : null, // null disables the slider
           ),
         ),
 

@@ -95,10 +95,14 @@ class MetricCard extends StatelessWidget {
                 // Slider input
                 SliderInput(
                   value: checkinProvider.getValue(metric.key),
-                  previousValue: checkinProvider.getPreviousValue(metric.key),
+                  // Only show previous values when NOT in read-only mode
+                  previousValue: checkinProvider.isReadOnly
+                      ? null
+                      : checkinProvider.getPreviousValue(metric.key),
                   hints: metric.hints,
                   minValue: metric.minValue,
                   maxValue: metric.maxValue,
+                  enabled: !checkinProvider.isReadOnly,
                   onChanged: (value) {
                     checkinProvider.updateValue(metric.key, value);
                   },
@@ -107,7 +111,11 @@ class MetricCard extends StatelessWidget {
                 // Number input
                 NumberInput(
                   value: checkinProvider.getValue(metric.key),
-                  previousValue: checkinProvider.getPreviousValue(metric.key),
+                  // Only show previous values when NOT in read-only mode
+                  previousValue: checkinProvider.isReadOnly
+                      ? null
+                      : checkinProvider.getPreviousValue(metric.key),
+                  enabled: !checkinProvider.isReadOnly,
                   onChanged: (value) {
                     checkinProvider.updateValue(metric.key, value);
                   },
