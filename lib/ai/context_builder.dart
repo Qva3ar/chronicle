@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/record.dart';
 
@@ -67,6 +68,10 @@ class ContextBuilder {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
 
+    // Detect system language
+    final String systemLocale = Platform.localeName; // e.g., "en_US", "ru_RU"
+    final String languageCode = systemLocale.split('_').first; // e.g., "en", "ru"
+
     // --- 1. Time Context ---
     final hour = now.hour;
     String timeOfDay;
@@ -123,33 +128,82 @@ class ContextBuilder {
 
     // --- 3. Routines ---
     final routines = await DatabaseHelper.instance.getAllRoutines();
-    int routinesDone = 0;
-    int routinesTotal = 0;
     final List<String> pendingRoutines = [];
+    final List<String> completedRoutines = [];
 
     // Filter relevant routines for today
     for (final r in routines) {
-      // Logic to check if routine is for today would be good,
-      // but for now we look at all active routines or check db structure.
-      // The routines table has `days_of_week` string like "1,0,1..."
       final daysStr = r[DatabaseColumns.routineDaysOfWeek] as String;
       final days = daysStr.split(',').map((e) => e == '1').toList();
       final isForToday = days.length > (now.weekday - 1) && days[now.weekday - 1];
 
       if (isForToday) {
-        routinesTotal++;
         final isDone = (r[DatabaseColumns.routineIsDone] ?? 0) == 1;
+        final name = r[DatabaseColumns.routineName] as String;
+        final time = r[DatabaseColumns.routineTime] as String;
+
         if (isDone) {
-          routinesDone++;
+          completedRoutines.add("- $name");
         } else {
-          pendingRoutines
-              .add("- ${r[DatabaseColumns.routineName]} (${r[DatabaseColumns.routineTime]})");
+          pendingRoutines.add("- $name (scheduled: $time)");
         }
       }
     }
 
-    // --- 4. Recent Notes (Thoughts) ---
-    // Fetch last 10 notes from today/yesterday to get "headspace"
+    // --- 4. Activity Patterns (Last 7 days) ---
+    final weekAgoStart = now.subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+
+    // Analyze note creation times to detect sleep/work patterns
+    final allWeekNotes = await db.query(
+      DatabaseTables.record,
+      where: '${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordIsLocked} = 0',
+      whereArgs: [weekAgoStart],
+      orderBy: '${DatabaseColumns.recordCreatedAt} ASC',
+    );
+
+    int lateNightNotes = 0; // 23:00 - 05:00
+    int morningNotes = 0; // 05:00 - 12:00
+    DateTime? lastActivity;
+    DateTime? firstActivityToday;
+
+    for (final m in allWeekNotes) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(m[DatabaseColumns.recordCreatedAt] as int);
+      final h = dt.hour;
+
+      if (h >= 23 || h < 5) {
+        lateNightNotes++;
+      } else if (h >= 5 && h < 12) {
+        morningNotes++;
+      }
+
+      lastActivity = dt;
+
+      // Track first activity today
+      if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+        firstActivityToday ??= dt;
+      }
+    }
+
+    final List<String> patterns = [];
+
+    if (lateNightNotes > 5) {
+      patterns.add("- You're often active late at night (${lateNightNotes} notes after 23:00 this week)");
+    }
+
+    if (morningNotes < 2 && allWeekNotes.length > 10) {
+      patterns.add("- Very few morning activities detected (only ${morningNotes} notes 05:00-12:00)");
+    }
+
+    if (firstActivityToday != null && firstActivityToday.hour >= 10) {
+      patterns.add("- Today started at ${firstActivityToday.hour.toString().padLeft(2, '0')}:${firstActivityToday.minute.toString().padLeft(2, '0')}");
+    }
+
+    if (lastActivity != null && now.difference(lastActivity).inHours < 1) {
+      final minutesAgo = now.difference(lastActivity).inMinutes;
+      patterns.add("- Last activity: ${minutesAgo} minutes ago");
+    }
+
+    // --- 5. Recent Notes (Thoughts) ---
     final yesterdayStart = now.subtract(const Duration(days: 1)).millisecondsSinceEpoch;
     final notesMaps = await db.query(
       DatabaseTables.record,
@@ -162,22 +216,20 @@ class ContextBuilder {
     final List<String> recentThoughts = [];
     for (final m in notesMaps) {
       final note = Record.fromMap(m);
-      // Skip system logs if possible (simple heuristic: too short or specific patterns)
       if (note.text.length < 5) continue;
 
-      // Determine context
       String type = "Note";
-      if (note.goalId != null)
+      if (note.goalId != null) {
         type = "Goal Log";
-      else if (note.routineId != null) type = "Routine Log";
+      } else if (note.routineId != null) {
+        type = "Routine Log";
+      }
 
-      // Format: [14:30] Note: Text
       final dt = DateTime.fromMillisecondsSinceEpoch(note.createdAt);
       final tm = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
 
-      // Truncate long notes
       String text = note.text.replaceAll('\n', ' ');
-      if (text.length > 100) text = text.substring(0, 100) + "...";
+      if (text.length > 100) text = "${text.substring(0, 100)}...";
 
       recentThoughts.add("[$tm] $type: $text");
     }
@@ -190,6 +242,11 @@ class ContextBuilder {
       buffer.writeln("User's Main Intention: \"$primaryGoalText\"");
     }
 
+    if (patterns.isNotEmpty) {
+      buffer.writeln("\nACTIVITY PATTERNS (Last 7 days):");
+      patterns.forEach(buffer.writeln);
+    }
+
     buffer.writeln("\nGOALS STATUS (Today):");
     if (goalSummaries.isEmpty) {
       buffer.writeln("No active goals tracked today.");
@@ -198,12 +255,16 @@ class ContextBuilder {
     }
 
     buffer.writeln("\nROUTINES (Today):");
-    buffer.writeln("Progress: $routinesDone / $routinesTotal completed.");
+    if (completedRoutines.isNotEmpty) {
+      buffer.writeln("Completed:");
+      completedRoutines.forEach(buffer.writeln);
+    }
     if (pendingRoutines.isNotEmpty) {
-      buffer.writeln("Remaining:");
+      buffer.writeln("Still pending:");
       pendingRoutines.forEach(buffer.writeln);
-    } else if (routinesTotal > 0) {
-      buffer.writeln("All routines completed!");
+    }
+    if (completedRoutines.isEmpty && pendingRoutines.isEmpty) {
+      buffer.writeln("No routines scheduled for today.");
     }
 
     // --- 3.5. Active Todos ---
@@ -253,6 +314,8 @@ class ContextBuilder {
     // Return map compatible with existing structure but with new 'narrative' field
     return {
       'narrative': narrative,
+      'language_code': languageCode,
+      'system_locale': systemLocale,
       // Keep some raw fields for UI preview if needed, or minimal set
       'context_json': jsonEncode({'narrative': narrative}), // Simplified JSON
       'generated_at': now.millisecondsSinceEpoch,
