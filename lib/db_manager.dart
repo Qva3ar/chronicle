@@ -1990,6 +1990,51 @@ class DatabaseHelper {
   Future<void> resetGoalsStatus() async {
     try {
       final Database db = await instance.database;
+
+      // 🎯 NEW: Finalize incomplete goal records before reset
+      // Find all goals with active records from yesterday
+      final goalsWithRecords = await db.query(
+        DatabaseTables.goals,
+        where: '${DatabaseColumns.goalCurrentDayRecordId} IS NOT NULL',
+      );
+
+      // Update each record to mark day as ended (not completed)
+      for (final goalData in goalsWithRecords) {
+        final recordId = goalData[DatabaseColumns.goalCurrentDayRecordId] as int?;
+        if (recordId != null) {
+          final record = await getRecordById(recordId);
+          if (record != null) {
+            final text = record[DatabaseColumns.recordText] as String;
+            // Only update if status is still 'active' (not completed)
+            if (text.contains('status: active')) {
+              // Parse current time from record
+              final timeMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+              final timeMinutes = timeMatch != null ? int.parse(timeMatch.group(1)!) : 0;
+
+              final updatedText = '''
+🎯 Goal Work Session
+⏱ Time spent: $timeMinutes min
+📊 Status: Day Ended
+
+---
+goal_id: ${goalData[DatabaseColumns.id]}
+time_minutes: $timeMinutes
+status: day_ended
+''';
+
+              await db.update(
+                DatabaseTables.record,
+                {DatabaseColumns.recordText: updatedText},
+                where: '${DatabaseColumns.id} = ?',
+                whereArgs: [recordId],
+              );
+              log('📝 Finalized incomplete goal record ID $recordId (day ended)');
+            }
+          }
+        }
+      }
+
+      // Now reset all goals
       await db.update(
         DatabaseTables.goals,
         {

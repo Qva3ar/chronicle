@@ -2,7 +2,6 @@ import 'package:workmanager/workmanager.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/services/notification_service.dart';
-import 'package:chrono/record.service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
@@ -146,19 +145,44 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     await db.updateGoal(updatedGoal);
     print('[SessionCompletion] ✅ Goal updated successfully');
 
-    // Create record if goal is completed
-    if (isGoalComplete) {
-      final recordService = RecordService();
-      final record = {
-        DatabaseColumns.recordTitle: 'Goal Completed: ${updatedGoal.title}',
-        DatabaseColumns.recordText:
-            'Goal completed after ${_formatTime(exactTime)} of focused work!',
-        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-        DatabaseColumns.recordType: 'goal',
-        DatabaseColumns.recordGoalId: updatedGoal.id,
-      };
-      await recordService.createRecord(record, []);
-      print('[SessionCompletion] 📝 Record created for completed goal.');
+    // Update daily progress record if goal is completed
+    if (isGoalComplete && updatedGoal.currentDayRecordId != null) {
+      try {
+        final existingRecord = await db.getRecordById(updatedGoal.currentDayRecordId!);
+
+        if (existingRecord != null) {
+          // Get tags for this record
+          final database = await db.database;
+          final tags = await database.rawQuery(
+            'SELECT tagId FROM ${DatabaseTables.recordTag} WHERE recordId = ?',
+            [updatedGoal.currentDayRecordId],
+          );
+          final tagIds = tags.map((tag) => tag['tagId'] as int).toList();
+
+          // Update record with completion status
+          final timeMinutes = (exactTime / 60).round();
+          final updatedRecordData = {
+            DatabaseColumns.id: existingRecord['id'],
+            DatabaseColumns.recordTitle: existingRecord['title'] ?? 'Goal Work Session',
+            DatabaseColumns.recordText: '''🎯 Goal Work Session
+⏱ Time spent: $timeMinutes min
+📊 Status: Completed
+
+---
+goal_id: ${updatedGoal.id}
+time_minutes: $timeMinutes
+status: completed''',
+            DatabaseColumns.recordCreatedAt: existingRecord['createdAt'],
+            DatabaseColumns.recordType: existingRecord['recordType'],
+            DatabaseColumns.recordGoalId: updatedGoal.id,
+          };
+
+          await db.updateRecord(updatedRecordData, tagIds);
+          print('[SessionCompletion] 📝 Updated daily progress record with completion status.');
+        }
+      } catch (e) {
+        print('[SessionCompletion] ⚠️ Failed to update daily progress record: $e');
+      }
     }
 
     // Show notifications

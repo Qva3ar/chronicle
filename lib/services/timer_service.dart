@@ -7,6 +7,7 @@ import '../models/goal.model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:chrono/background/task_dispatcher.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../record.service.dart';
 import '../main.dart';
@@ -689,7 +690,9 @@ status: active
     if (goalId != null) {
       try {
         await BackgroundTaskManager.cancelSessionCompletion(goalId);
-        print('🚫 STOP SESSION: Background task cancelled for goal ID: $goalId');
+        // Also cancel any scheduled local notification
+        await _notificationsPlugin.cancel(2);
+        print('🚫 STOP SESSION: Background task and local notification cancelled for goal ID: $goalId');
       } catch (e) {
         print('❌ STOP SESSION: Failed to cancel background task: $e');
       }
@@ -1713,6 +1716,7 @@ status: ${isCompleted ? 'completed' : 'active'}
         '⏰ SCHEDULE: WorkManager task for ${completionTime} (${willCompleteEarly ? "goal completion" : "session end"})');
 
     try {
+      // 1. Schedule background task via WorkManager (handles DB updates)
       await BackgroundTaskManager.scheduleSessionCompletion(
         goalId: _activeGoal!.id!,
         sessionStartTime: _sessionStartTime,
@@ -1720,8 +1724,96 @@ status: ${isCompleted ? 'completed' : 'active'}
         completionTime: completionTime,
       );
       print('✅ SCHEDULE: WorkManager task scheduled successfully');
+
+      // 2. Schedule exact local notification
+      await _scheduleLocalNotification(
+        completionTime: completionTime,
+        isGoalCompletion: willCompleteEarly,
+        sessionDuration: sessionDuration, // Total session duration for display
+      );
     } catch (e) {
-      print('❌ SCHEDULE: Failed to schedule WorkManager task: $e');
+      print('❌ SCHEDULE: Failed to schedule tasks: $e');
+    }
+  }
+
+  // 🎯 NEW: Schedule exact local notification
+  Future<void> _scheduleLocalNotification({
+    required DateTime completionTime,
+    required bool isGoalCompletion,
+    required int sessionDuration,
+  }) async {
+    try {
+      // Initialize timezone if needed (safe to call repeatedly)
+      // tz.initializeTimeZones() should be called in main, but we ensure tz.local is set
+      try {
+        tz.TZDateTime.now(tz.local);
+      } catch (e) {
+        // Fallback initialization if timezone isn't set
+        print('⚠️ SCHEDULE: Timezone not initialized, using default');
+        // This relies on main.dart having initialized it or NotificationService
+      }
+
+      final tz.TZDateTime scheduledDate = tz.TZDateTime.from(completionTime, tz.local);
+
+      final title = isGoalCompletion
+          ? 'Session Complete - Goal Achieved! 🎉'
+          : 'Session Completed! 🎉';
+
+      final body = isGoalCompletion
+          ? '${_activeGoal!.title} - ${formatTime(sessionDuration)} session completed your goal!'
+          : '${_activeGoal!.title} - ${formatTime(sessionDuration)} session finished. Great work!';
+
+      // Use the same ID (2) as the session completion notification
+      const int notificationId = 2;
+
+      final androidDetails = AndroidNotificationDetails(
+        'session_complete_channel',
+        'Session Completed',
+        channelDescription: 'Notifications when a session is completed',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+        // Add "Continue" action only if goal is not complete
+        actions: !isGoalCompletion
+            ? [
+                const AndroidNotificationAction(
+                  'CONTINUE_SESSION_ACTION',
+                  'Continue',
+                ),
+              ]
+            : null,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'default',
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      );
+
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        notificationId,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: isGoalCompletion
+            ? 'goal_complete_${_activeGoal!.id}'
+            : 'session_complete_${_activeGoal!.id}',
+      );
+
+      print('✅ SCHEDULE: Local notification scheduled for $scheduledDate');
+    } catch (e) {
+      print('❌ SCHEDULE: Failed to schedule local notification: $e');
     }
   }
 

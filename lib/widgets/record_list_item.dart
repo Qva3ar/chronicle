@@ -199,12 +199,13 @@ class RecordListItem extends StatelessWidget {
 
   Widget _buildGoalStatusRow() {
     // Parse status from record text
-    // Format: "...---\ngoal_id: X\ntime_minutes: Y\nstatus: active"
+    // Format: "...---\ngoal_id: X\ntime_minutes: Y\nstatus: active/completed/day_ended"
     final text = item.text;
-    final isCompleted = text.contains('status: completed');
 
-    if (isCompleted) {
+    if (text.contains('status: completed')) {
       return _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent);
+    } else if (text.contains('status: day_ended')) {
+      return _buildStatusRow('Day Ended', Icons.calendar_today, Colors.orangeAccent);
     } else {
       return _buildStatusRow('Goal In Progress', Icons.play_circle_outline, Colors.blueAccent);
     }
