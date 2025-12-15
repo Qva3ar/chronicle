@@ -517,6 +517,23 @@ class TimerService extends ChangeNotifier {
 
     final finalTimeSpent = isGoalComplete ? goalTarget : newTimeSpent;
 
+    // 🎯 NEW: Update progress record with recovered time
+    if (activeGoal.currentDayRecordId != null) {
+      await _updateGoalProgressRecord(activeGoal, finalTimeSpent);
+    } else if (isGoalComplete) {
+      // Fallback: create completion record if no progress record exists
+      final record = {
+        DatabaseColumns.recordText:
+            'Goal completed while app was in background after ${formatTime(finalTimeSpent)} of focused work!',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'goal',
+        DatabaseColumns.recordGoalId: activeGoal.id,
+      };
+
+      final recordService = RecordService();
+      await recordService.createRecord(record, []);
+    }
+
     final updatedGoal = activeGoal.copyWith(
       timeSpentSeconds: finalTimeSpent,
       isActive: false,
@@ -529,19 +546,6 @@ class TimerService extends ChangeNotifier {
 
     if (isGoalComplete) {
       print('🎉 RECOVER COMPLETE: Goal completed while app was closed!');
-
-      // Create completion record
-      final record = {
-        DatabaseColumns.recordText:
-            'Goal completed while app was in background after ${formatTime(finalTimeSpent)} of focused work!',
-        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-        DatabaseColumns.recordType: 'goal',
-        DatabaseColumns.recordGoalId: updatedGoal.id,
-      };
-
-      final recordService = RecordService();
-      await recordService.createRecord(record, []);
-
       await _showGoalCompleteNotification();
       print('✅ RECOVER COMPLETE: Goal completion processed');
     } else {
@@ -597,11 +601,22 @@ class TimerService extends ChangeNotifier {
     print('   - Goal target: ${formatTime(latestGoal.totalSeconds)}');
     print('   - Remaining: ${formatTime(latestGoal.totalSeconds - latestGoal.timeSpentSeconds)}');
 
-    // Update goal as active in database
+    // 🎯 NEW: Create or get record for today's work session
+    int? recordId = latestGoal.currentDayRecordId;
+    if (recordId == null) {
+      // First start today - create new record
+      recordId = await _createGoalProgressRecord(latestGoal);
+      print('📝 START SESSION: Created new progress record with ID: $recordId');
+    } else {
+      print('📝 START SESSION: Using existing progress record ID: $recordId');
+    }
+
+    // Update goal as active in database with record link
     final updatedGoal = latestGoal.copyWith(
       isActive: true,
       sessionResumedTimestampSeconds: null,
       clearSessionResumedTimestamp: true,
+      currentDayRecordId: recordId,
     );
     await _db.updateGoal(updatedGoal);
     _activeGoal = updatedGoal;
@@ -615,6 +630,44 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
 
     print('✅ START SESSION: Session started successfully for "${latestGoal.title}"');
+  }
+
+  // 🎯 NEW: Create progress record for goal work session
+  Future<int?> _createGoalProgressRecord(Goal goal) async {
+    try {
+      final timeMinutes = (goal.timeSpentSeconds / 60).round();
+
+      final recordText = '''
+🎯 Goal Work Session
+⏱ Time spent: $timeMinutes min
+📊 Status: In Progress
+
+---
+goal_id: ${goal.id}
+time_minutes: $timeMinutes
+status: active
+''';
+
+      final record = {
+        DatabaseColumns.recordTitle: goal.title,
+        DatabaseColumns.recordText: recordText,
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'goal',
+        DatabaseColumns.recordGoalId: goal.id,
+      };
+
+      final createdRecord = await _recordService.createRecord(record, []);
+      if (createdRecord?.id != null) {
+        print('✅ Created goal progress record with ID: ${createdRecord!.id}');
+        return createdRecord.id;
+      } else {
+        print('⚠️ Failed to create goal progress record - no ID returned');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Failed to create goal progress record: $e');
+      return null;
+    }
   }
 
   // 🎯 ENHANCED: Stop session with better progress preservation and validation
@@ -663,6 +716,11 @@ class TimerService extends ChangeNotifier {
       print('   - Total time: ${formatTime(clampedTotal)}');
       print('   - Goal target: ${formatTime(goalTarget)}');
 
+      // 🎯 NEW: Update progress record with accumulated time
+      if (_activeGoal!.currentDayRecordId != null) {
+        await _updateGoalProgressRecord(_activeGoal!, clampedTotal);
+      }
+
       final updatedGoal = _activeGoal!.copyWith(
         timeSpentSeconds: clampedTotal,
         isActive: false,
@@ -700,6 +758,59 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
 
     print('✅ STOP SESSION: Session stopped for "$goalTitle" - All progress preserved');
+  }
+
+  // 🎯 NEW: Update progress record with current time spent
+  Future<void> _updateGoalProgressRecord(Goal goal, int totalTimeSpent) async {
+    try {
+      if (goal.currentDayRecordId == null) {
+        print('⚠️ Cannot update progress record: no record ID');
+        return;
+      }
+
+      // Get existing record
+      final existingRecord = await _db.getRecordById(goal.currentDayRecordId!);
+      if (existingRecord == null) {
+        print('⚠️ Progress record ${goal.currentDayRecordId} not found');
+        return;
+      }
+
+      final timeMinutes = (totalTimeSpent / 60).round();
+      final isCompleted = totalTimeSpent >= goal.totalSeconds;
+
+      final recordText = '''
+🎯 Goal Work Session
+⏱ Time spent: $timeMinutes min
+📊 Status: ${isCompleted ? 'Completed' : 'In Progress'}
+
+---
+goal_id: ${goal.id}
+time_minutes: $timeMinutes
+status: ${isCompleted ? 'completed' : 'active'}
+''';
+
+      final updatedRecord = {
+        DatabaseColumns.id: goal.currentDayRecordId,
+        DatabaseColumns.recordText: recordText,
+        DatabaseColumns.recordTitle: existingRecord[DatabaseColumns.recordTitle],
+        DatabaseColumns.recordCreatedAt: existingRecord[DatabaseColumns.recordCreatedAt],
+        DatabaseColumns.recordType: existingRecord[DatabaseColumns.recordType],
+        DatabaseColumns.recordGoalId: existingRecord[DatabaseColumns.recordGoalId],
+      };
+
+      // Get existing tags via raw SQL query
+      final db = await _db.database;
+      final tags = await db.rawQuery(
+        'SELECT tagId FROM ${DatabaseTables.recordTag} WHERE recordId = ?',
+        [goal.currentDayRecordId],
+      );
+      final tagIds = tags.map((tag) => tag['tagId'] as int).toList();
+
+      await _db.updateRecord(updatedRecord, tagIds);
+      print('✅ Updated progress record ID ${goal.currentDayRecordId} with $timeMinutes minutes');
+    } catch (e) {
+      print('❌ Failed to update progress record: $e');
+    }
   }
 
   void _startUpdateTimer() {
@@ -825,6 +936,21 @@ class TimerService extends ChangeNotifier {
     final exactGoalTime = _activeGoal!.totalSeconds;
     final sessionTimeToComplete = exactGoalTime - _baselineTimeSpent;
 
+    // 🎯 NEW: Update existing progress record to mark as completed
+    if (_activeGoal!.currentDayRecordId != null) {
+      await _updateGoalProgressRecord(_activeGoal!, exactGoalTime);
+    } else {
+      // Fallback: create a completion record if no progress record exists
+      final record = {
+        DatabaseColumns.recordText: 'Goal is completed: ${_activeGoal!.title}',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'goal',
+        DatabaseColumns.recordGoalId: _activeGoal!.id
+      };
+      await _recordService.createRecord(record, []);
+      print('📝 Fallback: Record created for completed goal.');
+    }
+
     final completedGoal = _activeGoal!.copyWith(
       timeSpentSeconds: exactGoalTime, // Set to exact goal completion
       isActive: false,
@@ -834,16 +960,6 @@ class TimerService extends ChangeNotifier {
     );
 
     await _db.updateGoal(completedGoal);
-
-    // Create a record for the completed goal
-    final record = {
-      DatabaseColumns.recordText: 'Goal is completed: ${completedGoal.title}',
-      DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-      DatabaseColumns.recordType: 'goal',
-      DatabaseColumns.recordGoalId: completedGoal.id
-    };
-    await _recordService.createRecord(record, []);
-    print('📝 Record created for completed goal.');
 
     print('✅ Goal completed exactly: ${formatTime(exactGoalTime)}');
     print('✅ Session time to complete: ${formatTime(sessionTimeToComplete)}');
@@ -955,6 +1071,11 @@ class TimerService extends ChangeNotifier {
     print('   - Session duration: ${formatTime(sessionDuration)}');
     print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
     print('   - New time spent: ${formatTime(clampedTimeSpent)}');
+
+    // 🎯 NEW: Update progress record with session time
+    if (_activeGoal!.currentDayRecordId != null) {
+      await _updateGoalProgressRecord(_activeGoal!, clampedTimeSpent);
+    }
 
     // Update goal in database
     final updatedGoal = _activeGoal!.copyWith(

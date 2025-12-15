@@ -13,6 +13,7 @@ class Goal {
   final int? completedAt; // Added field
   final bool isPrimary;
   final bool createdFromOnboarding;
+  final int? currentDayRecordId; // ID of the record created for today's work
 
   Goal({
     this.id,
@@ -26,6 +27,7 @@ class Goal {
     this.completedAt, // Added to constructor
     this.isPrimary = false,
     this.createdFromOnboarding = false,
+    this.currentDayRecordId,
   });
 
   // Total goal time in seconds
@@ -81,6 +83,7 @@ class Goal {
       isPrimary: (map[DatabaseColumns.goalIsPrimary] ?? 0) == 1,
       createdFromOnboarding:
           (map[DatabaseColumns.goalCreatedFromOnboarding] ?? 0) == 1,
+      currentDayRecordId: map[DatabaseColumns.goalCurrentDayRecordId],
     );
   }
 
@@ -99,6 +102,7 @@ class Goal {
       DatabaseColumns.goalCompletedAt: completedAt,
       DatabaseColumns.goalIsPrimary: isPrimary ? 1 : 0,
       DatabaseColumns.goalCreatedFromOnboarding: createdFromOnboarding ? 1 : 0,
+      DatabaseColumns.goalCurrentDayRecordId: currentDayRecordId,
     };
   }
 
@@ -116,6 +120,8 @@ class Goal {
     bool clearSessionResumedTimestamp = false, // Added helper parameter
     bool? isPrimary,
     bool? createdFromOnboarding,
+    int? currentDayRecordId,
+    bool clearCurrentDayRecordId = false, // Helper parameter to clear the field
   }) {
     return Goal(
       id: id ?? this.id,
@@ -134,6 +140,9 @@ class Goal {
       isPrimary: isPrimary ?? this.isPrimary,
       createdFromOnboarding:
           createdFromOnboarding ?? this.createdFromOnboarding,
+      currentDayRecordId: clearCurrentDayRecordId
+          ? null
+          : (currentDayRecordId ?? this.currentDayRecordId),
     );
   }
 

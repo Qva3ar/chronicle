@@ -45,7 +45,7 @@ class RecordListItem extends StatelessWidget {
                   if (item.recordType == RecordType.routine)
                     _buildStatusRow('Routine Completed', Icons.check_circle, Colors.orange),
                   if (item.recordType == RecordType.goal)
-                    _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent),
+                    _buildGoalStatusRow(),
                   if (item.recordType == RecordType.morningCheckin)
                     _buildStatusRow('Morning Checkin', Icons.wb_sunny, MyColors.orangeDivider),
                   if (item.recordType == RecordType.eveningCheckin)
@@ -195,6 +195,19 @@ class RecordListItem extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildGoalStatusRow() {
+    // Parse status from record text
+    // Format: "...---\ngoal_id: X\ntime_minutes: Y\nstatus: active"
+    final text = item.text;
+    final isCompleted = text.contains('status: completed');
+
+    if (isCompleted) {
+      return _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent);
+    } else {
+      return _buildStatusRow('Goal In Progress', Icons.play_circle_outline, Colors.blueAccent);
+    }
   }
 
   String _formatDateTime(BuildContext context, int timestamp) {

@@ -14,7 +14,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 30;
+  static const int databaseVersion = 31;
   static const int pageSize = 20;
 }
 
@@ -81,6 +81,7 @@ class DatabaseColumns {
   static const String goalCompletedAt = 'completed_at';
   static const String goalIsPrimary = 'is_primary';
   static const String goalCreatedFromOnboarding = 'created_from_onboarding';
+  static const String goalCurrentDayRecordId = 'current_day_record_id';
 
   // AI interest signals columns
   static const String aiSource = 'source';
@@ -325,7 +326,8 @@ class DatabaseHelper {
           ${DatabaseColumns.goalSessionResumedTimestampSeconds} INTEGER,
           ${DatabaseColumns.goalCompletedAt} INTEGER,
           ${DatabaseColumns.goalIsPrimary} INTEGER NOT NULL DEFAULT 0,
-          ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0
+          ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.goalCurrentDayRecordId} INTEGER
         )
       ''');
 
@@ -774,6 +776,16 @@ class DatabaseHelper {
 
         log('Upgraded database to v30: Added is_system column to tags and created Chrono tag.');
       }
+
+      if (oldVersion < 31) {
+        // Add current_day_record_id column to goals table for tracking daily progress records
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.goals}
+          ADD COLUMN ${DatabaseColumns.goalCurrentDayRecordId} INTEGER
+        ''');
+
+        log('Upgraded database to v31: Added current_day_record_id column to goals table.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -967,6 +979,23 @@ class DatabaseHelper {
       );
     } catch (e) {
       log('Error querying records: $e');
+      rethrow;
+    }
+  }
+
+  /// Get a single record by ID
+  Future<Map<String, dynamic>?> getRecordById(int recordId) async {
+    try {
+      final Database db = await instance.database;
+      final records = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [recordId],
+        limit: 1,
+      );
+      return records.isEmpty ? null : records.first;
+    } catch (e) {
+      log('Error getting record by ID: $e');
       rethrow;
     }
   }
@@ -1968,6 +1997,7 @@ class DatabaseHelper {
           DatabaseColumns.goalIsActive: 0,
           DatabaseColumns.goalSessionResumedTimestampSeconds: null,
           DatabaseColumns.goalCompletedAt: null,
+          DatabaseColumns.goalCurrentDayRecordId: null,
         },
       );
     } catch (e) {
