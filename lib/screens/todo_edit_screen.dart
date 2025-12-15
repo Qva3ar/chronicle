@@ -310,7 +310,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Date & Time (optional)',
+                    'Date & Time',
                     style: TextStyle(
                       color: white,
                       fontSize: 16,
@@ -318,12 +318,61 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Quick action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            final tomorrow = DateTime.now().add(const Duration(days: 1));
+                            setState(() {
+                              _selectedDateTime = DateTime(
+                                tomorrow.year,
+                                tomorrow.month,
+                                tomorrow.day,
+                                9, // 9 AM
+                                0,
+                              );
+                            });
+                          },
+                          icon: const Text('📅', style: TextStyle(fontSize: 16)),
+                          label: const Text('Tomorrow'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: white,
+                            side: const BorderSide(color: MyColors.forthyColor),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _selectedDateTime = null;
+                              _selectedReminders.clear();
+                            });
+                          },
+                          icon: const Text('💭', style: TextStyle(fontSize: 16)),
+                          label: const Text('Someday'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: white,
+                            side: const BorderSide(color: MyColors.forthyColor),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: MyColors.forthyColor),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
                           _selectedDateTime == null
-                              ? 'No date set'
+                              ? 'No specific date'
                               : _formatDateTime(_selectedDateTime!),
                           style: const TextStyle(
                             color: MyColors.fivyColor,
@@ -344,7 +393,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                       ElevatedButton.icon(
                         onPressed: _pickDateTime,
                         icon: const Icon(Icons.calendar_today),
-                        label: Text(_selectedDateTime == null ? 'Set' : 'Change'),
+                        label: Text(_selectedDateTime == null ? 'Pick Date' : 'Change'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: MyColors.forthyColor,
                           foregroundColor: white,

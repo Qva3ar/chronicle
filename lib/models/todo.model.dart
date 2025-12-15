@@ -29,6 +29,27 @@ class Todo {
     return DateTime.now().isAfter(targetDateTime!);
   }
 
+  // Time period category for grouping
+  TodoTimePeriod get timePeriod {
+    if (!hasTargetTime) return TodoTimePeriod.someday;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final nextWeek = today.add(const Duration(days: 7));
+    final targetDay = DateTime(targetDateTime!.year, targetDateTime!.month, targetDateTime!.day);
+
+    if (targetDay == today) {
+      return TodoTimePeriod.today;
+    } else if (targetDay == tomorrow) {
+      return TodoTimePeriod.tomorrow;
+    } else if (targetDay.isAfter(today) && targetDay.isBefore(nextWeek)) {
+      return TodoTimePeriod.thisWeek;
+    } else {
+      return TodoTimePeriod.later;
+    }
+  }
+
   // Formatted date strings
   String get formattedTargetDate {
     if (!hasTargetTime) return '';
@@ -124,5 +145,44 @@ class Todo {
   @override
   int get hashCode {
     return id.hashCode ^ title.hashCode ^ isDone.hashCode;
+  }
+}
+
+// Time period categories for organizing todos
+enum TodoTimePeriod {
+  today,
+  tomorrow,
+  thisWeek,
+  later,
+  someday;
+
+  String get displayName {
+    switch (this) {
+      case TodoTimePeriod.today:
+        return 'Today';
+      case TodoTimePeriod.tomorrow:
+        return 'Tomorrow';
+      case TodoTimePeriod.thisWeek:
+        return 'This Week';
+      case TodoTimePeriod.later:
+        return 'Later';
+      case TodoTimePeriod.someday:
+        return 'Someday';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case TodoTimePeriod.today:
+        return '🔥';
+      case TodoTimePeriod.tomorrow:
+        return '📅';
+      case TodoTimePeriod.thisWeek:
+        return '📆';
+      case TodoTimePeriod.later:
+        return '🗓️';
+      case TodoTimePeriod.someday:
+        return '💭';
+    }
   }
 }

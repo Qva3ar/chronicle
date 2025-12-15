@@ -43,6 +43,93 @@ class _TodoListScreenState extends State<TodoListScreen> {
     });
   }
 
+  // Group active todos by time period
+  Map<TodoTimePeriod, List<Todo>> _groupTodosByPeriod() {
+    final Map<TodoTimePeriod, List<Todo>> grouped = {};
+
+    for (final todo in _activeTodos) {
+      final period = todo.timePeriod;
+      grouped.putIfAbsent(period, () => []).add(todo);
+    }
+
+    return grouped;
+  }
+
+  // Build grouped todo widgets
+  List<Widget> _buildGroupedTodos() {
+    final grouped = _groupTodosByPeriod();
+    final List<Widget> widgets = [];
+
+    // Define order of periods to display
+    final periodOrder = [
+      TodoTimePeriod.today,
+      TodoTimePeriod.tomorrow,
+      TodoTimePeriod.thisWeek,
+      TodoTimePeriod.later,
+      TodoTimePeriod.someday,
+    ];
+
+    bool isFirst = true;
+
+    for (final period in periodOrder) {
+      final todos = grouped[period];
+      if (todos == null || todos.isEmpty) continue;
+
+      // Add spacing between sections
+      if (!isFirst) {
+        widgets.add(const SizedBox(height: 16));
+      }
+      isFirst = false;
+
+      // Section header with emoji and count
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 8),
+          child: Row(
+            children: [
+              Text(
+                period.emoji,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                period.displayName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: MyColors.forthyColor.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  todos.length.toString(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Add todos in this period
+      for (final todo in todos) {
+        widgets.add(_buildTodoItem(todo));
+      }
+    }
+
+    return widgets;
+  }
+
   Future<void> _toggleTodoCompletion(Todo todo) async {
     await _todoService.toggleTodoCompletion(todo);
 
@@ -151,21 +238,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 : ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      // Active todos
-                      if (_activeTodos.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8, top: 8),
-                          child: Text(
-                            'Active',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: MyColors.fivyColor,
-                            ),
-                          ),
-                        ),
-                        ..._activeTodos.map((todo) => _buildTodoItem(todo)),
-                      ],
+                      // Active todos grouped by time period
+                      if (_activeTodos.isNotEmpty) ..._buildGroupedTodos(),
                       // Completed todos
                       if (_showCompleted && _completedTodos.isNotEmpty) ...[
                         Padding(
@@ -226,13 +300,24 @@ class _TodoListScreenState extends State<TodoListScreen> {
             activeColor: Colors.green,
             checkColor: Colors.white,
           ),
-          title: Text(
-            todo.title,
-            style: TextStyle(
-              color: todo.isDone ? MyColors.forthyColor : white,
-              decoration: todo.isDone ? TextDecoration.lineThrough : null,
-              fontSize: 16,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  todo.title,
+                  style: TextStyle(
+                    color: todo.isDone ? MyColors.forthyColor : white,
+                    decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                todo.timePeriod.emoji,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
           ),
           subtitle: todo.hasTargetTime || todo.description != null
               ? Column(
