@@ -448,28 +448,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               }),
         title: Text("CHRONO", style: TextStyle(color: Color.fromARGB(255, 190, 190, 190))),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: MyColors.secondaryColor,
-        //Floating action button on Scaffold
-        onPressed: () {
-          FocusManager.instance.primaryFocus?.unfocus();
+      floatingActionButton: Stack(
+        children: <Widget>[
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 30),
+              child: FloatingActionButton(
+                backgroundColor: MyColors.secondaryColor,
+                heroTag: 'tagsButton',
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
 
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => CardDetailPage(
-                        title: "",
-                        text: "",
-                        recordId: null,
-                      ))).then((value) => loadRecords(refresh: true));
+                  showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (context) {
+                        return TagsManager(
+                          selectedTag: selectedChipIndex,
+                          onTagSelected: onTagSelected,
+                        );
+                      });
+                },
+                child: const Icon(
+                  Icons.category,
+                  color: MyColors.fivyColor,
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: FloatingActionButton(
+              backgroundColor: MyColors.secondaryColor,
+              heroTag: 'addButton',
+              //Floating action button on Scaffold
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
 
-          //code to execute on button press
-        },
-        child: Icon(Icons.add, color: MyColors.fivyColor), //icon inside button
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => CardDetailPage(
+                              title: "",
+                              text: "",
+                              recordId: null,
+                            ))).then((value) => loadRecords(refresh: true));
+
+                //code to execute on button press
+              },
+              child: Icon(Icons.add, color: MyColors.fivyColor), //icon inside button
+            ),
+          ),
+        ],
       ),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      //floating action button location to right top
 
       bottomNavigationBar: BottomAppBar(
         //bottom navigation bar on scaffold
@@ -547,28 +580,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: Colors.white,
                     size: 24.0,
                   )),
-              IconButton(
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-
-                  showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (context) {
-                        return TagsManager(
-                          selectedTag: selectedChipIndex,
-                          onTagSelected: onTagSelected,
-                        );
-                      });
-                },
-                icon: const Icon(
-                  // <-- Icon
-                  color: Colors.white,
-                  Icons.category,
-                  size: 24.0,
-                ),
-              ),
               IconButton(
                 icon: SvgPicture.asset(
                   'assets/icons/chat.svg', // Replace with the path to your SVG file
