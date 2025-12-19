@@ -353,6 +353,9 @@ class TimerService extends ChangeNotifier {
       // Refresh state from database for any remaining active goals
       await _refreshStateFromDatabase();
 
+      // 🎯 NEW: Reconcile any discrepancies between goals and records
+      await _reconcileGoalRecords();
+
       print('✅ TIMER SERVICE: Initialization completed successfully');
     } catch (e, stackTrace) {
       print('❌ TIMER SERVICE: Initialization failed: $e');
@@ -392,6 +395,61 @@ class TimerService extends ChangeNotifier {
     }
   }
 
+  // 🎯 NEW: Reconcile discrepancies between goals and their progress records
+  Future<void> _reconcileGoalRecords() async {
+    try {
+      print('🔍 RECONCILE: Checking for goal-record discrepancies...');
+      final allGoals = await _db.getAllGoals();
+      int updatedCount = 0;
+
+      for (final goal in allGoals) {
+        if (goal.isActive || goal.currentDayRecordId == null) continue;
+
+        final record = await _db.getRecordById(goal.currentDayRecordId!);
+        if (record == null) continue;
+
+        final text = record[DatabaseColumns.recordText] as String;
+        final match = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+        if (match == null) continue;
+
+        final recordMinutes = int.parse(match.group(1)!);
+        final goalMinutes = (goal.timeSpentSeconds / 60).round();
+
+        if ((recordMinutes - goalMinutes).abs() > 1) {
+          print(
+              '⚠️ RECONCILE: Discrepancy found for "${goal.title}": Goal $goalMinutes min vs Record $recordMinutes min');
+
+          bool isRecordFinalized =
+              text.contains('status: completed') || text.contains('status: day_ended');
+          bool isGoalCompleted = goal.timeSpentSeconds >= goal.totalSeconds;
+
+          if (isRecordFinalized && !isGoalCompleted && goalMinutes <= recordMinutes) {
+            continue; // Trust finalized record if goal isn't completed and has less/equal time
+          }
+
+          await _updateGoalProgressRecord(goal, goal.timeSpentSeconds);
+          updatedCount++;
+        } else {
+          // 🎯 FIX: Check for status discrepancy even if time matches
+          // If goal is completed but record says "active" or "In Progress", we must update
+          bool isRecordActive =
+              text.contains('status: active') || text.contains('Status: In Progress');
+          bool isGoalCompleted = goal.timeSpentSeconds >= goal.totalSeconds;
+
+          if (isGoalCompleted && isRecordActive) {
+            print(
+                '⚠️ RECONCILE: Status discrepancy found for "${goal.title}" (Goal: Completed, Record: Active)');
+            await _updateGoalProgressRecord(goal, goal.timeSpentSeconds);
+            updatedCount++;
+          }
+        }
+      }
+      if (updatedCount > 0) print('✅ RECONCILE: Updated $updatedCount records');
+    } catch (e) {
+      print('❌ RECONCILE: Error: $e');
+    }
+  }
+
   // 🎯 NEW: Restore active session that was running when app was terminated
   Future<void> _restoreActiveSession() async {
     try {
@@ -421,6 +479,12 @@ class TimerService extends ChangeNotifier {
           clearSessionResumedTimestamp: true,
         );
         await _db.updateGoal(cleanedGoal);
+
+        // 🎯 FIX: Ensure progress record is updated to completed status
+        if (activeGoal.currentDayRecordId != null) {
+          print('📝 RESTORE: Updating record for completed goal');
+          await _updateGoalProgressRecord(activeGoal, activeGoal.timeSpentSeconds);
+        }
 
         // Show completion notification if not already shown
         if (activeGoal.completedAt != null) {
@@ -490,6 +554,11 @@ class TimerService extends ChangeNotifier {
       final newTimeSpent = activeGoal.timeSpentSeconds + sessionElapsed;
       final goalTarget = activeGoal.totalSeconds;
       final clampedTimeSpent = newTimeSpent > goalTarget ? goalTarget : newTimeSpent;
+
+      // 🎯 UPDATE: Update progress record with recovered time
+      if (activeGoal.currentDayRecordId != null) {
+        await _updateGoalProgressRecord(activeGoal, clampedTimeSpent);
+      }
 
       final updatedGoal = activeGoal.copyWith(
         timeSpentSeconds: clampedTimeSpent,
@@ -604,19 +673,30 @@ class TimerService extends ChangeNotifier {
 
     // 🎯 NEW: Create or get record for today's work session
     int? recordId = latestGoal.currentDayRecordId;
+
+    // Check if record still exists (user might have deleted it)
+    if (recordId != null) {
+      final existingRecord = await _db.getRecordById(recordId);
+      if (existingRecord == null) {
+        print('📝 START SESSION: Record $recordId was deleted, creating new one');
+        recordId = null; // Force creation of new record
+      } else {
+        print('📝 START SESSION: Using existing progress record ID: $recordId');
+      }
+    }
+
     if (recordId == null) {
-      // First start today - create new record
+      // First start today or record was deleted - create new record
       recordId = await _createGoalProgressRecord(latestGoal);
       print('📝 START SESSION: Created new progress record with ID: $recordId');
-    } else {
-      print('📝 START SESSION: Using existing progress record ID: $recordId');
     }
 
     // Update goal as active in database with record link
     final updatedGoal = latestGoal.copyWith(
       isActive: true,
-      sessionResumedTimestampSeconds: null,
-      clearSessionResumedTimestamp: true,
+      sessionResumedTimestampSeconds:
+          _sessionStartTime, // 🎯 FIX: Save start time immediately for recovery
+      clearSessionResumedTimestamp: false,
       currentDayRecordId: recordId,
     );
     await _db.updateGoal(updatedGoal);
@@ -692,7 +772,8 @@ status: active
         await BackgroundTaskManager.cancelSessionCompletion(goalId);
         // Also cancel any scheduled local notification
         await _notificationsPlugin.cancel(2);
-        print('🚫 STOP SESSION: Background task and local notification cancelled for goal ID: $goalId');
+        print(
+            '🚫 STOP SESSION: Background task and local notification cancelled for goal ID: $goalId');
       } catch (e) {
         print('❌ STOP SESSION: Failed to cancel background task: $e');
       }
@@ -801,16 +882,23 @@ status: ${isCompleted ? 'completed' : 'active'}
         DatabaseColumns.recordGoalId: existingRecord[DatabaseColumns.recordGoalId],
       };
 
-      // Get existing tags via raw SQL query
+      // Get existing tags and filter out Chrono tag
       final db = await _db.database;
-      final tags = await db.rawQuery(
-        'SELECT tagId FROM ${DatabaseTables.recordTag} WHERE recordId = ?',
-        [goal.currentDayRecordId],
-      );
-      final tagIds = tags.map((tag) => tag['tagId'] as int).toList();
+      final tags = await db.rawQuery('''
+        SELECT rt.tagId, t.${DatabaseColumns.tagName} as tagName
+        FROM ${DatabaseTables.recordTag} rt
+        JOIN ${DatabaseTables.category} t ON rt.tagId = t.${DatabaseColumns.id}
+        WHERE rt.recordId = ?
+      ''', [goal.currentDayRecordId]);
+
+      final tagIds = tags
+          .where((tag) => tag['tagName'] != 'Chrono')
+          .map((tag) => tag['tagId'] as int)
+          .toList();
 
       await _db.updateRecord(updatedRecord, tagIds);
-      print('✅ Updated progress record ID ${goal.currentDayRecordId} with $timeMinutes minutes');
+      print(
+          '✅ Updated progress record ID ${goal.currentDayRecordId} with $timeMinutes minutes (tags: ${tagIds.length})');
     } catch (e) {
       print('❌ Failed to update progress record: $e');
     }
@@ -826,7 +914,8 @@ status: ${isCompleted ? 'completed' : 'active'}
 
       // Debug logging every 30 seconds (moved here to avoid duplicates from getter)
       if (sessionElapsed % 30 == 0 && sessionElapsed > 0) {
-        print('🕐 TIMING DEBUG: Goal "${_activeGoal?.title}" - Session: ${formatTime(sessionElapsed)}/${ formatTime(sessionDuration)}');
+        print(
+            '🕐 TIMING DEBUG: Goal "${_activeGoal?.title}" - Session: ${formatTime(sessionElapsed)}/${formatTime(sessionDuration)}');
       }
 
       // 🎯 CRITICAL: Check if the goal is still active in database (background callback might have completed it)
@@ -859,6 +948,12 @@ status: ${isCompleted ? 'completed' : 'active'}
           // Update our local state but recalculate baseline to maintain consistency
           _activeGoal = currentGoalInDb;
           _baselineTimeSpent = newTime; // Adjust baseline since background updated progress
+
+          // 🎯 FIX: Ensure record is updated if background updated the time
+          if (_activeGoal!.currentDayRecordId != null) {
+            print('🔄 TIMER SYNC: Ensuring record matches background time');
+            await _updateGoalProgressRecord(_activeGoal!, newTime);
+          }
 
           // Check if this background update completed the goal
           if (newTime >= currentGoalInDb.totalSeconds) {
@@ -1192,6 +1287,12 @@ status: ${isCompleted ? 'completed' : 'active'}
             '   - Time spent: ${formatTime(_activeGoal!.timeSpentSeconds)}/${formatTime(_activeGoal!.totalSeconds)}');
         print('   - Active: ${_activeGoal!.isActive}');
         print('   - Completed at: ${_activeGoal!.completedAt}');
+
+        // 🎯 FIX: Force update the progress record to ensure it matches the background state
+        if (_activeGoal!.currentDayRecordId != null) {
+          print('🔄 BG COMPLETION UI: Forcing record update to match goal state');
+          await _updateGoalProgressRecord(_activeGoal!, _activeGoal!.timeSpentSeconds);
+        }
 
         // Trigger immediate notification if goal was completed
         if (_activeGoal!.completedAt != null &&
@@ -1755,9 +1856,8 @@ status: ${isCompleted ? 'completed' : 'active'}
 
       final tz.TZDateTime scheduledDate = tz.TZDateTime.from(completionTime, tz.local);
 
-      final title = isGoalCompletion
-          ? 'Session Complete - Goal Achieved! 🎉'
-          : 'Session Completed! 🎉';
+      final title =
+          isGoalCompletion ? 'Session Complete - Goal Achieved! 🎉' : 'Session Completed! 🎉';
 
       final body = isGoalCompletion
           ? '${_activeGoal!.title} - ${formatTime(sessionDuration)} session completed your goal!'

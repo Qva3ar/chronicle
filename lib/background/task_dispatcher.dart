@@ -61,7 +61,8 @@ void backgroundTaskDispatcher() {
       }
 
       final duration = DateTime.now().difference(startTime);
-      print('[TaskDispatcher] ${success ? "✅" : "❌"} Task $task completed in ${duration.inSeconds}s');
+      print(
+          '[TaskDispatcher] ${success ? "✅" : "❌"} Task $task completed in ${duration.inSeconds}s');
 
       return Future.value(success);
     } catch (e, stackTrace) {
@@ -117,12 +118,14 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     }
 
     if (!goal.isActive) {
-      print('[SessionCompletion] ℹ️ Goal "${goal.title}" is no longer active. User may have stopped it.');
+      print(
+          '[SessionCompletion] ℹ️ Goal "${goal.title}" is no longer active. User may have stopped it.');
       return true;
     }
 
     print('[SessionCompletion] 📊 Processing session completion for: "${goal.title}"');
-    print('   - Current time spent: ${_formatTime(goal.timeSpentSeconds)}/${_formatTime(goal.totalSeconds)}');
+    print(
+        '   - Current time spent: ${_formatTime(goal.timeSpentSeconds)}/${_formatTime(goal.totalSeconds)}');
 
     // Calculate new time spent
     final newTimeSpent = goal.timeSpentSeconds + sessionDuration;
@@ -145,40 +148,65 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     await db.updateGoal(updatedGoal);
     print('[SessionCompletion] ✅ Goal updated successfully');
 
-    // Update daily progress record if goal is completed
-    if (isGoalComplete && updatedGoal.currentDayRecordId != null) {
+    // Update daily progress record (for both completed and in-progress goals)
+    if (updatedGoal.currentDayRecordId != null) {
       try {
         final existingRecord = await db.getRecordById(updatedGoal.currentDayRecordId!);
 
         if (existingRecord != null) {
-          // Get tags for this record
-          final database = await db.database;
-          final tags = await database.rawQuery(
-            'SELECT tagId FROM ${DatabaseTables.recordTag} WHERE recordId = ?',
-            [updatedGoal.currentDayRecordId],
-          );
-          final tagIds = tags.map((tag) => tag['tagId'] as int).toList();
+          // 🎯 CHECK: Verify if record was already updated by foreground (TimerService)
+          final existingText = existingRecord['text'] as String? ?? '';
 
-          // Update record with completion status
-          final timeMinutes = (exactTime / 60).round();
-          final updatedRecordData = {
-            DatabaseColumns.id: existingRecord['id'],
-            DatabaseColumns.recordTitle: existingRecord['title'] ?? 'Goal Work Session',
-            DatabaseColumns.recordText: '''🎯 Goal Work Session
+          // Check if already finalized (completed or day_ended)
+          final isAlreadyFinalized = existingText.contains('status: completed') ||
+              existingText.contains('status: day_ended');
+
+          // 🎯 FIX: Removed aggressive "existingTimeMatch" check
+          // We only skip if the record is explicitly finalized (completed or day ended)
+          // It is better to perform a redundant update than to miss one
+
+          if (isAlreadyFinalized && !isGoalComplete) {
+            print('[SessionCompletion] ✅ Record already finalized - skipping update');
+          } else {
+            // Get tags for this record and filter out Chrono tag
+            final database = await db.database;
+            final tags = await database.rawQuery('''
+              SELECT rt.tagId, t.${DatabaseColumns.tagName} as tagName
+              FROM ${DatabaseTables.recordTag} rt
+              JOIN ${DatabaseTables.category} t ON rt.tagId = t.${DatabaseColumns.id}
+              WHERE rt.recordId = ?
+            ''', [updatedGoal.currentDayRecordId]);
+
+            final tagIds = tags
+                .where((tag) => tag['tagName'] != 'Chrono')
+                .map((tag) => tag['tagId'] as int)
+                .toList();
+
+            // Update record with current status
+            final timeMinutes = (exactTime / 60).round();
+            final status = isGoalComplete ? 'Completed' : 'In Progress';
+            final statusKey = isGoalComplete ? 'completed' : 'active';
+
+            final updatedRecordData = {
+              DatabaseColumns.id: existingRecord['id'],
+              DatabaseColumns.recordTitle: existingRecord['title'] ?? 'Goal Work Session',
+              DatabaseColumns.recordText: '''🎯 Goal Work Session
 ⏱ Time spent: $timeMinutes min
-📊 Status: Completed
+📊 Status: $status
 
 ---
 goal_id: ${updatedGoal.id}
 time_minutes: $timeMinutes
-status: completed''',
-            DatabaseColumns.recordCreatedAt: existingRecord['createdAt'],
-            DatabaseColumns.recordType: existingRecord['recordType'],
-            DatabaseColumns.recordGoalId: updatedGoal.id,
-          };
+status: $statusKey''',
+              DatabaseColumns.recordCreatedAt: existingRecord['createdAt'],
+              DatabaseColumns.recordType: existingRecord['recordType'],
+              DatabaseColumns.recordGoalId: updatedGoal.id,
+            };
 
-          await db.updateRecord(updatedRecordData, tagIds);
-          print('[SessionCompletion] 📝 Updated daily progress record with completion status.');
+            await db.updateRecord(updatedRecordData, tagIds);
+            print(
+                '[SessionCompletion] 📝 Updated daily progress record (background): $timeMinutes min, status: $statusKey');
+          }
         }
       } catch (e) {
         print('[SessionCompletion] ⚠️ Failed to update daily progress record: $e');
@@ -264,7 +292,8 @@ Future<bool> _handleInsightGeneration(Map<String, dynamic>? inputData) async {
       try {
         print('[InsightGeneration] 🔄 Updating home screen widget...');
         await HomeWidget.saveWidgetData<bool>('has_insight', true);
-        await HomeWidget.saveWidgetData<String>('insight_title', result['title'] as String? ?? 'Insight');
+        await HomeWidget.saveWidgetData<String>(
+            'insight_title', result['title'] as String? ?? 'Insight');
         await HomeWidget.saveWidgetData<String>('insight_body', result['body'] as String? ?? '');
         await HomeWidget.saveWidgetData<String>('insight_tags', result['tags'] as String? ?? '[]');
         await HomeWidget.saveWidgetData<String>('app_name', 'Chrono');
@@ -316,7 +345,8 @@ Future<bool> _handleRoutineNotification(Map<String, dynamic>? inputData) async {
       return false;
     }
 
-    print('[RoutineNotification] 🔔 Processing routine notification for: "$routineName" (ID: $routineId)');
+    print(
+        '[RoutineNotification] 🔔 Processing routine notification for: "$routineName" (ID: $routineId)');
     print('   - Current retry: $currentRetry/$numberOfRetries');
 
     // Check if routine is already marked as done
@@ -448,9 +478,7 @@ Future<void> _showRoutineNotification(
         ? 1000 + routineId // Main notification ID
         : 2000 + (routineId * 5) + currentRetry; // Retry notification ID
 
-    final title = currentRetry == 0
-        ? 'Routine Reminder'
-        : 'Reminder: $routineName';
+    final title = currentRetry == 0 ? 'Routine Reminder' : 'Reminder: $routineName';
 
     final body = currentRetry == 0
         ? 'Time for: $routineName'
@@ -583,9 +611,7 @@ Future<void> _showSessionCompletionNotifications(
       iOS: iosDetails,
     );
 
-    final title = isGoalComplete
-        ? 'Session Complete - Goal Achieved! 🎉'
-        : 'Session Completed! 🎉';
+    final title = isGoalComplete ? 'Session Complete - Goal Achieved! 🎉' : 'Session Completed! 🎉';
     final body = '${goal.title} - ${_formatTime(sessionDuration)} session finished. Great work!';
 
     await plugin.show(
@@ -703,7 +729,8 @@ class BackgroundTaskManager {
           ),
         );
 
-        print('[BackgroundTaskManager] 🧪 TEST MODE: Reset scheduled for ${_formatDateTime(nextReset)} (in ${testInterval.inHours} hours)');
+        print(
+            '[BackgroundTaskManager] 🧪 TEST MODE: Reset scheduled for ${_formatDateTime(nextReset)} (in ${testInterval.inHours} hours)');
       } else {
         // PRODUCTION MODE: Schedule at midnight
         final now = tz.TZDateTime.now(tz.local);
@@ -714,7 +741,9 @@ class BackgroundTaskManager {
           now.year,
           now.month,
           now.day + 1,
-          0, 0, 0,
+          0,
+          0,
+          0,
         );
 
         if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
@@ -732,7 +761,8 @@ class BackgroundTaskManager {
           ),
         );
 
-        print('[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
+        print(
+            '[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
       }
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule daily reset: $e');
@@ -770,7 +800,8 @@ class BackgroundTaskManager {
         initialDelay: Duration(minutes: actualInterval),
       );
 
-      print('[BackgroundTaskManager] ✅ Insight generation scheduled (interval: $actualInterval min)');
+      print(
+          '[BackgroundTaskManager] ✅ Insight generation scheduled (interval: $actualInterval min)');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule insight generation: $e');
     }
@@ -785,9 +816,8 @@ class BackgroundTaskManager {
     int numberOfRetries = 0,
   }) async {
     try {
-      final taskId = currentRetry == 0
-          ? 'routine_$routineId'
-          : 'routine_${routineId}_retry_$currentRetry';
+      final taskId =
+          currentRetry == 0 ? 'routine_$routineId' : 'routine_${routineId}_retry_$currentRetry';
 
       final delay = scheduledTime.difference(DateTime.now());
 
@@ -811,7 +841,8 @@ class BackgroundTaskManager {
         ),
       );
 
-      print('[BackgroundTaskManager] ✅ Routine notification scheduled for $scheduledTime (retry: $currentRetry/$numberOfRetries)');
+      print(
+          '[BackgroundTaskManager] ✅ Routine notification scheduled for $scheduledTime (retry: $currentRetry/$numberOfRetries)');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule routine notification: $e');
     }
@@ -863,7 +894,8 @@ class BackgroundTaskManager {
         ),
       );
 
-      print('[BackgroundTaskManager] ✅ Checkin notification scheduled for $scheduledTime (type: $checkinType)');
+      print(
+          '[BackgroundTaskManager] ✅ Checkin notification scheduled for $scheduledTime (type: $checkinType)');
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule checkin notification: $e');
     }
