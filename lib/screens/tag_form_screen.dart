@@ -28,7 +28,7 @@ class _TagFormScreenState extends State<TagFormScreen> {
     if (widget.existingTag != null) {
       isEditing = true;
       _tagNameController.text = widget.existingTag!.name;
-      selectedColor = int.parse(widget.existingTag!.color!);
+      selectedColor = int.tryParse(widget.existingTag!.color ?? "") ?? Colors.blue.value;
     }
   }
 

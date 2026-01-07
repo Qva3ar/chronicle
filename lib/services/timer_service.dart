@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../db_manager.dart';
@@ -409,18 +410,31 @@ class TimerService extends ChangeNotifier {
         if (record == null) continue;
 
         final text = record[DatabaseColumns.recordText] as String;
-        final match = RegExp(r'time_minutes: (\d+)').firstMatch(text);
-        if (match == null) continue;
+        int recordMinutes = 0;
+        String status = 'active';
 
-        final recordMinutes = int.parse(match.group(1)!);
+        try {
+          final jsonData = jsonDecode(text);
+          recordMinutes = jsonData['time_minutes'] ?? 0;
+          status = jsonData['status'] ?? 'active';
+        } catch (e) {
+          // Fallback to text parsing
+          final match = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+          if (match == null) continue;
+          recordMinutes = int.parse(match.group(1)!);
+          
+          if (text.contains('status: completed')) status = 'completed';
+          else if (text.contains('status: day_ended')) status = 'day_ended';
+          else status = 'active';
+        }
+
         final goalMinutes = (goal.timeSpentSeconds / 60).round();
 
         if ((recordMinutes - goalMinutes).abs() > 1) {
           print(
               '⚠️ RECONCILE: Discrepancy found for "${goal.title}": Goal $goalMinutes min vs Record $recordMinutes min');
 
-          bool isRecordFinalized =
-              text.contains('status: completed') || text.contains('status: day_ended');
+          bool isRecordFinalized = status == 'completed' || status == 'day_ended';
           bool isGoalCompleted = goal.timeSpentSeconds >= goal.totalSeconds;
 
           if (isRecordFinalized && !isGoalCompleted && goalMinutes <= recordMinutes) {
@@ -431,9 +445,8 @@ class TimerService extends ChangeNotifier {
           updatedCount++;
         } else {
           // 🎯 FIX: Check for status discrepancy even if time matches
-          // If goal is completed but record says "active" or "In Progress", we must update
-          bool isRecordActive =
-              text.contains('status: active') || text.contains('Status: In Progress');
+          // If goal is completed but record says "active", we must update
+          bool isRecordActive = status == 'active';
           bool isGoalCompleted = goal.timeSpentSeconds >= goal.totalSeconds;
 
           if (isGoalCompleted && isRecordActive) {
@@ -718,20 +731,15 @@ class TimerService extends ChangeNotifier {
     try {
       final timeMinutes = (goal.timeSpentSeconds / 60).round();
 
-      final recordText = '''
-🎯 Goal Work Session
-⏱ Time spent: $timeMinutes min
-📊 Status: In Progress
-
----
-goal_id: ${goal.id}
-time_minutes: $timeMinutes
-status: active
-''';
+      final recordData = {
+        'goal_id': goal.id,
+        'time_minutes': timeMinutes,
+        'status': 'active',
+      };
 
       final record = {
         DatabaseColumns.recordTitle: goal.title,
-        DatabaseColumns.recordText: recordText,
+        DatabaseColumns.recordText: jsonEncode(recordData),
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'goal',
         DatabaseColumns.recordGoalId: goal.id,
@@ -862,20 +870,27 @@ status: active
       final timeMinutes = (totalTimeSpent / 60).round();
       final isCompleted = totalTimeSpent >= goal.totalSeconds;
 
-      final recordText = '''
-🎯 Goal Work Session
-⏱ Time spent: $timeMinutes min
-📊 Status: ${isCompleted ? 'Completed' : 'In Progress'}
+      // Handle existing text format or new JSON format
+      final String currentText = existingRecord[DatabaseColumns.recordText] as String;
+      Map<String, dynamic> recordData = {};
+      
+      try {
+        recordData = jsonDecode(currentText);
+      } catch (e) {
+        // Fallback or create new structure
+        recordData = {
+          'goal_id': goal.id,
+        };
+      }
 
----
-goal_id: ${goal.id}
-time_minutes: $timeMinutes
-status: ${isCompleted ? 'completed' : 'active'}
-''';
+      // Update values
+      recordData['goal_id'] = goal.id; // Ensure it's correct
+      recordData['time_minutes'] = timeMinutes;
+      recordData['status'] = isCompleted ? 'completed' : 'active';
 
       final updatedRecord = {
         DatabaseColumns.id: goal.currentDayRecordId,
-        DatabaseColumns.recordText: recordText,
+        DatabaseColumns.recordText: jsonEncode(recordData),
         DatabaseColumns.recordTitle: existingRecord[DatabaseColumns.recordTitle],
         DatabaseColumns.recordCreatedAt: existingRecord[DatabaseColumns.recordCreatedAt],
         DatabaseColumns.recordType: existingRecord[DatabaseColumns.recordType],

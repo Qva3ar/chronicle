@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:chrono/colors.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/models/record_type.dart';
@@ -52,13 +53,7 @@ class RecordListItem extends StatelessWidget {
                     _buildStatusRow('Evening Checkin', Icons.nightlight, MyColors.contactDivider),
                   SizedBox(
                       height: _shouldShowStatusRow() ? 8 : 0),
-                  Text(
-                    "${item.text}",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
+                  _buildContent(),
                   if (item.goalId != null || item.routineId != null) ...[
                     SizedBox(height: 8),
                     Text(
@@ -139,6 +134,81 @@ class RecordListItem extends StatelessWidget {
     );
   }
 
+  Widget _buildContent() {
+    if (item.recordType == RecordType.goal) {
+      final data = _parseGoalData();
+      if (data != null) {
+        // Render pretty view for goal data
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "🎯 Goal Work Session",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              "⏱ Time spent: ${data['time_minutes']} min",
+              style: TextStyle(fontSize: 14, color: Colors.white),
+            ),
+            Text(
+              "📊 Status: ${_formatStatus(data['status'])}",
+              style: TextStyle(fontSize: 14, color: Colors.white),
+            ),
+          ],
+        );
+      }
+    }
+    
+    // Default text rendering
+    return Text(
+      "${item.text}",
+      style: TextStyle(
+        fontSize: 14,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  String _formatStatus(dynamic status) {
+    if (status == null) return 'Unknown';
+    String s = status.toString();
+    if (s == 'active') return 'In Progress';
+    if (s == 'completed') return 'Completed';
+    if (s == 'day_ended') return 'Day Ended';
+    return s;
+  }
+
+  Map<String, dynamic>? _parseGoalData() {
+    try {
+      // Try parsing as JSON first
+      return jsonDecode(item.text);
+    } catch (e) {
+      // Fallback to text parsing (legacy format)
+      final text = item.text;
+      if (!text.contains('goal_id:') && !text.contains('time_minutes:')) return null;
+
+      final goalIdMatch = RegExp(r'goal_id: (\d+)').firstMatch(text);
+      final timeMinutesMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+      // Status might be lower case or mixed case in text, usually 'status: active' or 'Status: In Progress'
+      // The old format had "status: active" at the bottom
+      final statusMatch = RegExp(r'status: (\w+)').firstMatch(text);
+
+      if (goalIdMatch != null || timeMinutesMatch != null || statusMatch != null) {
+         return {
+           'goal_id': goalIdMatch?.group(1),
+           'time_minutes': timeMinutesMatch?.group(1),
+           'status': statusMatch?.group(1),
+         };
+      }
+      return null;
+    }
+  }
+
   bool _shouldShowStatusRow() {
     return item.recordType == RecordType.routine ||
         item.recordType == RecordType.goal ||
@@ -198,13 +268,20 @@ class RecordListItem extends StatelessWidget {
   }
 
   Widget _buildGoalStatusRow() {
-    // Parse status from record text
-    // Format: "...---\ngoal_id: X\ntime_minutes: Y\nstatus: active/completed/day_ended"
-    final text = item.text;
+    final data = _parseGoalData();
+    String status = 'active'; // default
+    
+    if (data != null && data['status'] != null) {
+      status = data['status'].toString();
+    } else {
+      // Legacy text check if parsing failed completely
+      if (item.text.contains('status: completed')) status = 'completed';
+      else if (item.text.contains('status: day_ended')) status = 'day_ended';
+    }
 
-    if (text.contains('status: completed')) {
+    if (status == 'completed') {
       return _buildStatusRow('Goal Completed', Icons.star, Colors.greenAccent);
-    } else if (text.contains('status: day_ended')) {
+    } else if (status == 'day_ended') {
       return _buildStatusRow('Day Ended', Icons.calendar_today, Colors.orangeAccent);
     } else {
       return _buildStatusRow('Goal In Progress', Icons.play_circle_outline, Colors.blueAccent);

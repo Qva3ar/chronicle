@@ -29,6 +29,7 @@ import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/widgets/insight_banner.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
+import 'package:chrono/features/checkin/presentation/screens/checkin_analytics_screen.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/services/widget_service.dart';
@@ -451,34 +452,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       floatingActionButton: Stack(
         children: <Widget>[
           Align(
-            alignment: Alignment.bottomLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 30),
-              child: FloatingActionButton(
-                backgroundColor: MyColors.secondaryColor,
-                heroTag: 'tagsButton',
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-
-                  showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (context) {
-                        return TagsManager(
-                          selectedTag: selectedChipIndex,
-                          onTagSelected: onTagSelected,
-                        );
-                      });
-                },
-                child: const Icon(
-                  Icons.category,
-                  color: MyColors.fivyColor,
-                ),
-              ),
-            ),
-          ),
-          Align(
             alignment: Alignment.bottomRight,
             child: FloatingActionButton(
               backgroundColor: MyColors.secondaryColor,
@@ -503,7 +476,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ],
       ),
-
       bottomNavigationBar: BottomAppBar(
         //bottom navigation bar on scaffold
         color: MyColors.primaryColor,
@@ -581,6 +553,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     size: 24.0,
                   )),
               IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CheckinAnalyticsScreen()),
+                    ).then((_) {
+                      loadRecords(refresh: true);
+                    });
+                  },
+                  tooltip: 'Analytics',
+                  icon: const Icon(
+                    Icons.insights,
+                    color: Colors.white,
+                    size: 24.0,
+                  )),
+              IconButton(
                 icon: SvgPicture.asset(
                   'assets/icons/chat.svg', // Replace with the path to your SVG file
                   width: 28, // Specify the width
@@ -620,7 +609,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     decoration: InputDecoration(
                       labelText: 'Search',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.search),
+                      prefixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: 12),
+                          Icon(Icons.search, color: Colors.white70),
+                          Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.filter_list, color: Colors.white70),
+                                onPressed: () => _showFilterDialog(),
+                                tooltip: 'Filter records',
+                              ),
+                              if (currentFilterSettings != null &&
+                                  (!currentFilterSettings!.showGoalRecords ||
+                                      !currentFilterSettings!.showRoutineRecords))
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                       suffixIcon: searchController.text.isEmpty
                           ? null
                           : IconButton(
@@ -641,29 +660,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.filter_list, color: Colors.white),
-                      onPressed: () => _showFilterDialog(),
-                      tooltip: 'Filter records',
-                    ),
-                    if (currentFilterSettings != null &&
-                        (!currentFilterSettings!.showGoalRecords ||
-                            !currentFilterSettings!.showRoutineRecords))
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.orange,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
+                IconButton(
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+
+                    showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) {
+                          return TagsManager(
+                            selectedTag: selectedChipIndex,
+                            onTagSelected: onTagSelected,
+                          );
+                        });
+                  },
+                  tooltip: 'Tags',
+                  icon: const Icon(
+                    Icons.category,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),

@@ -17,7 +17,7 @@ class Tag {
     return Tag(
       id: json[DatabaseColumns.id],
       name: json[DatabaseColumns.tagName],
-      color: json[DatabaseColumns.tagColor],
+      color: json[DatabaseColumns.tagColor] ?? "4294967295", // Default to white/safe color
       isSystem: (json[DatabaseColumns.tagIsSystem] ?? 0) == 1,
     );
   }

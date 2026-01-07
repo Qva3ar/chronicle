@@ -1,7 +1,6 @@
 import 'dart:developer';
+import 'dart:convert';
 import 'package:chrono/db_manager.dart';
-import 'package:chrono/features/checkin/data/constants/evening_metrics.dart';
-import 'package:chrono/features/checkin/data/constants/morning_metrics.dart';
 import 'package:chrono/features/checkin/data/models/checkin_metric.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/models/record_type.dart';
@@ -10,26 +9,6 @@ import 'package:chrono/models/record_type.dart';
 class CheckinRepository {
   final DatabaseHelper _db = DatabaseHelper.instance;
 
-  /// Build checkin text from metrics and values
-  String buildCheckinText(List<CheckinMetric> metrics, Map<String, int> values) {
-    final buffer = StringBuffer();
-
-    for (final metric in metrics) {
-      if (values.containsKey(metric.key)) {
-        final value = values[metric.key];
-        if (metric.unit != null) {
-          // Number input with unit
-          buffer.writeln('${metric.label}: $value ${metric.unit}');
-        } else {
-          // Slider input
-          buffer.writeln('${metric.label}: $value');
-        }
-      }
-    }
-
-    return buffer.toString().trim();
-  }
-
   /// Save a checkin as a record/note in the database
   /// Returns the record ID
   Future<int> saveCheckin({
@@ -37,18 +16,12 @@ class CheckinRepository {
     required Map<String, int> values,
     List<int> tagIds = const [],
   }) async {
-    // Get metrics based on type
-    final metrics = type == CheckinType.morning
-        ? MorningMetrics.all
-        : EveningMetrics.all;
-
-    // Build text representation
-    final text = buildCheckinText(metrics, values);
-
     // Determine record type
-    final recordType = type == CheckinType.morning
-        ? RecordType.morningCheckin
-        : RecordType.eveningCheckin;
+    final recordType =
+        type == CheckinType.morning ? RecordType.morningCheckin : RecordType.eveningCheckin;
+
+    // Serialize values to JSON with indentation for readability
+    final text = const JsonEncoder.withIndent('  ').convert(values);
 
     // Create record
     final record = {
@@ -81,9 +54,8 @@ class CheckinRepository {
         .where((record) {
           // Filter by type if specified
           if (type != null) {
-            final expectedType = type == CheckinType.morning
-                ? RecordType.morningCheckin
-                : RecordType.eveningCheckin;
+            final expectedType =
+                type == CheckinType.morning ? RecordType.morningCheckin : RecordType.eveningCheckin;
             if (record.recordType != expectedType) {
               return false;
             }
@@ -115,9 +87,8 @@ class CheckinRepository {
   Future<Map<String, dynamic>?> getLastCheckin(CheckinType type) async {
     final allRecords = await _db.queryAllRecords();
 
-    final expectedRecordType = type == CheckinType.morning
-        ? RecordType.morningCheckin
-        : RecordType.eveningCheckin;
+    final expectedRecordType =
+        type == CheckinType.morning ? RecordType.morningCheckin : RecordType.eveningCheckin;
 
     // Get start of today (00:00:00)
     final now = DateTime.now();
@@ -129,16 +100,13 @@ class CheckinRepository {
     log('🔍 Total records in DB: ${allRecords.length}');
 
     // Filter by type, exclude today's checkins, and sort by createdAt descending
-    final checkins = allRecords
-        .where((record) {
-          final matches = record.recordType == expectedRecordType &&
-              record.createdAt < startOfTodayMs;
-          if (record.recordType == expectedRecordType) {
-            log('🔍 Found matching type record: createdAt=${record.createdAt}, before today=${record.createdAt < startOfTodayMs}');
-          }
-          return matches;
-        })
-        .toList()
+    final checkins = allRecords.where((record) {
+      final matches = record.recordType == expectedRecordType && record.createdAt < startOfTodayMs;
+      if (record.recordType == expectedRecordType) {
+        log('🔍 Found matching type record: createdAt=${record.createdAt}, before today=${record.createdAt < startOfTodayMs}');
+      }
+      return matches;
+    }).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     log('🔍 Filtered checkins count: ${checkins.length}');
@@ -153,13 +121,31 @@ class CheckinRepository {
   }
 
   /// Parse checkin text back into metric values
-  /// Format: "Label: value" or "Label: value unit"
-  /// Example: "Качество сна: 7" or "Шаги: 8450 шагов"
+  /// Supports both JSON format (new) and legacy text format
   Map<String, int> parseCheckinValues(
     String text,
     List<CheckinMetric> metrics,
   ) {
-    log('📝 Parsing checkin text: $text');
+    // 1. Try parsing As JSON (New Format)
+    try {
+      final jsonMap = jsonDecode(text);
+      if (jsonMap is Map) {
+        final values = <String, int>{};
+        jsonMap.forEach((key, value) {
+          if (value is int) {
+            values[key.toString()] = value;
+          } else if (value is String) {
+            values[key.toString()] = int.tryParse(value) ?? 0;
+          }
+        });
+        return values;
+      }
+    } catch (e) {
+      // Not valid JSON, continue to legacy parsing
+    }
+
+    // 2. Fallback to Legacy Text Parsing
+    log('📝 Parsing checkin text (Legacy): $text');
     log('📝 Available metrics: ${metrics.map((m) => '${m.key}:${m.label}').join(', ')}');
 
     final values = <String, int>{};

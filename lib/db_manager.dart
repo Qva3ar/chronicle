@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/instructions.model.dart';
@@ -14,7 +15,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 31;
+  static const int databaseVersion = 32;
   static const int pageSize = 20;
 }
 
@@ -240,7 +241,7 @@ class DatabaseHelper {
   /// Initialize database and verify all required tables
   Future<void> initializeDatabase() async {
     try {
-      final db = await database;
+      await database;
       print('Database initialized');
     } catch (e) {
       log('Error initializing database: $e');
@@ -785,6 +786,49 @@ class DatabaseHelper {
         ''');
 
         log('Upgraded database to v31: Added current_day_record_id column to goals table.');
+      }
+
+      if (oldVersion < 32) {
+        log('Starting migration to v32: Converting goal records to JSON...');
+        final records = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordType} = ?',
+          whereArgs: ['goal'],
+        );
+
+        int updatedCount = 0;
+        for (final record in records) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = record[DatabaseColumns.recordText] as String;
+
+            // Check if already JSON
+            if (text.trim().startsWith('{')) continue;
+
+            final goalIdMatch = RegExp(r'goal_id: (\d+)').firstMatch(text);
+            final timeMinutesMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+            final statusMatch = RegExp(r'status: (\w+)').firstMatch(text);
+
+            if (goalIdMatch != null || timeMinutesMatch != null || statusMatch != null) {
+              final Map<String, dynamic> jsonData = {
+                'goal_id': goalIdMatch != null ? int.tryParse(goalIdMatch.group(1)!) : null,
+                'time_minutes': timeMinutesMatch != null ? int.tryParse(timeMinutesMatch.group(1)!) : 0,
+                'status': statusMatch?.group(1) ?? 'active',
+              };
+
+              await db.update(
+                DatabaseTables.record,
+                {DatabaseColumns.recordText: jsonEncode(jsonData)},
+                where: '${DatabaseColumns.id} = ?',
+                whereArgs: [id],
+              );
+              updatedCount++;
+            }
+          } catch (e) {
+            log('Error migrating record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+        log('Upgraded database to v32: Converted $updatedCount goal records to JSON.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -2005,13 +2049,33 @@ class DatabaseHelper {
           final record = await getRecordById(recordId);
           if (record != null) {
             final text = record[DatabaseColumns.recordText] as String;
-            // Only update if status is still 'active' (not completed)
-            if (text.contains('status: active')) {
-              // Parse current time from record
-              final timeMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
-              final timeMinutes = timeMatch != null ? int.parse(timeMatch.group(1)!) : 0;
+            
+            bool isActive = false;
+            int timeMinutes = 0;
+            bool isJson = false;
+            Map<String, dynamic> jsonData = {};
 
-              final updatedText = '''
+            try {
+               jsonData = jsonDecode(text);
+               isJson = true;
+               isActive = jsonData['status'] == 'active';
+               timeMinutes = jsonData['time_minutes'] ?? 0;
+            } catch (e) {
+               // Text format
+               isActive = text.contains('status: active');
+               final timeMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+               timeMinutes = timeMatch != null ? int.parse(timeMatch.group(1)!) : 0;
+            }
+
+            // Only update if status is still 'active' (not completed)
+            if (isActive) {
+              String updatedText;
+              
+              if (isJson) {
+                jsonData['status'] = 'day_ended';
+                updatedText = jsonEncode(jsonData);
+              } else {
+                updatedText = '''
 🎯 Goal Work Session
 ⏱ Time spent: $timeMinutes min
 📊 Status: Day Ended
@@ -2021,6 +2085,7 @@ goal_id: ${goalData[DatabaseColumns.id]}
 time_minutes: $timeMinutes
 status: day_ended
 ''';
+              }
 
               await db.update(
                 DatabaseTables.record,

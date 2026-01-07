@@ -83,9 +83,9 @@ class _TagsManagerState extends State<TagsManager> {
   @override
   Widget build(BuildContext context) {
     final selectedTag = getSelectedTag();
-    final filteredTags = allTags.where((tag) => 
-      tag.name.toLowerCase().contains(_searchQuery.toLowerCase())
-    ).toList();
+    final filteredTags = allTags
+        .where((tag) => tag.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -152,7 +152,7 @@ class _TagsManagerState extends State<TagsManager> {
                         ),
                         selected: selectedChipIndex == id,
                         side: selectedChipIndex == id ? BorderSide(width: 2, color: white) : null,
-                        backgroundColor: Color(int.parse(tag.color!)),
+                        backgroundColor: Color(int.tryParse(tag.color ?? "") ?? 0xFFFFFFFF),
                         onSelected: (bool selected) {
                           setState(() {
                             if (selected) {
@@ -208,7 +208,7 @@ class _TagsManagerState extends State<TagsManager> {
                         width: 24,
                         height: 24,
                         decoration: BoxDecoration(
-                          color: Color(int.parse(selectedTag.color!)),
+                          color: Color(int.tryParse(selectedTag.color ?? "") ?? 0xFFFFFFFF),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),

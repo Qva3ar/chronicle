@@ -27,7 +27,8 @@ class RecordService {
 
     // Keep GPT recommendations with separate debouncing
     _textSubject.debounceTime(Duration(milliseconds: 1500)).listen((event) {
-      if (event.isNotEmpty && event.length > 10) { // Only get recommendations for substantial text
+      if (event.isNotEmpty && event.length > 10) {
+        // Only get recommendations for substantial text
         getRecomendations(event);
       }
     });
@@ -143,16 +144,18 @@ class RecordService {
       }
       return;
     }
-    
+
     // 🎯 CRITICAL FIX: Prevent processing the same text multiple times
     if (text == _lastProcessedText) {
-      print("⏭️ RecordService: Skipping duplicate text: '${text.substring(0, text.length > 20 ? 20 : text.length)}...'");
+      print(
+          "⏭️ RecordService: Skipping duplicate text: '${text.substring(0, text.length > 20 ? 20 : text.length)}...'");
       return;
     }
-    
+
     _lastProcessedText = text;
-    print("📝 RecordService: Processing text change: '${text.substring(0, text.length > 30 ? 30 : text.length)}...'");
-    
+    print(
+        "📝 RecordService: Processing text change: '${text.substring(0, text.length > 30 ? 30 : text.length)}...'");
+
     Map<String, dynamic> updatedRow = {
       DatabaseColumns.recordText: text,
     };
@@ -192,14 +195,14 @@ class RecordService {
       print("⏸️ RecordService: Already creating/updating record, skipping");
       return;
     }
-    
+
     _isCreatingRecord = true;
-    
+
     try {
       if (_currentRecordId != null) {
         // 📝 EDIT MODE: Update existing record
         print("✏️ RecordService: Updating existing record ID: $_currentRecordId");
-        
+
         bool recordExists = await dbHelper.recordExists(_currentRecordId!);
         if (recordExists) {
           updatedRow[DatabaseColumns.id] = _currentRecordId;
@@ -218,7 +221,7 @@ class RecordService {
         // 🆕 CREATE MODE: Create new record only if we don't have one yet
         if (updatedRow[DatabaseColumns.recordText] != null) {
           print("🆕 RecordService: Creating new record (current ID is null)");
-          
+
           updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
           final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
           if (newRecord != null) {
@@ -259,10 +262,12 @@ class RecordService {
                   selectedTags != null && selectedTags.contains(e[DatabaseColumns.id]) || false,
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
+                    color: Color(int.tryParse(e[DatabaseColumns.tagColor].toString()) ?? 0xFFFFFFFF)
+                        .withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])),
+                    color:
+                        Color(int.tryParse(e[DatabaseColumns.tagColor].toString()) ?? 0xFFFFFFFF),
                     borderRadius: BorderRadius.circular(10)),
               ),
             ))
@@ -278,10 +283,12 @@ class RecordService {
               label: e[DatabaseColumns.tagName],
               decorations: MultiSelectItemDecorations(
                 decoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])).withAlpha(150),
+                    color: Color(int.tryParse(e[DatabaseColumns.tagColor].toString()) ?? 0xFFFFFFFF)
+                        .withAlpha(150),
                     borderRadius: BorderRadius.circular(10)),
                 selectedDecoration: BoxDecoration(
-                    color: Color(int.parse(e[DatabaseColumns.tagColor])),
+                    color:
+                        Color(int.tryParse(e[DatabaseColumns.tagColor].toString()) ?? 0xFFFFFFFF),
                     borderRadius: BorderRadius.circular(10)),
               ),
             ))
