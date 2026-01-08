@@ -7,6 +7,7 @@ import 'add_goal_screen.dart';
 import '../services/timer_service.dart';
 import '../services/daily_reset_service.dart';
 import '../colors.dart';
+import 'goal_calendar_screen.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({Key? key}) : super(key: key);
@@ -16,7 +17,9 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
-  List<Goal> _goals = [];
+  List<Goal> _activeGoals = [];
+  List<Goal> _archivedGoals = [];
+  bool _showArchived = false;
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
   StreamSubscription? _resetSubscription;
@@ -28,7 +31,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     _loadGoals();
     // Listen to timer service updates to refresh goal progress
     TimerService.instance.addListener(_onTimerUpdate);
-    
+
     // 🎯 Listen for daily reset events to update UI
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) {
       print("🔄 GoalsScreen: Daily reset detected, reloading goals");
@@ -62,7 +65,8 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       final goals = await dbHelper.getAllGoals();
       if (mounted) {
         setState(() {
-          _goals = goals;
+          _activeGoals = goals.where((g) => !g.isArchived).toList();
+          _archivedGoals = goals.where((g) => g.isArchived).toList();
           _isLoading = false;
         });
       }
@@ -78,8 +82,8 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     }
   }
 
-
   Future<void> _toggleGoalSession(Goal goal) async {
+    if (goal.isArchived) return;
     final timerService = TimerService.instance;
 
     if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
@@ -88,6 +92,33 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       await timerService.startSession(goal);
     }
 
+    await _loadGoals();
+  }
+
+  Future<void> _openCalendar(Goal goal) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => GoalCalendarScreen(goal: goal)),
+    );
+  }
+
+  Future<void> _toggleArchived(Goal goal) async {
+    final timerService = TimerService.instance;
+    if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
+      await timerService.stopSession();
+    }
+
+    final updated = goal.isArchived
+        ? goal.copyWith(clearArchivedAt: true)
+        : goal.copyWith(
+            archivedAt: DateTime.now().millisecondsSinceEpoch,
+            isActive: false,
+            sessionResumedTimestampSeconds: null,
+            clearSessionResumedTimestamp: true,
+            clearCurrentDayRecordId: true,
+          );
+
+    await dbHelper.updateGoal(updated);
     await _loadGoals();
   }
 
@@ -102,7 +133,8 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
       if (mounted) {
         setState(() {
-          _goals.removeWhere((g) => g.id == goal.id);
+          _activeGoals.removeWhere((g) => g.id == goal.id);
+          _archivedGoals.removeWhere((g) => g.id == goal.id);
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -122,7 +154,6 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       }
     }
   }
-
 
   Future<void> _showAddGoalForm() async {
     final result = await Navigator.push(
@@ -152,6 +183,11 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final goalsToShow = <Goal>[
+      ..._activeGoals,
+      if (_showArchived) ..._archivedGoals,
+    ];
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
@@ -182,9 +218,25 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                     color: white,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add, color: white),
-                  onPressed: _showAddGoalForm,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _showArchived ? Icons.visibility : Icons.visibility_off,
+                        color: white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showArchived = !_showArchived;
+                        });
+                      },
+                      tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: white),
+                      onPressed: _showAddGoalForm,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -192,20 +244,45 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Expanded(
-                  child: _goals.isEmpty
+                  child: goalsToShow.isEmpty
                       ? _buildEmptyState()
-                      : ListView.builder(
+                      : ListView(
                           padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _goals.length,
-                          itemBuilder: (context, index) {
-                            final goal = _goals[index];
-                            return GoalCard(
-                              goal: goal,
-                              onTap: () => _toggleGoalSession(goal),
-                              onDelete: _deleteGoal,
-                              onEdit: _showEditGoalForm,
-                            );
-                          },
+                          children: [
+                            ..._activeGoals.map(
+                              (goal) => GoalCard(
+                                goal: goal,
+                                onTap: () => _toggleGoalSession(goal),
+                                onDelete: _deleteGoal,
+                                onEdit: _showEditGoalForm,
+                                onCalendar: () => _openCalendar(goal),
+                                onToggleArchived: () => _toggleArchived(goal),
+                              ),
+                            ),
+                            if (_showArchived && _archivedGoals.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                child: Text(
+                                  'Completed',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: MyColors.fivyColor,
+                                  ),
+                                ),
+                              ),
+                              ..._archivedGoals.map(
+                                (goal) => GoalCard(
+                                  goal: goal,
+                                  onTap: () => _toggleGoalSession(goal),
+                                  onDelete: _deleteGoal,
+                                  onEdit: _showEditGoalForm,
+                                  onCalendar: () => _openCalendar(goal),
+                                  onToggleArchived: () => _toggleArchived(goal),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                 ),
         ],

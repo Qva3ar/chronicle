@@ -15,7 +15,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 32;
+  static const int databaseVersion = 38;
   static const int pageSize = 20;
 }
 
@@ -83,6 +83,7 @@ class DatabaseColumns {
   static const String goalIsPrimary = 'is_primary';
   static const String goalCreatedFromOnboarding = 'created_from_onboarding';
   static const String goalCurrentDayRecordId = 'current_day_record_id';
+  static const String goalArchivedAt = 'archived_at';
 
   // AI interest signals columns
   static const String aiSource = 'source';
@@ -328,7 +329,8 @@ class DatabaseHelper {
           ${DatabaseColumns.goalCompletedAt} INTEGER,
           ${DatabaseColumns.goalIsPrimary} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0,
-          ${DatabaseColumns.goalCurrentDayRecordId} INTEGER
+          ${DatabaseColumns.goalCurrentDayRecordId} INTEGER,
+          ${DatabaseColumns.goalArchivedAt} INTEGER
         )
       ''');
 
@@ -830,6 +832,368 @@ class DatabaseHelper {
         }
         log('Upgraded database to v32: Converted $updatedCount goal records to JSON.');
       }
+
+      if (oldVersion < 33) {
+        log('Starting migration to v33: Converting legacy "Goal is completed" records...');
+        // Find records starting with "Goal is completed"
+        final records = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordText} LIKE ?',
+          whereArgs: ['Goal is completed%'],
+        );
+
+        int updatedCount = 0;
+        for (final record in records) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = record[DatabaseColumns.recordText] as String;
+
+            // Skip if already JSON
+            if (text.trim().startsWith('{')) continue;
+
+            // 1. Parse goal title from text
+            String goalTitle = '';
+            if (text.startsWith('Goal is completed: ')) {
+              goalTitle = text.substring('Goal is completed: '.length);
+            } else if (text.startsWith('Goal is completed:')) {
+              goalTitle = text.substring('Goal is completed:'.length);
+            }
+
+            if (goalTitle.isEmpty) continue;
+
+            // 2. Try to find the goal to get time info
+            int? goalId = record[DatabaseColumns.recordGoalId] as int?;
+            int totalMinutes = 0;
+
+            if (goalId != null) {
+              // If ID exists, find by ID
+              final goalMaps = await db.query(
+                DatabaseTables.goals,
+                where: '${DatabaseColumns.id} = ?',
+                whereArgs: [goalId],
+              );
+              if (goalMaps.isNotEmpty) {
+                final goal = Goal.fromMap(goalMaps.first);
+                totalMinutes = (goal.hours * 60) + goal.minutes;
+              }
+            } else {
+              // If no ID (legacy), find by title
+              final goalMaps = await db.query(
+                DatabaseTables.goals,
+                where: '${DatabaseColumns.goalTitle} = ?',
+                whereArgs: [goalTitle],
+              );
+              if (goalMaps.isNotEmpty) {
+                final goal = Goal.fromMap(goalMaps.first);
+                goalId = goal.id; // Found ID!
+                totalMinutes = (goal.hours * 60) + goal.minutes;
+              }
+            }
+
+            // 3. Create JSON structure
+            final Map<String, dynamic> jsonData = {
+              'goal_id': goalId, // Can be null if goal was deleted
+              'time_minutes': totalMinutes,
+              'status': 'completed',
+            };
+
+            // 4. Update record
+            await db.update(
+              DatabaseTables.record,
+              {
+                DatabaseColumns.recordText: jsonEncode(jsonData),
+                // If we found a goal ID that wasn't there, set it
+                if (goalId != null) DatabaseColumns.recordGoalId: goalId,
+                // Ensure record type is 'goal'
+                DatabaseColumns.recordType: 'goal',
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            updatedCount++;
+          } catch (e) {
+            log('Error migrating legacy completion record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+        log('Upgraded database to v33: Converted $updatedCount legacy completion records.');
+      }
+
+      if (oldVersion < 34) {
+        // Add archived_at column to goals table for manual completion/hide
+        final goalColumns =
+            await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasArchivedAt =
+            goalColumns.any((c) => c['name'] == DatabaseColumns.goalArchivedAt);
+        if (!hasArchivedAt) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalArchivedAt} INTEGER
+          ''');
+          log('Upgraded database to v34: Added archived_at column to goals table.');
+        }
+      }
+
+      if (oldVersion < 35) {
+        log('Starting migration to v35: Converting legacy "focuced work" records...');
+        // Note: The typo "focuced" is intentional to match legacy data
+        final records = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordText} LIKE ?',
+          whereArgs: ['Goal completed after % of focuced work!'],
+        );
+
+        int updatedCount = 0;
+        for (final record in records) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = record[DatabaseColumns.recordText] as String;
+
+            if (text.trim().startsWith('{')) continue;
+
+            final match = RegExp(r'Goal completed after (.*) of focuced work!').firstMatch(text);
+            if (match == null) continue;
+
+            final timeStr = match.group(1)!;
+            int totalMinutes = 0;
+
+            // Simple parsing of "1h 30m", "45m", etc.
+            final hoursMatch = RegExp(r'(\d+)h').firstMatch(timeStr);
+            final minutesMatch = RegExp(r'(\d+)m').firstMatch(timeStr);
+
+            if (hoursMatch != null) {
+              totalMinutes += int.parse(hoursMatch.group(1)!) * 60;
+            }
+            if (minutesMatch != null) {
+              totalMinutes += int.parse(minutesMatch.group(1)!);
+            }
+            
+            // Try to find goal_id
+            int? goalId = record[DatabaseColumns.recordGoalId] as int?;
+
+            // Prepare JSON
+            final Map<String, dynamic> jsonData = {
+              'goal_id': goalId,
+              'time_minutes': totalMinutes,
+              'status': 'completed',
+            };
+
+            await db.update(
+              DatabaseTables.record,
+              {
+                DatabaseColumns.recordText: jsonEncode(jsonData),
+                DatabaseColumns.recordType: 'goal',
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            updatedCount++;
+          } catch (e) {
+            log('Error migrating focuced work record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+        log('Upgraded database to v35: Converted $updatedCount legacy "focuced work" records.');
+      }
+
+      if (oldVersion < 36) {
+        log('Starting migration to v36: Retry converting legacy "focuced work" records...');
+        // Retry logic for v35 in case it was skipped
+        final records = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordText} LIKE ?',
+          whereArgs: ['Goal completed after % of focuced work!'],
+        );
+
+        int updatedCount = 0;
+        for (final record in records) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = record[DatabaseColumns.recordText] as String;
+
+            if (text.trim().startsWith('{')) continue;
+
+            final match = RegExp(r'Goal completed after (.*) of focuced work!').firstMatch(text);
+            if (match == null) continue;
+
+            final timeStr = match.group(1)!;
+            int totalMinutes = 0;
+
+            final hoursMatch = RegExp(r'(\d+)h').firstMatch(timeStr);
+            final minutesMatch = RegExp(r'(\d+)m').firstMatch(timeStr);
+
+            if (hoursMatch != null) {
+              totalMinutes += int.parse(hoursMatch.group(1)!) * 60;
+            }
+            if (minutesMatch != null) {
+              totalMinutes += int.parse(minutesMatch.group(1)!);
+            }
+            
+            int? goalId = record[DatabaseColumns.recordGoalId] as int?;
+
+            final Map<String, dynamic> jsonData = {
+              'goal_id': goalId,
+              'time_minutes': totalMinutes,
+              'status': 'completed',
+            };
+
+            await db.update(
+              DatabaseTables.record,
+              {
+                DatabaseColumns.recordText: jsonEncode(jsonData),
+                DatabaseColumns.recordType: 'goal',
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            updatedCount++;
+          } catch (e) {
+            log('Error migrating focuced work record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+        log('Upgraded database to v36: Converted $updatedCount legacy "focuced work" records.');
+      }
+
+      if (oldVersion < 37) {
+        log('Starting migration to v37: Converting legacy "focused work" records (fixed typo & time format)...');
+        
+        // 1. Handle "focuced" (typo) variant just in case
+        final recordsTypo = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordText} LIKE ?',
+          whereArgs: ['Goal completed after % of focuced work!'],
+        );
+        
+        // 2. Handle "focused" (correct) variant
+        final recordsCorrect = await db.query(
+          DatabaseTables.record,
+          where: '${DatabaseColumns.recordText} LIKE ?',
+          whereArgs: ['Goal completed after % of focused work!'],
+        );
+
+        final allRecords = [...recordsTypo, ...recordsCorrect];
+        // Remove duplicates if any (though unlikely given the queries)
+        final uniqueRecords = {for (var r in allRecords) r[DatabaseColumns.id]: r}.values.toList();
+
+        int updatedCount = 0;
+        for (final record in uniqueRecords) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = record[DatabaseColumns.recordText] as String;
+
+            if (text.trim().startsWith('{')) continue;
+
+            // Try matching both spellings
+            var match = RegExp(r'Goal completed after (.*) of focused work!').firstMatch(text);
+            if (match == null) {
+               match = RegExp(r'Goal completed after (.*) of focuced work!').firstMatch(text);
+            }
+            
+            if (match == null) continue;
+
+            final timeStr = match.group(1)!.trim();
+            int totalMinutes = 0;
+
+            // Check for HH:MM:SS format (e.g. 01:00:00)
+            if (timeStr.contains(':')) {
+              final parts = timeStr.split(':');
+              if (parts.length == 3) {
+                final h = int.tryParse(parts[0]) ?? 0;
+                final m = int.tryParse(parts[1]) ?? 0;
+                totalMinutes = (h * 60) + m;
+              } else if (parts.length == 2) {
+                // Assuming HH:MM
+                final h = int.tryParse(parts[0]) ?? 0;
+                final m = int.tryParse(parts[1]) ?? 0;
+                totalMinutes = (h * 60) + m;
+              }
+            } else {
+              // Legacy text format like "1h 30m"
+              final hoursMatch = RegExp(r'(\d+)h').firstMatch(timeStr);
+              final minutesMatch = RegExp(r'(\d+)m').firstMatch(timeStr);
+
+              if (hoursMatch != null) {
+                totalMinutes += int.parse(hoursMatch.group(1)!) * 60;
+              }
+              if (minutesMatch != null) {
+                totalMinutes += int.parse(minutesMatch.group(1)!);
+              }
+            }
+            
+            int? goalId = record[DatabaseColumns.recordGoalId] as int?;
+
+            final Map<String, dynamic> jsonData = {
+              'goal_id': goalId,
+              'time_minutes': totalMinutes,
+              'status': 'completed',
+            };
+
+            await db.update(
+              DatabaseTables.record,
+              {
+                DatabaseColumns.recordText: jsonEncode(jsonData),
+                DatabaseColumns.recordType: 'goal',
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            updatedCount++;
+          } catch (e) {
+            log('Error migrating focused work record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+        log('Upgraded database to v37: Converted $updatedCount legacy "focused work" records.');
+      }
+
+      if (oldVersion < 38) {
+        log('Starting migration to v38: Backfilling record.goal_id for JSON goal records...');
+
+        // Many legacy goal records were converted to JSON in v32 but still have record.goal_id = NULL.
+        // Goal calendar queries by record.goal_id, so we must backfill it from JSON.
+        final candidates = await db.query(
+          DatabaseTables.record,
+          where:
+              '(${DatabaseColumns.recordGoalId} IS NULL) AND (${DatabaseColumns.recordType} = ? OR ${DatabaseColumns.recordText} LIKE ?)',
+          whereArgs: ['goal', '%"goal_id"%'],
+        );
+
+        int updatedCount = 0;
+        for (final record in candidates) {
+          try {
+            final id = record[DatabaseColumns.id] as int;
+            final text = (record[DatabaseColumns.recordText] as String?) ?? '';
+
+            int? goalId;
+            if (text.trim().startsWith('{')) {
+              final decoded = jsonDecode(text);
+              if (decoded is Map<String, dynamic>) {
+                final rawGoalId = decoded['goal_id'];
+                if (rawGoalId is int) goalId = rawGoalId;
+                if (rawGoalId is num) goalId = rawGoalId.toInt();
+              }
+            } else {
+              // Fallback for any remaining legacy text formats
+              final match = RegExp(r'goal_id: (\\d+)').firstMatch(text);
+              if (match != null) goalId = int.tryParse(match.group(1)!);
+            }
+
+            if (goalId == null) continue;
+
+            await db.update(
+              DatabaseTables.record,
+              {
+                DatabaseColumns.recordGoalId: goalId,
+                DatabaseColumns.recordType: 'goal',
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            updatedCount++;
+          } catch (e) {
+            log('Error backfilling recordGoalId for record ${record[DatabaseColumns.id]}: $e');
+          }
+        }
+
+        log('Upgraded database to v38: Backfilled record.goal_id for $updatedCount records.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1235,6 +1599,22 @@ class DatabaseHelper {
       );
     } catch (e) {
       log('Error getting records by routine ID: $e');
+      rethrow;
+    }
+  }
+
+  /// Get records by goal ID
+  Future<List<Map<String, dynamic>>> getRecordsByGoalId(int goalId) async {
+    try {
+      final Database db = await instance.database;
+      return await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordGoalId} = ?',
+        whereArgs: [goalId],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+      );
+    } catch (e) {
+      log('Error getting records by goal ID: $e');
       rethrow;
     }
   }
@@ -2039,7 +2419,8 @@ class DatabaseHelper {
       // Find all goals with active records from yesterday
       final goalsWithRecords = await db.query(
         DatabaseTables.goals,
-        where: '${DatabaseColumns.goalCurrentDayRecordId} IS NOT NULL',
+        where:
+            '${DatabaseColumns.goalCurrentDayRecordId} IS NOT NULL AND ${DatabaseColumns.goalArchivedAt} IS NULL',
       );
 
       // Update each record to mark day as ended (not completed)
@@ -2109,6 +2490,7 @@ status: day_ended
           DatabaseColumns.goalCompletedAt: null,
           DatabaseColumns.goalCurrentDayRecordId: null,
         },
+        where: '${DatabaseColumns.goalArchivedAt} IS NULL',
       );
     } catch (e) {
       log('Error resetting goals status: $e');

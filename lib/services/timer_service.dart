@@ -379,6 +379,7 @@ class TimerService extends ChangeNotifier {
         // Cancel alarms for any goal that shouldn't have them
         if (!goal.isActive ||
             goal.completedAt != null ||
+            goal.archivedAt != null ||
             goal.timeSpentSeconds >= goal.totalSeconds) {
           try {
             await BackgroundTaskManager.cancelSessionCompletion(goal.id!);
@@ -605,9 +606,14 @@ class TimerService extends ChangeNotifier {
       await _updateGoalProgressRecord(activeGoal, finalTimeSpent);
     } else if (isGoalComplete) {
       // Fallback: create completion record if no progress record exists
+      final recordData = {
+        'goal_id': activeGoal.id,
+        'time_minutes': (finalTimeSpent / 60).round(),
+        'status': 'completed',
+      };
       final record = {
-        DatabaseColumns.recordText:
-            'Goal completed while app was in background after ${formatTime(finalTimeSpent)} of focused work!',
+        DatabaseColumns.recordTitle: activeGoal.title,
+        DatabaseColumns.recordText: jsonEncode(recordData),
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'goal',
         DatabaseColumns.recordGoalId: activeGoal.id,
@@ -662,7 +668,13 @@ class TimerService extends ChangeNotifier {
     }
 
     // Validate goal is not already completed
-    if (latestGoal.completedAt != null || latestGoal.timeSpentSeconds >= latestGoal.totalSeconds) {
+    if (latestGoal.archivedAt != null) {
+      print('⚠️ START SESSION: Goal "${latestGoal.title}" is archived');
+      return;
+    }
+
+    if (latestGoal.completedAt != null ||
+        latestGoal.timeSpentSeconds >= latestGoal.totalSeconds) {
       print('⚠️ START SESSION: Goal "${latestGoal.title}" is already completed');
       return;
     }
@@ -1054,8 +1066,14 @@ class TimerService extends ChangeNotifier {
       await _updateGoalProgressRecord(_activeGoal!, exactGoalTime);
     } else {
       // Fallback: create a completion record if no progress record exists
+      final recordData = {
+        'goal_id': _activeGoal!.id,
+        'time_minutes': (exactGoalTime / 60).round(),
+        'status': 'completed',
+      };
       final record = {
-        DatabaseColumns.recordText: 'Goal is completed: ${_activeGoal!.title}',
+        DatabaseColumns.recordTitle: _activeGoal!.title,
+        DatabaseColumns.recordText: jsonEncode(recordData),
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'goal',
         DatabaseColumns.recordGoalId: _activeGoal!.id

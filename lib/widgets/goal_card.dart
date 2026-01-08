@@ -3,11 +3,15 @@ import '../models/goal.model.dart';
 import '../services/timer_service.dart';
 import '../colors.dart';
 
+enum _GoalCardAction { calendar, toggleArchived }
+
 class GoalCard extends StatelessWidget {
   final Goal goal;
   final VoidCallback onTap;
   final Function(Goal)? onDelete;
   final Function(Goal)? onEdit;
+  final VoidCallback? onCalendar;
+  final VoidCallback? onToggleArchived;
 
   const GoalCard({
     Key? key,
@@ -15,6 +19,8 @@ class GoalCard extends StatelessWidget {
     required this.onTap,
     this.onDelete,
     this.onEdit,
+    this.onCalendar,
+    this.onToggleArchived,
   }) : super(key: key);
 
   // Calculate real-time progress including current session time
@@ -139,7 +145,7 @@ class GoalCard extends StatelessWidget {
   Widget _buildGoalCard(BuildContext context, TimerService timerService,
       bool isActiveGoal, bool isRunning, double realtimeProgress) {
     return GestureDetector(
-      onTap: goal.isCompleted ? null : onTap,
+      onTap: (goal.isArchived || goal.isCompleted) ? null : onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         height: 72,
@@ -161,11 +167,13 @@ class GoalCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    goal.isCompleted
-                        ? Icons.check
-                        : isRunning
-                            ? Icons.pause
-                            : Icons.play_arrow,
+                    goal.isArchived
+                        ? Icons.check_circle_outline
+                        : goal.isCompleted
+                            ? Icons.check
+                            : isRunning
+                                ? Icons.pause
+                                : Icons.play_arrow,
                     size: 24,
                     color: white,
                   ),
@@ -262,6 +270,61 @@ class GoalCard extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // Trailing actions (overflow menu)
+              if (onCalendar != null || onToggleArchived != null) ...[
+                const SizedBox(width: 8),
+                PopupMenuButton<_GoalCardAction>(
+                  tooltip: 'Actions',
+                  color: cardColor3,
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: MyColors.fivyColor,
+                    size: 20,
+                  ),
+                  itemBuilder: (context) => [
+                    if (onCalendar != null)
+                      const PopupMenuItem<_GoalCardAction>(
+                        value: _GoalCardAction.calendar,
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today, size: 18, color: MyColors.fivyColor),
+                            SizedBox(width: 10),
+                            Text('Calendar', style: TextStyle(color: white)),
+                          ],
+                        ),
+                      ),
+                    if (onToggleArchived != null)
+                      PopupMenuItem<_GoalCardAction>(
+                        value: _GoalCardAction.toggleArchived,
+                        child: Row(
+                          children: [
+                            Icon(
+                              goal.isArchived ? Icons.undo : Icons.check_circle_outline,
+                              size: 18,
+                              color: white,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              goal.isArchived ? 'Uncomplete' : 'Complete',
+                              style: const TextStyle(color: white),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onSelected: (action) {
+                    switch (action) {
+                      case _GoalCardAction.calendar:
+                        onCalendar?.call();
+                        break;
+                      case _GoalCardAction.toggleArchived:
+                        onToggleArchived?.call();
+                        break;
+                    }
+                  },
+                ),
+              ],
             ],
           ),
         ),

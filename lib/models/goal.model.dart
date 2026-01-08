@@ -11,6 +11,7 @@ class Goal {
   final int timeSpentSeconds; // Total time spent on this goal
   final int? sessionResumedTimestampSeconds; // Added field
   final int? completedAt; // Added field
+  final int? archivedAt; // Manual completion/hide (does NOT reset daily)
   final bool isPrimary;
   final bool createdFromOnboarding;
   final int? currentDayRecordId; // ID of the record created for today's work
@@ -25,6 +26,7 @@ class Goal {
     this.timeSpentSeconds = 0,
     this.sessionResumedTimestampSeconds, // Added to constructor
     this.completedAt, // Added to constructor
+    this.archivedAt,
     this.isPrimary = false,
     this.createdFromOnboarding = false,
     this.currentDayRecordId,
@@ -40,6 +42,8 @@ class Goal {
 
   // Check if goal is completed
   bool get isCompleted => timeSpentSeconds >= totalSeconds;
+
+  bool get isArchived => archivedAt != null;
 
   // Formatted time strings
   String get formattedGoalTime {
@@ -80,6 +84,7 @@ class Goal {
       sessionResumedTimestampSeconds:
           map[DatabaseColumns.goalSessionResumedTimestampSeconds],
       completedAt: map[DatabaseColumns.goalCompletedAt],
+      archivedAt: map[DatabaseColumns.goalArchivedAt],
       isPrimary: (map[DatabaseColumns.goalIsPrimary] ?? 0) == 1,
       createdFromOnboarding:
           (map[DatabaseColumns.goalCreatedFromOnboarding] ?? 0) == 1,
@@ -100,6 +105,7 @@ class Goal {
       DatabaseColumns.goalSessionResumedTimestampSeconds:
           sessionResumedTimestampSeconds,
       DatabaseColumns.goalCompletedAt: completedAt,
+      DatabaseColumns.goalArchivedAt: archivedAt,
       DatabaseColumns.goalIsPrimary: isPrimary ? 1 : 0,
       DatabaseColumns.goalCreatedFromOnboarding: createdFromOnboarding ? 1 : 0,
       DatabaseColumns.goalCurrentDayRecordId: currentDayRecordId,
@@ -117,6 +123,8 @@ class Goal {
     int? timeSpentSeconds,
     int? sessionResumedTimestampSeconds, // Added parameter
     int? completedAt, // Added parameter
+    int? archivedAt,
+    bool clearArchivedAt = false,
     bool clearSessionResumedTimestamp = false, // Added helper parameter
     bool? isPrimary,
     bool? createdFromOnboarding,
@@ -132,6 +140,7 @@ class Goal {
       isActive: isActive ?? this.isActive,
       timeSpentSeconds: timeSpentSeconds ?? this.timeSpentSeconds,
       completedAt: completedAt ?? this.completedAt,
+      archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
       // Logic for sessionResumedTimestampSeconds with clear option
       sessionResumedTimestampSeconds: clearSessionResumedTimestamp
           ? null

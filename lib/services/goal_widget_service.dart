@@ -118,9 +118,14 @@ Future<void> goalWidgetCallback(Uri? uri) async {
           // 4. If completed, create record and notify
           if (isComplete) {
             final recordService = RecordService();
+            final recordData = {
+              'goal_id': goal.id,
+              'time_minutes': (newTimeSpent / 60).round(),
+              'status': 'completed',
+            };
             final record = {
-              DatabaseColumns.recordTitle: 'Goal Completed: ${goal.title}',
-              DatabaseColumns.recordText: 'Goal completed via widget interaction!',
+              DatabaseColumns.recordTitle: goal.title,
+              DatabaseColumns.recordText: jsonEncode(recordData),
               DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
               DatabaseColumns.recordType: 'goal',
               DatabaseColumns.recordGoalId: goal.id,
@@ -224,8 +229,9 @@ class GoalWidgetService {
       // Fetch goals
       final goals = await _db.getAllGoals();
 
-      // Filter out completed goals and sort by primary status
-      final activeGoals = goals.where((g) => g.completedAt == null).toList();
+      // Filter out completed (today) and archived (manual) goals and sort by primary status
+      final activeGoals =
+          goals.where((g) => g.completedAt == null && g.archivedAt == null).toList();
       activeGoals.sort((a, b) {
         if (a.isPrimary && !b.isPrimary) return -1;
         if (!a.isPrimary && b.isPrimary) return 1;
