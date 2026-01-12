@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetBackgroundIntent
@@ -80,6 +81,8 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                     val timeSpent = goal.getString("timeSpent")
                     val goalTime = goal.getString("goalTime")
                     val isRunning = goal.getBoolean("isRunning")
+                    val timeSpentSeconds = goal.optInt("timeSpentSeconds", 0)
+                    val resumedAtSeconds = goal.optLong("sessionResumedTimestampSeconds", 0L)
 
                     val slotId = goalSlots[i]
                     val index = i + 1
@@ -95,19 +98,37 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                     // so when running we show a "Running" state plus the total so far.
                     val timeSpentTextId = getGoalChildId(index, "time_spent")
                     val totalTimeTextId = getGoalChildId(index, "total_time")
+                    val chronometerId = getGoalChildId(index, "chronometer")
 
                     if (isRunning) {
-                        views.setTextViewText(timeSpentTextId, "Running • $timeSpent")
-                        views.setTextColor(timeSpentTextId, android.graphics.Color.GREEN)
+                        // Live ticking time via Chronometer (no frequent widget updates required)
+                        val nowSeconds = System.currentTimeMillis() / 1000L
+                        val elapsedSeconds = if (resumedAtSeconds > 0L) {
+                            (nowSeconds - resumedAtSeconds).coerceAtLeast(0L)
+                        } else {
+                            0L
+                        }
+                        val totalSoFarSeconds = (timeSpentSeconds.toLong() + elapsedSeconds).coerceAtLeast(0L)
+                        val base = SystemClock.elapsedRealtime() - (totalSoFarSeconds * 1000L)
 
-                        // Hide goal total time while running (prevents stale "/ 00:00:00")
+                        views.setViewVisibility(chronometerId, android.view.View.VISIBLE)
+                        views.setChronometer(chronometerId, base, "Running • %s", true)
+                        views.setTextColor(chronometerId, android.graphics.Color.GREEN)
+
+                        // Hide static subtitle while running
+                        views.setViewVisibility(timeSpentTextId, android.view.View.GONE)
                         views.setViewVisibility(totalTimeTextId, android.view.View.GONE)
                         views.setTextViewText(totalTimeTextId, "")
                     } else {
+                        // Stop/hide chronometer
+                        views.setChronometer(chronometerId, SystemClock.elapsedRealtime(), null, false)
+                        views.setViewVisibility(chronometerId, android.view.View.GONE)
+
                         views.setTextViewText(timeSpentTextId, "Time spent: $timeSpent")
                         views.setTextColor(timeSpentTextId, android.graphics.Color.parseColor("#C3C5C9"))
 
                         // Show "/ goalTime" part when not running
+                        views.setViewVisibility(timeSpentTextId, android.view.View.VISIBLE)
                         views.setViewVisibility(totalTimeTextId, android.view.View.VISIBLE)
                         views.setTextViewText(totalTimeTextId, " / $goalTime")
                         views.setTextColor(totalTimeTextId, android.graphics.Color.parseColor("#C3C5C9"))
@@ -162,6 +183,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "progress" -> R.id.goal_progress_1
                 "time_spent" -> R.id.goal_time_spent_1
                 "total_time" -> R.id.goal_total_time_1
+                "chronometer" -> R.id.goal_chronometer_1
                 "percentage" -> R.id.goal_percentage_1
                 "play_button" -> R.id.goal_play_button_1
                 else -> 0
@@ -171,6 +193,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "progress" -> R.id.goal_progress_2
                 "time_spent" -> R.id.goal_time_spent_2
                 "total_time" -> R.id.goal_total_time_2
+                "chronometer" -> R.id.goal_chronometer_2
                 "percentage" -> R.id.goal_percentage_2
                 "play_button" -> R.id.goal_play_button_2
                 else -> 0
@@ -180,6 +203,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "progress" -> R.id.goal_progress_3
                 "time_spent" -> R.id.goal_time_spent_3
                 "total_time" -> R.id.goal_total_time_3
+                "chronometer" -> R.id.goal_chronometer_3
                 "percentage" -> R.id.goal_percentage_3
                 "play_button" -> R.id.goal_play_button_3
                 else -> 0
@@ -189,6 +213,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "progress" -> R.id.goal_progress_4
                 "time_spent" -> R.id.goal_time_spent_4
                 "total_time" -> R.id.goal_total_time_4
+                "chronometer" -> R.id.goal_chronometer_4
                 "percentage" -> R.id.goal_percentage_4
                 "play_button" -> R.id.goal_play_button_4
                 else -> 0

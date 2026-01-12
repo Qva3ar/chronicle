@@ -16,7 +16,8 @@ Future<void> routineWidgetCallback(Uri? uri) async {
   // Handle different widget actions
   if (uri.host == 'toggle_routine') {
     final routineId = uri.queryParameters['id'];
-    developer.log('[RoutineWidgetService] Toggle routine action triggered: $routineId', name: 'routine_widget');
+    developer.log('[RoutineWidgetService] Toggle routine action triggered: $routineId',
+        name: 'routine_widget');
 
     if (routineId != null) {
       try {
@@ -50,7 +51,8 @@ Future<void> routineWidgetCallback(Uri? uri) async {
           // 2. Mark done in notifications (cancels alarms)
           await notificationService.markRoutineDone(routine.id!);
 
-          developer.log('[RoutineWidgetService] Routine completed and note created', name: 'routine_widget');
+          developer.log('[RoutineWidgetService] Routine completed and note created',
+              name: 'routine_widget');
         } else {
           // 1. Reschedule notification if undone
           final nextOccurrence = routine.getNextOccurrence();
@@ -62,14 +64,16 @@ Future<void> routineWidgetCallback(Uri? uri) async {
             interval: routine.interval,
             calledFromBackgroundTask: true,
           );
-          developer.log('[RoutineWidgetService] Routine unchecked and rescheduled', name: 'routine_widget');
+          developer.log('[RoutineWidgetService] Routine unchecked and rescheduled',
+              name: 'routine_widget');
         }
 
         // Update widget
         final service = RoutineWidgetService(db);
         await service.updateWidget();
       } catch (e) {
-        developer.log('[RoutineWidgetService] Error toggling routine: $e', name: 'routine_widget', error: e);
+        developer.log('[RoutineWidgetService] Error toggling routine: $e',
+            name: 'routine_widget', error: e);
       }
     }
   } else if (uri.host == 'open_routines') {
@@ -96,7 +100,8 @@ class RoutineWidgetService {
   /// Initialize widget service and set up callbacks
   Future<void> initialize() async {
     try {
-      developer.log('[RoutineWidgetService] Initializing routine widget service', name: 'routine_widget');
+      developer.log('[RoutineWidgetService] Initializing routine widget service',
+          name: 'routine_widget');
 
       // Callback registration is now handled centrally in main.dart
       // via UnifiedWidgetHandler to support multiple widgets
@@ -105,9 +110,11 @@ class RoutineWidgetService {
       // Initial widget update
       await updateWidget();
 
-      developer.log('[RoutineWidgetService] Routine widget service initialized', name: 'routine_widget');
+      developer.log('[RoutineWidgetService] Routine widget service initialized',
+          name: 'routine_widget');
     } catch (e) {
-      developer.log('[RoutineWidgetService] Error initializing: $e', name: 'routine_widget', error: e);
+      developer.log('[RoutineWidgetService] Error initializing: $e',
+          name: 'routine_widget', error: e);
     }
   }
 
@@ -128,7 +135,13 @@ class RoutineWidgetService {
       }).toList();
 
       // Sort by time
+      // Sort by status (completed last) then by time
       todayRoutines.sort((a, b) {
+        // 1. Status check: completed items go to bottom
+        if (a.isDone && !b.isDone) return 1;
+        if (!a.isDone && b.isDone) return -1;
+
+        // 2. Time check
         final aMinutes = a.time.hour * 60 + a.time.minute;
         final bMinutes = b.time.hour * 60 + b.time.minute;
         return aMinutes.compareTo(bMinutes);
@@ -142,7 +155,8 @@ class RoutineWidgetService {
         return {
           'id': routine.id,
           'name': routine.name,
-          'time': '${routine.time.hour.toString().padLeft(2, '0')}:${routine.time.minute.toString().padLeft(2, '0')}',
+          'time':
+              '${routine.time.hour.toString().padLeft(2, '0')}:${routine.time.minute.toString().padLeft(2, '0')}',
           'isDone': routine.isDone,
           'streak': routine.streak,
           'showStreak': routine.showStreak,
@@ -161,9 +175,12 @@ class RoutineWidgetService {
         iOSName: _iosWidgetName,
       );
 
-      developer.log('[RoutineWidgetService] Routine widget updated with ${todayRoutines.length} routines', name: 'routine_widget');
+      developer.log(
+          '[RoutineWidgetService] Routine widget updated with ${todayRoutines.length} routines',
+          name: 'routine_widget');
     } catch (e) {
-      developer.log('[RoutineWidgetService] Error updating widget: $e', name: 'routine_widget', error: e);
+      developer.log('[RoutineWidgetService] Error updating widget: $e',
+          name: 'routine_widget', error: e);
     }
   }
 
@@ -183,17 +200,18 @@ class RoutineWidgetService {
 
       developer.log('[RoutineWidgetService] Routine widget cleared', name: 'routine_widget');
     } catch (e) {
-      developer.log('[RoutineWidgetService] Error clearing widget: $e', name: 'routine_widget', error: e);
+      developer.log('[RoutineWidgetService] Error clearing widget: $e',
+          name: 'routine_widget', error: e);
     }
   }
-
 
   /// Get the launch URI if the app was opened from widget
   static Future<Uri?> getWidgetLaunchUri() async {
     try {
       return await HomeWidget.initiallyLaunchedFromHomeWidget();
     } catch (e) {
-      developer.log('[RoutineWidgetService] Error getting launch URI: $e', name: 'routine_widget', error: e);
+      developer.log('[RoutineWidgetService] Error getting launch URI: $e',
+          name: 'routine_widget', error: e);
       return null;
     }
   }

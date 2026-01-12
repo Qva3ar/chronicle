@@ -6,6 +6,7 @@ import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/record.service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:chrono/services/goals_widget_updater.dart';
 
 /// Top-level callback for goal widget interactions
 /// MUST be top-level function for background execution
@@ -197,7 +198,6 @@ class GoalWidgetService {
   static const String _keyGoalsData = 'goals_data';
   static const String _keyGoalsCount = 'goals_count';
   static const String _keyActiveGoalId = 'active_goal_id';
-  static const String _keyAppName = 'app_name';
 
   final DatabaseHelper _db;
 
@@ -223,63 +223,8 @@ class GoalWidgetService {
 
   /// Update widget with latest goal data
   Future<void> updateWidget() async {
-    try {
-      developer.log('[GoalWidgetService] Updating goal widget', name: 'goal_widget');
-
-      // Fetch goals
-      final goals = await _db.getAllGoals();
-
-      // Filter out completed (today) and archived (manual) goals and sort by primary status
-      final activeGoals =
-          goals.where((g) => g.completedAt == null && g.archivedAt == null).toList();
-      activeGoals.sort((a, b) {
-        if (a.isPrimary && !b.isPrimary) return -1;
-        if (!a.isPrimary && b.isPrimary) return 1;
-        return 0;
-      });
-
-      // Find currently running goal (null if none)
-      Goal? runningGoal;
-      for (final g in activeGoals) {
-        if (g.isActive && g.sessionResumedTimestampSeconds != null) {
-          runningGoal = g;
-          break;
-        }
-      }
-
-      // Convert goals to JSON
-      final goalsData = activeGoals.take(5).map((goal) {
-        final progressPercent = (goal.progress * 100).toInt();
-        final isRunning = goal.isActive && goal.sessionResumedTimestampSeconds != null;
-        return {
-          'id': goal.id,
-          'title': goal.title,
-          'progress': progressPercent,
-          'timeSpent': goal.formattedTimeSpent,
-          'goalTime': goal.formattedGoalTime,
-          'isActive': goal.isActive,
-          // "Running" should mean actively running, not just having a timestamp.
-          'isRunning': isRunning,
-          'isPrimary': goal.isPrimary,
-        };
-      }).toList();
-
-      // Save widget data
-      await HomeWidget.saveWidgetData<String>(_keyGoalsData, jsonEncode(goalsData));
-      await HomeWidget.saveWidgetData<int>(_keyGoalsCount, activeGoals.length);
-      await HomeWidget.saveWidgetData<int>(_keyActiveGoalId, runningGoal?.id ?? 0);
-      await HomeWidget.saveWidgetData<String>(_keyAppName, 'Chrono');
-
-      // Trigger widget update on platform
-      await HomeWidget.updateWidget(
-        name: 'ChronoGoalsWidgetProvider',
-        iOSName: _iosWidgetName,
-      );
-
-      developer.log('[GoalWidgetService] Goal widget updated with ${activeGoals.length} goals', name: 'goal_widget');
-    } catch (e) {
-      developer.log('[GoalWidgetService] Error updating widget: $e', name: 'goal_widget', error: e);
-    }
+    // Delegate to updater to avoid circular imports with TimerService.
+    await GoalsWidgetUpdater(_db).update();
   }
 
   /// Clear all widget data

@@ -13,6 +13,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../record.service.dart';
 import '../main.dart';
 import '../screens/goals_screen.dart';
+import 'goals_widget_updater.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 
@@ -733,6 +734,7 @@ class TimerService extends ChangeNotifier {
     // Start UI update timer and show notification
     _startUpdateTimer();
     await _showRunningNotification();
+    await GoalsWidgetUpdater(_db).update();
     notifyListeners();
 
     print('✅ START SESSION: Session started successfully for "${latestGoal.title}"');
@@ -859,6 +861,7 @@ class TimerService extends ChangeNotifier {
     // Clean up UI and state
     await _hideNotification();
     _resetSessionState();
+    await GoalsWidgetUpdater(_db).update();
     notifyListeners();
 
     print('✅ STOP SESSION: Session stopped for "$goalTitle" - All progress preserved');

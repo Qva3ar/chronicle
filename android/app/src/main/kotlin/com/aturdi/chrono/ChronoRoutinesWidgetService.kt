@@ -37,9 +37,7 @@ class ChronoRoutinesRemoteViewsFactory(private val context: Context) : RemoteVie
             for (i in 0 until jsonArray.length()) {
                 val routine = jsonArray.getJSONObject(i)
                 val isDone = routine.optBoolean("isDone", false)
-                if (!isDone) {
-                    routinesList.add(routine)
-                }
+                routinesList.add(routine)
             }
         } catch (e: Exception) {
             routinesList.clear()

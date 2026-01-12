@@ -7,6 +7,7 @@ import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/screens/routine_calendar_screen.dart';
+import 'package:chrono/services/routine_widget_service.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
   const RoutineManagerScreen({super.key});
@@ -19,7 +20,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notifications = NotificationService();
   List<Routine> _routines = [];
-  
+
   // ignore: cancel_subscriptions
   StreamSubscription? _resetSubscription;
 
@@ -28,21 +29,21 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadRoutines();
-    
+
     // 🎯 Listen for daily reset events to update UI
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) {
       print("🔄 RoutineManagerScreen: Daily reset detected, reloading routines");
       _loadRoutines();
     });
   }
-  
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _resetSubscription?.cancel();
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -133,6 +134,16 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
       );
     }
     await _loadRoutines();
+    await _updateWidget();
+  }
+
+  Future<void> _updateWidget() async {
+    try {
+      final service = RoutineWidgetService(_db);
+      await service.updateWidget();
+    } catch (e) {
+      log('Error updating widget: $e');
+    }
   }
 
   Future<void> _showRoutineForm([Routine? routine]) async {
@@ -145,6 +156,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
 
     if (result == true) {
       await _loadRoutines();
+      await _updateWidget();
     }
   }
 
@@ -168,6 +180,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     // Delete the routine from database
     await _db.deleteRoutine(routine.id!);
     await _loadRoutines();
+    await _updateWidget();
   }
 
   @override
