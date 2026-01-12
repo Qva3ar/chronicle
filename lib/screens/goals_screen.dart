@@ -23,13 +23,23 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
   StreamSubscription? _resetSubscription;
+  int _loadRequestId = 0;
+
+  // Snapshot TimerService state to avoid reloading DB on every tick.
+  int? _lastTimerActiveGoalId;
+  bool? _lastTimerIsRunning;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadGoals();
-    // Listen to timer service updates to refresh goal progress
+    _loadGoals(showLoading: true);
+
+    // Prime snapshot before subscribing (avoids an extra reload on first tick).
+    _lastTimerActiveGoalId = TimerService.instance.activeGoal?.id;
+    _lastTimerIsRunning = TimerService.instance.isRunning;
+
+    // Listen to timer service updates
     TimerService.instance.addListener(_onTimerUpdate);
 
     // 🎯 Listen for daily reset events to update UI
@@ -56,14 +66,37 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   }
 
   void _onTimerUpdate() {
-    // Refresh goals when timer updates to show latest progress
-    _loadGoals();
+    // TimerService notifies every second; don't hit DB every tick.
+    //
+    // GoalCard already rebuilds from TimerService for real-time UI.
+    // We only reload goals when timer *state* changes (start/stop/switch goal),
+    // because DB fields like isActive / timeSpentSeconds may change at those moments.
+    final timerService = TimerService.instance;
+    final currentActiveGoalId = timerService.activeGoal?.id;
+    final currentIsRunning = timerService.isRunning;
+
+    final hasChanged = currentActiveGoalId != _lastTimerActiveGoalId ||
+        currentIsRunning != _lastTimerIsRunning;
+
+    _lastTimerActiveGoalId = currentActiveGoalId;
+    _lastTimerIsRunning = currentIsRunning;
+
+    if (hasChanged) {
+      _loadGoals();
+    }
   }
 
-  Future<void> _loadGoals() async {
+  Future<void> _loadGoals({bool showLoading = false}) async {
+    final requestId = ++_loadRequestId;
+    if (showLoading && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     try {
       final goals = await dbHelper.getAllGoals();
-      if (mounted) {
+      if (mounted && requestId == _loadRequestId) {
         setState(() {
           _activeGoals = goals.where((g) => !g.isArchived).toList();
           _archivedGoals = goals.where((g) => g.isArchived).toList();
@@ -71,7 +104,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestId == _loadRequestId) {
         setState(() {
           _isLoading = false;
         });
@@ -131,11 +164,10 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
       await dbHelper.deleteGoal(goal.id!);
 
+      // Reload to keep UI fully consistent with DB state.
+      await _loadGoals();
+
       if (mounted) {
-        setState(() {
-          _activeGoals.removeWhere((g) => g.id == goal.id);
-          _archivedGoals.removeWhere((g) => g.id == goal.id);
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Goal "${goal.title}" deleted successfully'),

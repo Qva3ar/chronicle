@@ -238,15 +238,19 @@ class GoalWidgetService {
         return 0;
       });
 
-      // Find currently running goal
-      final runningGoal = activeGoals.firstWhere(
-        (g) => g.isActive && g.sessionResumedTimestampSeconds != null,
-        orElse: () => activeGoals.isNotEmpty ? activeGoals.first : Goal(title: '', hours: 0, minutes: 0, sessionMinutes: 25),
-      );
+      // Find currently running goal (null if none)
+      Goal? runningGoal;
+      for (final g in activeGoals) {
+        if (g.isActive && g.sessionResumedTimestampSeconds != null) {
+          runningGoal = g;
+          break;
+        }
+      }
 
       // Convert goals to JSON
       final goalsData = activeGoals.take(5).map((goal) {
         final progressPercent = (goal.progress * 100).toInt();
+        final isRunning = goal.isActive && goal.sessionResumedTimestampSeconds != null;
         return {
           'id': goal.id,
           'title': goal.title,
@@ -254,7 +258,8 @@ class GoalWidgetService {
           'timeSpent': goal.formattedTimeSpent,
           'goalTime': goal.formattedGoalTime,
           'isActive': goal.isActive,
-          'isRunning': goal.sessionResumedTimestampSeconds != null,
+          // "Running" should mean actively running, not just having a timestamp.
+          'isRunning': isRunning,
           'isPrimary': goal.isPrimary,
         };
       }).toList();
@@ -262,7 +267,7 @@ class GoalWidgetService {
       // Save widget data
       await HomeWidget.saveWidgetData<String>(_keyGoalsData, jsonEncode(goalsData));
       await HomeWidget.saveWidgetData<int>(_keyGoalsCount, activeGoals.length);
-      await HomeWidget.saveWidgetData<int>(_keyActiveGoalId, runningGoal.id ?? 0);
+      await HomeWidget.saveWidgetData<int>(_keyActiveGoalId, runningGoal?.id ?? 0);
       await HomeWidget.saveWidgetData<String>(_keyAppName, 'Chrono');
 
       // Trigger widget update on platform

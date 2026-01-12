@@ -90,17 +90,28 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                     // Update goal info with unique IDs
                     views.setTextViewText(getGoalChildId(index, "title"), title)
                     
-                    // Update subtitle based on running state
-                    val subtitleText = if (isRunning) {
-                        "Running: $timeSpent"
+                    // Update subtitle based on running state.
+                    // NOTE: Widget data provides total time spent (not a live ticking timer),
+                    // so when running we show a "Running" state plus the total so far.
+                    val timeSpentTextId = getGoalChildId(index, "time_spent")
+                    val totalTimeTextId = getGoalChildId(index, "total_time")
+
+                    if (isRunning) {
+                        views.setTextViewText(timeSpentTextId, "Running • $timeSpent")
+                        views.setTextColor(timeSpentTextId, android.graphics.Color.GREEN)
+
+                        // Hide goal total time while running (prevents stale "/ 00:00:00")
+                        views.setViewVisibility(totalTimeTextId, android.view.View.GONE)
+                        views.setTextViewText(totalTimeTextId, "")
                     } else {
-                        "Time spent: $timeSpent / $goalTime"
+                        views.setTextViewText(timeSpentTextId, "Time spent: $timeSpent")
+                        views.setTextColor(timeSpentTextId, android.graphics.Color.parseColor("#C3C5C9"))
+
+                        // Show "/ goalTime" part when not running
+                        views.setViewVisibility(totalTimeTextId, android.view.View.VISIBLE)
+                        views.setTextViewText(totalTimeTextId, " / $goalTime")
+                        views.setTextColor(totalTimeTextId, android.graphics.Color.parseColor("#C3C5C9"))
                     }
-                    views.setTextViewText(getGoalChildId(index, "time_spent"), subtitleText)
-                    
-                    // Set subtitle color (Green if running, Grey if not)
-                    val subtitleColor = if (isRunning) android.graphics.Color.GREEN else android.graphics.Color.parseColor("#C3C5C9")
-                    views.setTextColor(getGoalChildId(index, "time_spent"), subtitleColor)
 
                     // Progress Bar
                     views.setProgressBar(getGoalChildId(index, "progress"), 100, progress, false)
@@ -150,6 +161,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "title" -> R.id.goal_title_1
                 "progress" -> R.id.goal_progress_1
                 "time_spent" -> R.id.goal_time_spent_1
+                "total_time" -> R.id.goal_total_time_1
                 "percentage" -> R.id.goal_percentage_1
                 "play_button" -> R.id.goal_play_button_1
                 else -> 0
@@ -158,6 +170,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "title" -> R.id.goal_title_2
                 "progress" -> R.id.goal_progress_2
                 "time_spent" -> R.id.goal_time_spent_2
+                "total_time" -> R.id.goal_total_time_2
                 "percentage" -> R.id.goal_percentage_2
                 "play_button" -> R.id.goal_play_button_2
                 else -> 0
@@ -166,6 +179,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "title" -> R.id.goal_title_3
                 "progress" -> R.id.goal_progress_3
                 "time_spent" -> R.id.goal_time_spent_3
+                "total_time" -> R.id.goal_total_time_3
                 "percentage" -> R.id.goal_percentage_3
                 "play_button" -> R.id.goal_play_button_3
                 else -> 0
@@ -174,6 +188,7 @@ class ChronoGoalsWidgetProvider : AppWidgetProvider() {
                 "title" -> R.id.goal_title_4
                 "progress" -> R.id.goal_progress_4
                 "time_spent" -> R.id.goal_time_spent_4
+                "total_time" -> R.id.goal_total_time_4
                 "percentage" -> R.id.goal_percentage_4
                 "play_button" -> R.id.goal_play_button_4
                 else -> 0
