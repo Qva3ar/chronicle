@@ -41,35 +41,54 @@ class FilterService {
   Future<FilterSettings> getFilterSettings() async {
     final showGoalRecords = await getShowGoalRecords();
     final showRoutineRecords = await getShowRoutineRecords();
+    final showCompletedTodos = await getShowCompletedTodos();
 
     return FilterSettings(
       showGoalRecords: showGoalRecords,
       showRoutineRecords: showRoutineRecords,
+      showCompletedTodos: showCompletedTodos,
     );
   }
 
   Future<void> saveFilterSettings(FilterSettings settings) async {
     await setShowGoalRecords(settings.showGoalRecords);
     await setShowRoutineRecords(settings.showRoutineRecords);
+    await setShowCompletedTodos(settings.showCompletedTodos);
+  }
+
+  static const String _showCompletedTodosKey = 'show_completed_todos';
+
+  Future<bool> getShowCompletedTodos() async {
+    await _initPrefs();
+    return _prefs!.getBool(_showCompletedTodosKey) ?? true;
+  }
+
+  Future<void> setShowCompletedTodos(bool value) async {
+    await _initPrefs();
+    await _prefs!.setBool(_showCompletedTodosKey, value);
   }
 }
 
 class FilterSettings {
   final bool showGoalRecords;
   final bool showRoutineRecords;
+  final bool showCompletedTodos;
 
   FilterSettings({
     required this.showGoalRecords,
     required this.showRoutineRecords,
+    required this.showCompletedTodos,
   });
 
   FilterSettings copyWith({
     bool? showGoalRecords,
     bool? showRoutineRecords,
+    bool? showCompletedTodos,
   }) {
     return FilterSettings(
       showGoalRecords: showGoalRecords ?? this.showGoalRecords,
       showRoutineRecords: showRoutineRecords ?? this.showRoutineRecords,
+      showCompletedTodos: showCompletedTodos ?? this.showCompletedTodos,
     );
   }
 }

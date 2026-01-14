@@ -6,6 +6,7 @@ import '../widgets/goal_card.dart';
 import 'add_goal_screen.dart';
 import '../services/timer_service.dart';
 import '../services/daily_reset_service.dart';
+import '../services/goal_service.dart'; // Added import
 import '../colors.dart';
 import 'goal_calendar_screen.dart';
 
@@ -22,6 +23,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   bool _showArchived = false;
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
+  late final GoalService _goalService; // Added GoalService
   StreamSubscription? _resetSubscription;
   int _loadRequestId = 0;
 
@@ -32,6 +34,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _goalService = GoalService(dbHelper); // Initialize GoalService
     WidgetsBinding.instance.addObserver(this);
     _loadGoals(showLoading: true);
 
@@ -75,8 +78,8 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     final currentActiveGoalId = timerService.activeGoal?.id;
     final currentIsRunning = timerService.isRunning;
 
-    final hasChanged = currentActiveGoalId != _lastTimerActiveGoalId ||
-        currentIsRunning != _lastTimerIsRunning;
+    final hasChanged =
+        currentActiveGoalId != _lastTimerActiveGoalId || currentIsRunning != _lastTimerIsRunning;
 
     _lastTimerActiveGoalId = currentActiveGoalId;
     _lastTimerIsRunning = currentIsRunning;
@@ -96,9 +99,32 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
     try {
       final goals = await dbHelper.getAllGoals();
+      // Load saved order
+      final savedOrder = await _goalService.getGoalOrder();
+
       if (mounted && requestId == _loadRequestId) {
         setState(() {
-          _activeGoals = goals.where((g) => !g.isArchived).toList();
+          final active = goals.where((g) => !g.isArchived).toList();
+
+          // Sort active goals based on saved order
+          if (savedOrder.isNotEmpty) {
+            final goalMap = {for (var g in active) g.id!: g};
+            final sortedActive = <Goal>[];
+
+            // Add goals matching the saved order
+            for (var id in savedOrder) {
+              if (goalMap.containsKey(id)) {
+                sortedActive.add(goalMap.remove(id)!);
+              }
+            }
+
+            // Append any remaining goals (newly created or lost IDs)
+            sortedActive.addAll(goalMap.values);
+            _activeGoals = sortedActive;
+          } else {
+            _activeGoals = active;
+          }
+
           _archivedGoals = goals.where((g) => g.isArchived).toList();
           _isLoading = false;
         });
@@ -213,13 +239,22 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final Goal item = _activeGoals.removeAt(oldIndex);
+      _activeGoals.insert(newIndex, item);
+    });
+
+    // Save the new order
+    final ids = _activeGoals.map((g) => g.id!).toList();
+    _goalService.saveGoalOrder(ids);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final goalsToShow = <Goal>[
-      ..._activeGoals,
-      if (_showArchived) ..._archivedGoals,
-    ];
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
@@ -276,13 +311,43 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Expanded(
-                  child: goalsToShow.isEmpty
+                  child: (_activeGoals.isEmpty && (!_showArchived || _archivedGoals.isEmpty))
                       ? _buildEmptyState()
-                      : ListView(
+                      : ReorderableListView(
                           padding: const EdgeInsets.symmetric(vertical: 8),
+                          onReorder: _onReorder,
+                          footer: (_showArchived && _archivedGoals.isNotEmpty)
+                              ? Column(
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                      child: Text(
+                                        'Completed',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: MyColors.fivyColor,
+                                        ),
+                                      ),
+                                    ),
+                                    ..._archivedGoals.map(
+                                      (goal) => GoalCard(
+                                        key: ValueKey(goal.id), // Key helps UI diffing
+                                        goal: goal,
+                                        onTap: () => _toggleGoalSession(goal),
+                                        onDelete: _deleteGoal,
+                                        onEdit: _showEditGoalForm,
+                                        onCalendar: () => _openCalendar(goal),
+                                        onToggleArchived: () => _toggleArchived(goal),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : null,
                           children: [
                             ..._activeGoals.map(
                               (goal) => GoalCard(
+                                key: ValueKey(goal.id),
                                 goal: goal,
                                 onTap: () => _toggleGoalSession(goal),
                                 onDelete: _deleteGoal,
@@ -291,29 +356,6 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                                 onToggleArchived: () => _toggleArchived(goal),
                               ),
                             ),
-                            if (_showArchived && _archivedGoals.isNotEmpty) ...[
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-                                child: Text(
-                                  'Completed',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: MyColors.fivyColor,
-                                  ),
-                                ),
-                              ),
-                              ..._archivedGoals.map(
-                                (goal) => GoalCard(
-                                  goal: goal,
-                                  onTap: () => _toggleGoalSession(goal),
-                                  onDelete: _deleteGoal,
-                                  onEdit: _showEditGoalForm,
-                                  onCalendar: () => _openCalendar(goal),
-                                  onToggleArchived: () => _toggleArchived(goal),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                 ),

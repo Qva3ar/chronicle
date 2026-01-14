@@ -1930,7 +1930,9 @@ class DatabaseHelper {
               recordData[DatabaseColumns.recordType] = note['record_type'];
               log('DEBUG: Importing record with type: ${note['record_type']}');
             } else {
-              log('DEBUG: No record_type found in note: ${note.keys.toList()}');
+              // Set default record type if not present
+              recordData[DatabaseColumns.recordType] = 'regular';
+              log('DEBUG: No record_type found in note, using default: regular');
             }
             if (note.containsKey('title')) {
               recordData[DatabaseColumns.recordTitle] = note['title'];

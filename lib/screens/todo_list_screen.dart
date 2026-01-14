@@ -4,6 +4,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/todo_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/screens/todo_edit_screen.dart';
+import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/colors.dart';
 
 class TodoListScreen extends StatefulWidget {
@@ -36,11 +37,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
   Future<void> _loadTodos() async {
     final activeTodos = await _todoService.getActiveTodos();
     final completedTodos = await _todoService.getCompletedTodos();
+    final showCompleted = await FilterService.instance.getShowCompletedTodos();
 
-    setState(() {
-      _activeTodos = activeTodos;
-      _completedTodos = completedTodos;
-    });
+    if (mounted) {
+      setState(() {
+        _activeTodos = activeTodos;
+        _completedTodos = completedTodos;
+        _showCompleted = showCompleted;
+      });
+    }
   }
 
   // Group active todos by time period
@@ -210,6 +215,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                         setState(() {
                           _showCompleted = !_showCompleted;
                         });
+                        FilterService.instance.setShowCompletedTodos(_showCompleted);
                       },
                       tooltip: _showCompleted ? 'Hide completed' : 'Show completed',
                     ),
@@ -289,9 +295,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         decoration: BoxDecoration(
           color: isHighlighted ? MyColors.primaryColor.withValues(alpha: 0.1) : cardColor2,
           borderRadius: BorderRadius.circular(10),
-          border: isHighlighted
-              ? Border.all(color: MyColors.primaryColor, width: 2)
-              : null,
+          border: isHighlighted ? Border.all(color: MyColors.primaryColor, width: 2) : null,
         ),
         child: ListTile(
           leading: Checkbox(
@@ -328,9 +332,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                       Text(
                         todo.description!,
                         style: TextStyle(
-                          color: todo.isDone
-                              ? MyColors.forthyColor
-                              : MyColors.fivyColor,
+                          color: todo.isDone ? MyColors.forthyColor : MyColors.fivyColor,
                           fontSize: 14,
                         ),
                         maxLines: 2,
@@ -344,21 +346,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
                           Icon(
                             Icons.access_time,
                             size: 14,
-                            color: todo.isOverdue
-                                ? Colors.red
-                                : MyColors.forthyColor,
+                            color: todo.isOverdue ? Colors.red : MyColors.forthyColor,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             todo.formattedTargetDate,
                             style: TextStyle(
-                              color: todo.isOverdue
-                                  ? Colors.red
-                                  : MyColors.forthyColor,
+                              color: todo.isOverdue ? Colors.red : MyColors.forthyColor,
                               fontSize: 12,
-                              fontWeight: todo.isOverdue
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                              fontWeight: todo.isOverdue ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ],

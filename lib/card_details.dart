@@ -62,22 +62,24 @@ class _CardDetailPageState extends State<CardDetailPage> {
     super.initState();
     print("🚀 CardDetailPage: Initializing with recordId: ${widget.recordId}");
 
-    recordService.clearTagIds();
     if (!_isListeningToStream) {
       _isListeningToStream = true;
       _isLocked = widget.isLocked;
 
-      // 🎯 CRITICAL: Set record ID first to establish edit vs create mode
+      // 🎯 CRITICAL: Set record ID and tags FIRST before any other operations
+      // This prevents race conditions where auto-save could trigger with empty tags
       recordService.setCurrentRecordId(widget.recordId);
       selectedTags = widget.recordsTag;
       recordService.setTagIds(selectedTags);
-      getTags();
-      getAllTags();
 
+      // Now safe to set text which might trigger debounced auto-save
       setState(() {
         _titleController.text = widget.title;
         _descriptionController.text = widget.text;
       });
+
+      getTags();
+      getAllTags();
 
       // 🎯 IMPORTANT: If we have initial text and no record ID, trigger initial save
       if (widget.recordId == null && widget.text.isNotEmpty) {
@@ -214,6 +216,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
   @override
   void dispose() {
     print("🧹 CardDetailPage: Disposing");
+    // Clear RecordService state for next usage (it's a singleton)
+    recordService.clearTagIds();
+    recordService.setCurrentRecordId(null);
     // Note: Save is handled by PopScope, no need to save here
     super.dispose();
   }

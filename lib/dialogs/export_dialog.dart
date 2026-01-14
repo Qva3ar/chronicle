@@ -13,13 +13,15 @@ class _ExportDialogState extends State<ExportDialog> {
   bool _includeNotes = true;
   bool _includeRoutines = true;
   bool _includeGoals = true;
+  bool _includeTodos = true;
+  bool _includeInstructions = true;
   bool _isExporting = false;
   bool _exportCompleted = false;
   String _statusMessage = "Select data to export";
   File? _exportedFile;
 
   Future<void> _exportData() async {
-    if (!_includeNotes && !_includeRoutines && !_includeGoals) {
+    if (!_includeNotes && !_includeRoutines && !_includeGoals && !_includeTodos && !_includeInstructions) {
       setState(() {
         _statusMessage = "Please select at least one data type to export.";
       });
@@ -37,6 +39,8 @@ class _ExportDialogState extends State<ExportDialog> {
         includeNotes: _includeNotes,
         includeRoutines: _includeRoutines,
         includeGoals: _includeGoals,
+        includeTodos: _includeTodos,
+        includeInstructions: _includeInstructions,
       );
 
       setState(() {
@@ -63,6 +67,8 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeNotes) dataTypes.add('notes');
       if (_includeRoutines) dataTypes.add('routines');
       if (_includeGoals) dataTypes.add('goals');
+      if (_includeTodos) dataTypes.add('todos');
+      if (_includeInstructions) dataTypes.add('instructions');
 
       final result = await Share.shareXFiles(
         [XFile(_exportedFile!.path)],
@@ -90,6 +96,8 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeNotes) dataTypes.add('notes');
       if (_includeRoutines) dataTypes.add('routines');
       if (_includeGoals) dataTypes.add('goals');
+      if (_includeTodos) dataTypes.add('todos');
+      if (_includeInstructions) dataTypes.add('instructions');
 
       final Email email = Email(
         body: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
@@ -162,6 +170,28 @@ class _ExportDialogState extends State<ExportDialog> {
               onChanged: (bool? value) {
                 setState(() {
                   _includeGoals = value ?? false;
+                });
+              },
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            CheckboxListTile(
+              title: Text('Todos'),
+              subtitle: Text('Your todo list and reminders'),
+              value: _includeTodos,
+              onChanged: (bool? value) {
+                setState(() {
+                  _includeTodos = value ?? false;
+                });
+              },
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            CheckboxListTile(
+              title: Text('Instructions'),
+              subtitle: Text('Your GPT instructions'),
+              value: _includeInstructions,
+              onChanged: (bool? value) {
+                setState(() {
+                  _includeInstructions = value ?? false;
                 });
               },
               controlAffinity: ListTileControlAffinity.leading,
