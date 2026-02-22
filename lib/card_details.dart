@@ -215,11 +215,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   @override
   void dispose() {
-    print("🧹 CardDetailPage: Disposing");
-    // Clear RecordService state for next usage (it's a singleton)
-    recordService.clearTagIds();
-    recordService.setCurrentRecordId(null);
-    // Note: Save is handled by PopScope, no need to save here
     super.dispose();
   }
 
@@ -364,16 +359,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) {
-          // Force save any pending changes before leaving
-          // 🎯 FIXED: Save even if empty to trigger deletion if needed
-          print("💾 CardDetailPage: Forcing save on pop");
-          recordService.handleText(_descriptionController.text);
-          // Give time for save to process (match debounce timing)
-          await Future.delayed(Duration(milliseconds: 600));
-        }
-      },
+      onPopInvokedWithResult: (didPop, result) {},
       child: Scaffold(
         backgroundColor: cardColor,
         appBar: getAppBar(),
