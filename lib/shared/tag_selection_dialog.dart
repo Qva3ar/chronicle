@@ -183,7 +183,7 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
                               side: isSelected
                                   ? BorderSide(width: 2, color: white)
                                   : null,
-                              backgroundColor: Color(int.parse(tag.color!)),
+                              backgroundColor: parseTagColor(tag.color),
                               onSelected: (bool selected) {
                                 toggleTag(tag.id);
                               },

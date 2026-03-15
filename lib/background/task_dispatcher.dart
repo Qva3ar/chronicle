@@ -8,7 +8,7 @@ import 'package:chrono/ai/context_builder.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler;
+import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:home_widget/home_widget.dart';
@@ -464,27 +464,43 @@ Future<void> _showRoutineNotification(
   try {
     final plugin = FlutterLocalNotificationsPlugin();
 
-    // Initialize notifications in background context
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(
+    final iosSettings = DarwinInitializationSettings(
+      notificationCategories: [
+        DarwinNotificationCategory(
+          'routine_category',
+          actions: [
+            DarwinNotificationAction.plain(
+              ROUTINE_DONE_ACTION_ID,
+              'Done ✓',
+            ),
+          ],
+        ),
+      ],
+    );
+    final initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
-    await plugin.initialize(initSettings);
+    await plugin.initialize(
+      initSettings,
+      onDidReceiveBackgroundNotificationResponse: backgroundNotificationActionHandler,
+    );
 
-    // Determine notification ID and content
-    final notificationId = currentRetry == 0
-        ? 1000 + routineId // Main notification ID
-        : 2000 + (routineId * 5) + currentRetry; // Retry notification ID
+    // Use the same notification ID for main and retries so that
+    // retries replace the previous notification instead of stacking.
+    // WorkManager may batch tasks with close delays, causing both to fire simultaneously.
+    final notificationId = 1000 + routineId;
 
-    final title = currentRetry == 0 ? 'Routine Reminder' : 'Reminder: $routineName';
+    final title = currentRetry == 0
+        ? 'Time for: $routineName'
+        : 'Reminder: $routineName';
 
     final body = currentRetry == 0
-        ? 'Time for: $routineName'
-        : 'It\'s time for your routine: $routineName (Retry ${currentRetry}/$numberOfRetries)';
+        ? 'Tap to mark as done'
+        : 'Reminder ${currentRetry}/$numberOfRetries';
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       'routine_channel',
       'Routine Notifications',
       channelDescription: 'Notifications for daily routines',
@@ -492,15 +508,22 @@ Future<void> _showRoutineNotification(
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      actions: [
+        AndroidNotificationAction(
+          ROUTINE_DONE_ACTION_ID,
+          'Done ✓',
+        ),
+      ],
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      categoryIdentifier: 'routine_category',
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );

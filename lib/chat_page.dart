@@ -442,7 +442,7 @@ class _ChatPageState extends State<ChatPage> {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Color(int.parse(tag.color!)),
+                                          color: parseTagColor(tag.color),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(

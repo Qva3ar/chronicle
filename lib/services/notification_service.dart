@@ -8,7 +8,9 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:permission_handler/permission_handler.dart';
 // Assuming these are your project's files
 import 'package:chrono/db_manager.dart';
-import 'package:chrono/services/routine_service.dart'; // Ensure this path is correct
+import 'package:chrono/services/routine_service.dart';
+import 'package:chrono/services/routine_widget_service.dart';
+import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/main.dart';
 import 'package:chrono/screens/goals_screen.dart';
@@ -16,6 +18,7 @@ import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:chrono/background/task_dispatcher.dart';
+import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:chrono/features/checkin/data/repositories/checkin_time_settings_repository.dart';
@@ -100,6 +103,17 @@ class NotificationService {
         requestAlertPermission: !calledFromBackgroundTask,
         requestBadgePermission: !calledFromBackgroundTask,
         requestSoundPermission: !calledFromBackgroundTask,
+        notificationCategories: [
+          DarwinNotificationCategory(
+            'routine_category',
+            actions: [
+              DarwinNotificationAction.plain(
+                ROUTINE_DONE_ACTION_ID,
+                'Done ✓',
+              ),
+            ],
+          ),
+        ],
       );
       final initSettings = InitializationSettings(
         android: androidSettings,
@@ -109,6 +123,7 @@ class NotificationService {
       await _notifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: _handleNotificationTap,
+        onDidReceiveBackgroundNotificationResponse: backgroundNotificationActionHandler,
       );
 
       if (Platform.isAndroid) {
@@ -152,6 +167,12 @@ class NotificationService {
 
   // Handle notification tap to navigate to appropriate screen
   void _handleNotificationTap(NotificationResponse response) {
+    if (response.actionId == ROUTINE_DONE_ACTION_ID && response.payload != null) {
+      debugPrint('✅ Routine Done action tapped in foreground: ${response.payload}');
+      _handleRoutineDoneForeground(response.payload!);
+      return;
+    }
+
     if (response.payload == null || response.payload!.isEmpty) {
       debugPrint('Notification tapped but no payload provided');
       return;
@@ -225,6 +246,51 @@ class NotificationService {
       }
     } catch (e, stackTrace) {
       debugPrint('❌ Error handling notification tap: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  Future<void> _handleRoutineDoneForeground(String payload) async {
+    try {
+      final parts = payload.split('_');
+      if (parts.length < 2 || parts[0] != 'routine') return;
+
+      final routineId = int.tryParse(parts[1]);
+      if (routineId == null) return;
+
+      debugPrint('✅ Marking routine $routineId as done from foreground notification');
+
+      final db = DatabaseHelper.instance;
+
+      final routinesData = await db.getAllRoutines();
+      final routines = routinesData.map((r) => Routine.fromMap(r)).toList();
+      final routine = routines.where((r) => r.id == routineId).firstOrNull;
+
+      if (routine == null || routine.isDone) return;
+
+      await db.toggleRoutineDone(routineId, true);
+
+      final record = {
+        DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'routine',
+        DatabaseColumns.recordRoutineId: routine.id,
+      };
+      await db.insertRecord(record, []);
+
+      await markRoutineDone(routineId);
+      await _notifications.cancel(1000 + routineId);
+
+      try {
+        final routineWidgetService = RoutineWidgetService(db);
+        await routineWidgetService.updateWidget();
+      } catch (e) {
+        debugPrint('⚠️ Failed to update widget after routine done: $e');
+      }
+
+      debugPrint('✅ Routine "${routine.name}" marked as done from notification');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error handling routine done action: $e');
       debugPrint('Stack trace: $stackTrace');
     }
   }
@@ -394,8 +460,8 @@ class NotificationService {
         // Schedule main notification
         await _notifications.zonedSchedule(
           _getMainNotificationId(routineId),
-          'Routine Reminder',
           'Time for: $routineName',
+          'Tap to mark as done',
           tzScheduledTime,
           const NotificationDetails(
             iOS: DarwinNotificationDetails(
@@ -403,6 +469,7 @@ class NotificationService {
               presentBadge: true,
               presentSound: true,
               interruptionLevel: InterruptionLevel.timeSensitive,
+              categoryIdentifier: 'routine_category',
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -420,7 +487,7 @@ class NotificationService {
               await _notifications.zonedSchedule(
                 _getRetryNotificationId(routineId, retry),
                 'Reminder: $routineName',
-                'It\'s time for your routine: $routineName (Retry $retry/$numberOfRetries)',
+                'Reminder $retry/$numberOfRetries',
                 retryTime,
                 const NotificationDetails(
                   iOS: DarwinNotificationDetails(
@@ -428,6 +495,7 @@ class NotificationService {
                     presentBadge: true,
                     presentSound: true,
                     interruptionLevel: InterruptionLevel.timeSensitive,
+                    categoryIdentifier: 'routine_category',
                   ),
                 ),
                 androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

@@ -87,7 +87,7 @@ class RecordListItem extends StatelessWidget {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                               decoration: BoxDecoration(
-                                color: Color(int.parse(tag.color ?? '0xFF808080')),
+                                color: parseTagColor(tag.color),
                               ),
                               child: Center(
                                 child: Text(

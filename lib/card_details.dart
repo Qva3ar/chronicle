@@ -15,6 +15,7 @@ import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
 import 'package:chrono/helpers/link_text_span_builder.dart';
 import 'package:extended_text_field/extended_text_field.dart';
 import 'package:chrono/screens/tag_form_screen.dart';
+import 'package:chrono/models/tag.dart';
 
 class CardDetailPage extends StatefulWidget {
   final String title;
@@ -44,7 +45,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
   MessageService messageServie = MessageService();
 
-  List<MultiSelectCard<dynamic>> allRecordTags = [];
+  List<Tag> allRecordTags = [];
   List<MultiSelectCard<dynamic>> allTags = [];
   List<MultiSelectCard<dynamic>> gptTags = [];
   List<int>? selectedTags = [];
@@ -139,8 +140,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   getTags() async {
-    final tags = await recordService.queryTags(selectedTags);
-    // allRows.forEach(print);
+    final tags = await recordService.queryAllTagsJust();
     allRecordTags = tags;
     setState(() {});
   }
@@ -157,14 +157,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   setTagIds() {
-    allRecordTags = allRecordTags.map((e) {
-      if (selectedTags != null && selectedTags!.contains(e.value)) {
-        e.selected = true;
-        return e;
-      } else {
-        return e;
-      }
-    }).toList();
     recordService.setTagIds(selectedTags);
   }
 
@@ -243,88 +235,142 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   showTagsModal() {
+    final tagSearchController = TextEditingController();
+    final modalSelected = Set<int>.from(selectedTags ?? []);
+
     showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (context) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Container(
-              width: MediaQuery.of(context).size.width,
-              child: Card(
-                color: MyColors.primaryColor,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with title and create button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              final query = tagSearchController.text.toLowerCase();
+              final filteredTags = query.isEmpty
+                  ? allRecordTags
+                  : allRecordTags
+                      .where((tag) => tag.name.toLowerCase().contains(query))
+                      .toList();
+
+              return Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  child: Card(
+                    color: MyColors.primaryColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "All tags",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "All tags",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add, color: Colors.white, size: 24),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  navigateToTagForm();
+                                },
+                                tooltip: 'Create new tag',
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.add, color: Colors.white, size: 24),
-                            onPressed: () {
-                              Navigator.pop(context); // Close the modal first
-                              navigateToTagForm();
-                            },
-                            tooltip: 'Create new tag',
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: filteredTags.isEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: Text(
+                                        'No tags found',
+                                        style: TextStyle(color: Colors.white38),
+                                      ),
+                                    ),
+                                  )
+                                : Wrap(
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
+                                    children: filteredTags.map((tag) {
+                                      final isSelected = modalSelected.contains(tag.id);
+                                      final tagColor = parseTagColor(tag.color);
+                                      return FilterChip(
+                                        label: Text(
+                                          tag.name,
+                                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                                        ),
+                                        selected: isSelected,
+                                        selectedColor: tagColor,
+                                        backgroundColor: tagColor.withAlpha(150),
+                                        checkmarkColor: Colors.white,
+                                        side: isSelected
+                                            ? BorderSide(color: Colors.white, width: 1.5)
+                                            : BorderSide.none,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        padding: const EdgeInsets.all(10),
+                                        onSelected: (selected) {
+                                          setModalState(() {
+                                            if (selected) {
+                                              modalSelected.add(tag.id);
+                                            } else {
+                                              modalSelected.remove(tag.id);
+                                            }
+                                          });
+                                          selectedTags = modalSelected.toList();
+                                          setTagIds();
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: TextField(
+                              controller: tagSearchController,
+                              autofocus: false,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Search tags...',
+                                hintStyle: TextStyle(color: Colors.white38),
+                                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                                suffixIcon: tagSearchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                                        onPressed: () {
+                                          tagSearchController.clear();
+                                          setModalState(() {});
+                                        },
+                                      )
+                                    : null,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                filled: true,
+                                fillColor: MyColors.secondaryColor,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              onChanged: (_) => setModalState(() {}),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: MultiSelectContainer(
-                            key: UniqueKey(),
-                            itemsPadding: EdgeInsets.all(10),
-                            prefix: MultiSelectPrefix(
-                                selectedPrefix: const Padding(
-                                  padding: EdgeInsets.only(right: 5),
-                                  child: Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                                disabledPrefix: const Padding(
-                                  padding: EdgeInsets.only(right: 5),
-                                  child: Icon(
-                                    Icons.do_disturb_alt_sharp,
-                                    size: 14,
-                                  ),
-                                )),
-                            items: allRecordTags,
-                            // itemsDecoration: MultiSelectDecorations(decoration: InputDecoration( contentPadding: 10)),
-                            textStyles: MultiSelectTextStyles(textStyle: TextStyle(fontSize: 16)),
-                            onChange: (allSelectedItems, selectedItem) {
-                              // var selected = selectedItem as MultiSelectCard;
-                              selectedTags = allSelectedItems
-                                  .whereType<int>() // Отфильтровать только целые числа
-                                  .toList();
-                              ;
-                              setTagIds();
-                              // setState(() {
-                              //   _animals.add(MultiSelectCard(value: 1, label: "1"));
-                              // });
-                              // //print(_animals.length);
-                            }),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         });
   }

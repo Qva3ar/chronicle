@@ -29,7 +29,6 @@ import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/widgets/insight_banner.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
-import 'package:chrono/features/checkin/presentation/screens/checkin_analytics_screen.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/services/widget_service.dart';
@@ -47,6 +46,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  PersistentBottomSheetController? _bottomSheetController;
+  String? _activeSheetId;
   RecordService recordService = new RecordService();
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 
@@ -68,6 +70,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription<Record>? _recordCreatedSubscription;
   FilterService filterService = FilterService.instance;
   FilterSettings? currentFilterSettings;
+  final TextEditingController _chronoQuickController = TextEditingController();
+  final FocusNode _chronoQuickFocusNode = FocusNode();
+  bool _isSubmittingChronoQuick = false;
 
   @override
   void initState() {
@@ -181,6 +186,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _recordCreatedSubscription?.cancel();
+    _chronoQuickController.dispose();
+    _chronoQuickFocusNode.dispose();
     super.dispose();
   }
 
@@ -413,13 +420,202 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  void _closePersistentBottomSheet() {
+    try {
+      _bottomSheetController?.close();
+    } catch (_) {}
+    _bottomSheetController = null;
+    _activeSheetId = null;
+  }
+
+  void _showPersistentSheet(WidgetBuilder builder, {required String id}) {
+    if (_activeSheetId == id) {
+      _closePersistentBottomSheet();
+      setState(() {});
+      return;
+    }
+
+    _closePersistentBottomSheet();
+
+    final controller = _scaffoldKey.currentState?.showBottomSheet(
+      builder,
+      backgroundColor: cardColor,
+    );
+    if (controller != null) {
+      setState(() {
+        _bottomSheetController = controller;
+        _activeSheetId = id;
+      });
+      controller.closed.then((_) {
+        if (_bottomSheetController == controller) {
+          setState(() {
+            _bottomSheetController = null;
+            _activeSheetId = null;
+          });
+          loadRecords(refresh: true);
+        }
+      });
+    }
+  }
+
+  Future<int?> _getChronoTagId() async {
+    try {
+      for (final t in allTags) {
+        if (t.name == 'Chrono') return t.id;
+      }
+
+      final rows = await dbHelper.queryAllRows();
+      for (final row in rows) {
+        if (row[DatabaseColumns.tagName] == 'Chrono') {
+          return row[DatabaseColumns.id] as int?;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _submitChronoQuickNote() async {
+    if (_isSubmittingChronoQuick) return;
+    final text = _chronoQuickController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _isSubmittingChronoQuick = true;
+    });
+
+    try {
+      final chronoId = await _getChronoTagId();
+      if (chronoId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Chrono tag not found. Please restart the app.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final row = <String, dynamic>{
+        DatabaseColumns.recordText: text,
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'regular',
+      };
+
+      await recordService.createRecord(row, [chronoId]);
+
+      _chronoQuickController.clear();
+      _chronoQuickFocusNode.unfocus();
+
+      if (!mounted) return;
+
+      await loadRecords(refresh: true);
+
+      if (selectedChipIndex != null && selectedChipIndex != chronoId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Chrono note added'),
+            action: SnackBarAction(
+              label: 'Show',
+              onPressed: () => onTagSelected(chronoId),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create Chrono note: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingChronoQuick = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildChronoQuickInputBar() {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        elevation: 6,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: MyColors.primaryColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Text(
+                  'Chrono',
+                  style: TextStyle(color: white, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _chronoQuickController,
+                  focusNode: _chronoQuickFocusNode,
+                  style: const TextStyle(color: white, fontSize: 14),
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitChronoQuickNote(),
+                  decoration: const InputDecoration(
+                    hintText: 'Quick chrono note…',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: _isSubmittingChronoQuick ? null : _submitChronoQuickNote,
+                icon: Icon(
+                  Icons.send_rounded,
+                  color: _isSubmittingChronoQuick ? Colors.white38 : MyColors.fivyColor,
+                ),
+                tooltip: 'Send',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
         child: Scaffold(
+      key: _scaffoldKey,
       resizeToAvoidBottomInset: false,
       backgroundColor: cardColor,
       drawer: const MyDrawal(),
+      floatingActionButtonAnimator: _NoFabAnimation(),
+      floatingActionButtonLocation: _CenterFloatAboveContent(
+        bottomMargin: 12,
+        keyboardHeight: MediaQuery.of(context).viewInsets.bottom,
+      ),
       appBar: AppBar(
         backgroundColor: MyColors.primaryColor,
         centerTitle: true,
@@ -449,32 +645,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               }),
         title: Text("CHRONO", style: TextStyle(color: Color.fromARGB(255, 190, 190, 190))),
       ),
-      floatingActionButton: Stack(
-        children: <Widget>[
-          Align(
-            alignment: Alignment.bottomRight,
-            child: FloatingActionButton(
-              backgroundColor: MyColors.secondaryColor,
-              heroTag: 'addButton',
-              //Floating action button on Scaffold
-              onPressed: () {
-                FocusManager.instance.primaryFocus?.unfocus();
-
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => CardDetailPage(
-                              title: "",
-                              text: "",
-                              recordId: null,
-                            ))).then((value) => loadRecords(refresh: true));
-
-                //code to execute on button press
-              },
-              child: Icon(Icons.add, color: MyColors.fivyColor), //icon inside button
-            ),
+      floatingActionButton: SizedBox(
+          width: MediaQuery.of(context).size.width - 24,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: FloatingActionButton(
+                  backgroundColor: MyColors.secondaryColor,
+                  heroTag: 'addButton',
+                  onPressed: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => CardDetailPage(
+                                  title: "",
+                                  text: "",
+                                  recordId: null,
+                                ))).then((value) => loadRecords(refresh: true));
+                  },
+                  child: Icon(Icons.add, color: MyColors.fivyColor),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildChronoQuickInputBar(),
+            ],
           ),
-        ],
       ),
       bottomNavigationBar: BottomAppBar(
         //bottom navigation bar on scaffold
@@ -492,20 +690,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const GoalsScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
+                    _showPersistentSheet((context) => const GoalsScreen(), id: 'goals');
                   },
                   icon: const Icon(
-                    // <-- Icon
                     Icons.flag,
                     color: Colors.white,
                     size: 24.0,
@@ -513,20 +700,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const RoutineManagerScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
+                    _showPersistentSheet((context) => const RoutineManagerScreen(), id: 'routines');
                   },
                   icon: const Icon(
-                    // <-- Icon
                     Icons.arrow_upward_rounded,
                     color: Colors.white,
                     size: 24.0,
@@ -534,20 +710,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => const TodoListScreen(),
-                    ).then((shouldRefresh) {
-                      if (shouldRefresh == true) {
-                        loadRecords(refresh: true);
-                      }
-                    });
+                    _showPersistentSheet((context) => const TodoListScreen(), id: 'todos');
                   },
                   icon: const Icon(
-                    // <-- Icon
                     Icons.checklist,
                     color: Colors.white,
                     size: 24.0,
@@ -555,17 +720,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CheckinAnalyticsScreen()),
-                    ).then((_) {
-                      loadRecords(refresh: true);
-                    });
+                    _showPersistentSheet(
+                      (context) => TagsManager(
+                        selectedTag: selectedChipIndex,
+                        onTagSelected: onTagSelected,
+                      ),
+                      id: 'tags',
+                    );
                   },
-                  tooltip: 'Analytics',
+                  tooltip: 'Tags',
                   icon: const Icon(
-                    Icons.insights,
+                    Icons.category,
                     color: Colors.white,
                     size: 24.0,
                   )),
@@ -595,179 +760,171 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          const InsightBanner(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: searchController,
-                    // focusNode: FocusNode(canRequestFocus: false),
-                    decoration: InputDecoration(
-                      labelText: 'Search',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 12),
-                          Icon(Icons.search, color: Colors.white70),
-                          Stack(
+          Column(
+            children: [
+              const InsightBanner(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: searchController,
+                        // focusNode: FocusNode(canRequestFocus: false),
+                        decoration: InputDecoration(
+                          labelText: 'Search',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.filter_list, color: Colors.white70),
-                                onPressed: () => _showFilterDialog(),
-                                tooltip: 'Filter records',
-                              ),
-                              if (currentFilterSettings != null &&
-                                  (!currentFilterSettings!.showGoalRecords ||
-                                      !currentFilterSettings!.showRoutineRecords))
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.orange,
-                                      shape: BoxShape.circle,
-                                    ),
+                              const SizedBox(width: 12),
+                              Icon(Icons.search, color: Colors.white70),
+                              Stack(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.filter_list, color: Colors.white70),
+                                    onPressed: () => _showFilterDialog(),
+                                    tooltip: 'Filter records',
                                   ),
-                                ),
+                                  if (currentFilterSettings != null &&
+                                      (!currentFilterSettings!.showGoalRecords ||
+                                          !currentFilterSettings!.showRoutineRecords))
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.orange,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                      suffixIcon: searchController.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  searchController.clear();
-                                });
-                              },
-                            ),
-                    ),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        height: 1.5,
-                        color: Colors.white),
-                    // onChanged: filterRecords,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-
-                    showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.transparent,
-                        isScrollControlled: true,
-                        builder: (context) {
-                          return TagsManager(
-                            selectedTag: selectedChipIndex,
-                            onTagSelected: onTagSelected,
-                          );
-                        });
-                  },
-                  tooltip: 'Tags',
-                  icon: const Icon(
-                    Icons.category,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Form(
-              key: formGlobalKey,
-              child: GroupedListView<Record, String>(
-                controller: _scrollController,
-                elements: allRecords,
-                padding: const EdgeInsets.only(bottom: 30),
-                groupBy: (record) {
-                  String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
-                  return groupDate;
-                },
-                groupSeparatorBuilder: (String dateString) {
-                  DateTime date = DateFormat('yyyy-MM-dd').parse(dateString);
-                  debugPrint(
-                      'Building group separator for date: ${DateFormat('dd MMM yyyy').format(date)}');
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child:
-                          //align Text by center
-                          Text(
-                        DateFormat('dd MMM yyyy').format(date),
+                          suffixIcon: searchController.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      searchController.clear();
+                                    });
+                                  },
+                                ),
+                        ),
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Colors.white),
+                        // onChanged: filterRecords,
                       ),
                     ),
-                  );
-                },
-                groupHeaderBuilder: (Record record) => SizedBox.shrink(),
-                itemBuilder: (context, item) {
-                  List<Tag> tags = getTagsForRecord(item);
-                  return RecordListItem(
-                    item: item,
-                    tags: tags,
-                    onTap: () {
-                      FocusManager.instance.primaryFocus?.unfocus();
-
-                      // Check if it's a checkin - open CheckinDialog instead of CardDetailPage
-                      if (item.recordType == RecordType.morningCheckin ||
-                          item.recordType == RecordType.eveningCheckin) {
-                        // Determine checkin type
-                        final checkinType = item.recordType == RecordType.morningCheckin
-                            ? CheckinType.morning
-                            : CheckinType.evening;
-
-                        // Open checkin dialog with existing record
-                        CheckinDialog.show(
-                          context,
-                          checkinType,
-                          existingRecord: item.toMap(),
-                        ).then((_) => loadRecords(refresh: true));
-                        return;
-                      }
-
-                      // For non-checkin records, open normal edit page
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CardDetailPage(
-                            title: item.title,
-                            text: item.text ?? '',
-                            recordId: item.id as int,
-                            recordsTag: item.tagIds,
-                            isLocked: item.isLocked,
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Form(
+                  key: formGlobalKey,
+                  child: GroupedListView<Record, String>(
+                    controller: _scrollController,
+                    elements: allRecords,
+                    padding: const EdgeInsets.only(bottom: 160),
+                    groupBy: (record) {
+                      String groupDate = DateFormat('yyyy-MM-dd').format(record.createdAtDate);
+                      return groupDate;
+                    },
+                    groupSeparatorBuilder: (String dateString) {
+                      DateTime date = DateFormat('yyyy-MM-dd').parse(dateString);
+                      debugPrint(
+                          'Building group separator for date: ${DateFormat('dd MMM yyyy').format(date)}');
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child:
+                              //align Text by center
+                              Text(
+                            DateFormat('dd MMM yyyy').format(date),
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
                           ),
                         ),
-                      ).then((value) => loadRecords(refresh: true));
+                      );
                     },
-                    onDelete: (id) {
-                      _showDeleteDialog(context, id);
-                    },
-                  );
-                },
+                    groupHeaderBuilder: (Record record) => SizedBox.shrink(),
+                    itemBuilder: (context, item) {
+                      List<Tag> tags = getTagsForRecord(item);
+                      return RecordListItem(
+                        item: item,
+                        tags: tags,
+                        onTap: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
 
-                itemComparator: (item1, item2) =>
-                    item1.createdAt.compareTo(item2.createdAt), // optional
-                useStickyGroupSeparators: true, // optional
-                floatingHeader: true, // optional
-                order: GroupedListOrder.DESC, // optional
-                reverse: true,
+                          // Check if it's a checkin - open CheckinDialog instead of CardDetailPage
+                          if (item.recordType == RecordType.morningCheckin ||
+                              item.recordType == RecordType.eveningCheckin) {
+                            // Determine checkin type
+                            final checkinType = item.recordType == RecordType.morningCheckin
+                                ? CheckinType.morning
+                                : CheckinType.evening;
+
+                            // Open checkin dialog with existing record
+                            CheckinDialog.show(
+                              context,
+                              checkinType,
+                              existingRecord: item.toMap(),
+                            ).then((_) => loadRecords(refresh: true));
+                            return;
+                          }
+
+                          // For non-checkin records, open normal edit page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CardDetailPage(
+                                title: item.title,
+                                text: item.text ?? '',
+                                recordId: item.id as int,
+                                recordsTag: item.tagIds,
+                                isLocked: item.isLocked,
+                              ),
+                            ),
+                          ).then((value) => loadRecords(refresh: true));
+                        },
+                        onDelete: (id) {
+                          _showDeleteDialog(context, id);
+                        },
+                      );
+                    },
+
+                    itemComparator: (item1, item2) =>
+                        item1.createdAt.compareTo(item2.createdAt), // optional
+                    useStickyGroupSeparators: true, // optional
+                    floatingHeader: true, // optional
+                    order: GroupedListOrder.DESC, // optional
+                    reverse: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_bottomSheetController != null)
+            GestureDetector(
+              onTap: () {
+                _closePersistentBottomSheet();
+                setState(() {});
+              },
+              child: Container(
+                color: Colors.black.withOpacity(0.4),
               ),
             ),
-          ),
         ],
       ),
     ));
@@ -889,5 +1046,52 @@ class _FilterDialogState extends State<FilterDialog> {
         ),
       ],
     );
+  }
+}
+
+class _CenterFloatAboveContent extends FloatingActionButtonLocation {
+  final double bottomMargin;
+  final double keyboardHeight;
+
+  const _CenterFloatAboveContent({
+    required this.bottomMargin,
+    this.keyboardHeight = 0,
+  });
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry geometry) {
+    final fabWidth = geometry.floatingActionButtonSize.width;
+    final fabHeight = geometry.floatingActionButtonSize.height;
+    final x = (geometry.scaffoldSize.width - fabWidth) / 2.0;
+
+    final normalY = geometry.contentBottom -
+        fabHeight -
+        geometry.bottomSheetSize.height -
+        bottomMargin;
+
+    if (keyboardHeight > 0) {
+      final aboveKeyboard =
+          geometry.scaffoldSize.height - keyboardHeight - fabHeight;
+      return Offset(x, aboveKeyboard < normalY ? aboveKeyboard : normalY);
+    }
+
+    return Offset(x, normalY);
+  }
+}
+
+class _NoFabAnimation extends FloatingActionButtonAnimator {
+  @override
+  Offset getOffset({required Offset begin, required Offset end, required double progress}) {
+    return end;
+  }
+
+  @override
+  Animation<double> getScaleAnimation({required Animation<double> parent}) {
+    return const AlwaysStoppedAnimation<double>(1.0);
+  }
+
+  @override
+  Animation<double> getRotationAnimation({required Animation<double> parent}) {
+    return const AlwaysStoppedAnimation<double>(0.0);
   }
 }

@@ -12,10 +12,14 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../record.service.dart';
 import '../main.dart';
+import '../models/routine.model.dart';
 import '../screens/goals_screen.dart';
+import 'notification_service.dart';
+import 'routine_widget_service.dart';
 import 'goals_widget_updater.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
+const String ROUTINE_DONE_ACTION_ID = 'ROUTINE_DONE_ACTION';
 
 // Helper functions for background notification actions
 @pragma('vm:entry-point')
@@ -218,8 +222,78 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
     } else {
       print('⚠️ BACKGROUND ACTION: Unknown payload for CONTINUE_ACTION_ID: ${response.payload}');
     }
+  } else if (response.actionId == ROUTINE_DONE_ACTION_ID && response.payload != null) {
+    await _handleBackgroundRoutineDone(response.payload!);
   } else {
     print('ℹ️ BACKGROUND ACTION: No actionId or payload not relevant.');
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> _handleBackgroundRoutineDone(String payload) async {
+  try {
+    final parts = payload.split('_');
+    if (parts.length < 2 || parts[0] != 'routine') {
+      print('❌ ROUTINE DONE ACTION: Invalid payload: $payload');
+      return;
+    }
+
+    final routineId = int.tryParse(parts[1]);
+    if (routineId == null) {
+      print('❌ ROUTINE DONE ACTION: Invalid routineId in payload: $payload');
+      return;
+    }
+
+    print('🔔 ROUTINE DONE ACTION: Processing for routine ID: $routineId');
+
+    final db = DatabaseHelper.instance;
+
+    final routinesData = await db.getAllRoutines();
+    final routines = routinesData.map((r) => Routine.fromMap(r)).toList();
+    final routine = routines.where((r) => r.id == routineId).firstOrNull;
+
+    if (routine == null) {
+      print('❌ ROUTINE DONE ACTION: Routine not found with ID: $routineId');
+      return;
+    }
+
+    if (routine.isDone) {
+      print('ℹ️ ROUTINE DONE ACTION: Routine already done, skipping');
+      return;
+    }
+
+    await db.toggleRoutineDone(routineId, true);
+
+    final record = {
+      DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+      DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+      DatabaseColumns.recordType: 'routine',
+      DatabaseColumns.recordRoutineId: routine.id,
+    };
+    await db.insertRecord(record, []);
+
+    final notificationService = NotificationService();
+    await notificationService.initialize(calledFromBackgroundTask: true);
+    await notificationService.markRoutineDone(routineId);
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    await plugin.initialize(initSettings);
+    await plugin.cancel(1000 + routineId);
+
+    try {
+      final routineWidgetService = RoutineWidgetService(db);
+      await routineWidgetService.updateWidget();
+    } catch (e) {
+      print('⚠️ ROUTINE DONE ACTION: Failed to update widget: $e');
+    }
+
+    print('✅ ROUTINE DONE ACTION: Routine "${routine.name}" marked as done');
+  } catch (e, stackTrace) {
+    print('❌ ROUTINE DONE ACTION: Error: $e');
+    print('Stack trace: $stackTrace');
   }
 }
 

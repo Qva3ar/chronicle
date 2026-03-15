@@ -150,6 +150,19 @@ class DatabaseHelper {
   /// Get the database instance, initializing it if necessary
   Future<Database> get database async => _database ??= await _initDatabase();
 
+  /// Close the current database connection (useful for tests and controlled resets).
+  Future<void> closeDatabase() async {
+    final db = _database;
+    _database = null;
+    if (db != null) {
+      try {
+        await db.close();
+      } catch (_) {
+        // Ignore close errors to avoid cascading failures during teardown.
+      }
+    }
+  }
+
   /// Initialize the database with backup verification
   Future<Database> _initDatabase() async {
     try {
@@ -190,6 +203,9 @@ class DatabaseHelper {
   /// Verify data integrity when opening database
   Future<void> _onOpen(Database db) async {
     log('🔓 Database opened successfully');
+    // Safety net: ensure system "Chrono" tag exists even if migrations were skipped
+    // or the tag was removed before it became a system tag.
+    await _insertChronoTag(db);
   }
 
   /// Verify data integrity and log recent records
@@ -814,7 +830,8 @@ class DatabaseHelper {
             if (goalIdMatch != null || timeMinutesMatch != null || statusMatch != null) {
               final Map<String, dynamic> jsonData = {
                 'goal_id': goalIdMatch != null ? int.tryParse(goalIdMatch.group(1)!) : null,
-                'time_minutes': timeMinutesMatch != null ? int.tryParse(timeMinutesMatch.group(1)!) : 0,
+                'time_minutes':
+                    timeMinutesMatch != null ? int.tryParse(timeMinutesMatch.group(1)!) : 0,
                 'status': statusMatch?.group(1) ?? 'active',
               };
 
@@ -920,10 +937,8 @@ class DatabaseHelper {
 
       if (oldVersion < 34) {
         // Add archived_at column to goals table for manual completion/hide
-        final goalColumns =
-            await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
-        final hasArchivedAt =
-            goalColumns.any((c) => c['name'] == DatabaseColumns.goalArchivedAt);
+        final goalColumns = await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasArchivedAt = goalColumns.any((c) => c['name'] == DatabaseColumns.goalArchivedAt);
         if (!hasArchivedAt) {
           await db.execute('''
             ALTER TABLE ${DatabaseTables.goals}
@@ -966,7 +981,7 @@ class DatabaseHelper {
             if (minutesMatch != null) {
               totalMinutes += int.parse(minutesMatch.group(1)!);
             }
-            
+
             // Try to find goal_id
             int? goalId = record[DatabaseColumns.recordGoalId] as int?;
 
@@ -1026,7 +1041,7 @@ class DatabaseHelper {
             if (minutesMatch != null) {
               totalMinutes += int.parse(minutesMatch.group(1)!);
             }
-            
+
             int? goalId = record[DatabaseColumns.recordGoalId] as int?;
 
             final Map<String, dynamic> jsonData = {
@@ -1054,14 +1069,14 @@ class DatabaseHelper {
 
       if (oldVersion < 37) {
         log('Starting migration to v37: Converting legacy "focused work" records (fixed typo & time format)...');
-        
+
         // 1. Handle "focuced" (typo) variant just in case
         final recordsTypo = await db.query(
           DatabaseTables.record,
           where: '${DatabaseColumns.recordText} LIKE ?',
           whereArgs: ['Goal completed after % of focuced work!'],
         );
-        
+
         // 2. Handle "focused" (correct) variant
         final recordsCorrect = await db.query(
           DatabaseTables.record,
@@ -1084,9 +1099,9 @@ class DatabaseHelper {
             // Try matching both spellings
             var match = RegExp(r'Goal completed after (.*) of focused work!').firstMatch(text);
             if (match == null) {
-               match = RegExp(r'Goal completed after (.*) of focuced work!').firstMatch(text);
+              match = RegExp(r'Goal completed after (.*) of focuced work!').firstMatch(text);
             }
-            
+
             if (match == null) continue;
 
             final timeStr = match.group(1)!.trim();
@@ -1117,7 +1132,7 @@ class DatabaseHelper {
                 totalMinutes += int.parse(minutesMatch.group(1)!);
               }
             }
-            
+
             int? goalId = record[DatabaseColumns.recordGoalId] as int?;
 
             final Map<String, dynamic> jsonData = {
@@ -1222,6 +1237,9 @@ class DatabaseHelper {
   /// Insert default "Chrono" system tag
   Future<void> _insertChronoTag(Database db) async {
     try {
+      // ARGB(255, 80, 77, 77) => 0xFF504D4D => 4283452749
+      const String chronoColor = '4283452749';
+
       // Check if Chrono tag already exists
       final existing = await db.query(
         DatabaseTables.category,
@@ -1234,11 +1252,29 @@ class DatabaseHelper {
           DatabaseTables.category,
           {
             DatabaseColumns.tagName: 'Chrono',
-            DatabaseColumns.tagColor: 'ffc77e', // Orange color for chronology
+            DatabaseColumns.tagColor: chronoColor,
             DatabaseColumns.tagIsSystem: 1, // Mark as system tag
           },
         );
         log('✅ Created default "Chrono" system tag');
+      } else {
+        // Ensure it's marked as system (in case it existed before the system-tag feature)
+        final row = existing.first;
+        final isSystem = (row[DatabaseColumns.tagIsSystem] ?? 0) == 1;
+        final existingColor = row[DatabaseColumns.tagColor]?.toString();
+        if (!isSystem || existingColor != chronoColor) {
+          final updates = <String, dynamic>{
+            DatabaseColumns.tagIsSystem: 1,
+            DatabaseColumns.tagColor: chronoColor,
+          };
+          await db.update(
+            DatabaseTables.category,
+            updates,
+            where: '${DatabaseColumns.tagName} = ?',
+            whereArgs: ['Chrono'],
+          );
+          log('✅ Updated existing "Chrono" tag (system/color)');
+        }
       }
     } catch (e) {
       log('❌ Error creating Chrono tag: $e');
@@ -1367,7 +1403,13 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryAllRows() async {
     try {
       final Database db = await instance.database;
-      return await db.query(DatabaseTables.category);
+      // Keep system "Chrono" tag first for consistent UX.
+      return await db.query(
+        DatabaseTables.category,
+        orderBy:
+            "CASE WHEN ${DatabaseColumns.tagName} = 'Chrono' THEN 0 ELSE 1 END, "
+            "LOWER(${DatabaseColumns.tagName}) ASC",
+      );
     } catch (e) {
       log('Error querying all rows: $e');
       rethrow;
@@ -1894,68 +1936,122 @@ class DatabaseHelper {
     try {
       final Database db = await instance.database;
       await db.transaction((txn) async {
+        // Delete in FK-safe order
+        await txn.delete(DatabaseTables.recordTag);
         await txn.delete(DatabaseTables.record);
         await txn.delete(DatabaseTables.category);
-        await txn.delete(DatabaseTables.recordTag);
 
         if (data['tags'] != null) {
           for (final tag in data['tags']) {
+            final tagMap = Map<String, dynamic>.from(tag as Map);
+            final dynamic rawId = tagMap[DatabaseColumns.id] ?? tagMap['id'];
+            final int? tagId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+
+            final String? name = (tagMap[DatabaseColumns.tagName] ?? tagMap['name'])?.toString();
+            final dynamic rawColor = tagMap[DatabaseColumns.tagColor] ?? tagMap['color'];
+            final String? color = rawColor?.toString();
+
+            final dynamic rawIsSystem = tagMap[DatabaseColumns.tagIsSystem] ?? tagMap['is_system'];
+            final int isSystem = (rawIsSystem is int)
+                ? rawIsSystem
+                : int.tryParse(rawIsSystem?.toString() ?? '') ?? 0;
+
             await txn.insert(
               DatabaseTables.category,
               {
-                DatabaseColumns.id: tag['id'],
-                DatabaseColumns.tagName: tag['name'],
-                DatabaseColumns.tagColor: tag['color'],
+                if (tagId != null) DatabaseColumns.id: tagId,
+                DatabaseColumns.tagName: name,
+                DatabaseColumns.tagColor: color,
+                DatabaseColumns.tagIsSystem: isSystem,
               },
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
           }
         }
 
+        // Ensure the default system tag exists and is marked as system after import.
+        final chronoExisting = await txn.query(
+          DatabaseTables.category,
+          where: '${DatabaseColumns.tagName} = ?',
+          whereArgs: const ['Chrono'],
+          limit: 1,
+        );
+        if (chronoExisting.isEmpty) {
+          await txn.insert(DatabaseTables.category, {
+            DatabaseColumns.tagName: 'Chrono',
+            DatabaseColumns.tagColor: '4283452749',
+            DatabaseColumns.tagIsSystem: 1,
+          });
+        } else {
+          await txn.update(
+            DatabaseTables.category,
+            {
+              DatabaseColumns.tagIsSystem: 1,
+              DatabaseColumns.tagColor: '4283452749',
+            },
+            where: '${DatabaseColumns.tagName} = ?',
+            whereArgs: const ['Chrono'],
+          );
+        }
+
         if (data['notes'] != null) {
           for (final note in data['notes']) {
+            final noteMap = Map<String, dynamic>.from(note as Map);
             // Use text field only (don't combine with title as per user request)
-            String noteText = note['text'] ?? '';
+            String noteText = noteMap[DatabaseColumns.recordText] ?? noteMap['text'] ?? '';
+            final dynamic rawNoteId = noteMap[DatabaseColumns.id] ?? noteMap['id'];
+            final int? noteId =
+                rawNoteId is int ? rawNoteId : int.tryParse(rawNoteId?.toString() ?? '');
 
             // Prepare the record data with all available fields
             Map<String, dynamic> recordData = {
-              DatabaseColumns.id: note['id'],
+              if (noteId != null) DatabaseColumns.id: noteId,
               DatabaseColumns.recordText: noteText,
-              DatabaseColumns.recordCreatedAt: _parseDateToTimestamp(note['created_at']),
-              DatabaseColumns.recordIsLocked: note['is_locked'] ?? 0,
+              DatabaseColumns.recordCreatedAt: _parseDateToTimestamp(
+                  noteMap[DatabaseColumns.recordCreatedAt] ?? noteMap['created_at']),
+              DatabaseColumns.recordIsLocked:
+                  noteMap[DatabaseColumns.recordIsLocked] ?? noteMap['is_locked'] ?? 0,
             };
 
             // Preserve additional fields if they exist
-            if (note.containsKey('record_type')) {
-              recordData[DatabaseColumns.recordType] = note['record_type'];
-              log('DEBUG: Importing record with type: ${note['record_type']}');
+            if (noteMap.containsKey(DatabaseColumns.recordType) ||
+                noteMap.containsKey('record_type')) {
+              recordData[DatabaseColumns.recordType] =
+                  noteMap[DatabaseColumns.recordType] ?? noteMap['record_type'];
+              log('DEBUG: Importing record with type: ${recordData[DatabaseColumns.recordType]}');
             } else {
               // Set default record type if not present
               recordData[DatabaseColumns.recordType] = 'regular';
               log('DEBUG: No record_type found in note, using default: regular');
             }
-            if (note.containsKey('title')) {
-              recordData[DatabaseColumns.recordTitle] = note['title'];
+            if (noteMap.containsKey(DatabaseColumns.recordTitle) || noteMap.containsKey('title')) {
+              recordData[DatabaseColumns.recordTitle] =
+                  noteMap[DatabaseColumns.recordTitle] ?? noteMap['title'];
             }
-            if (note.containsKey('routine_id')) {
-              recordData[DatabaseColumns.recordRoutineId] = note['routine_id'];
+            if (noteMap.containsKey(DatabaseColumns.recordRoutineId) ||
+                noteMap.containsKey('routine_id')) {
+              recordData[DatabaseColumns.recordRoutineId] =
+                  noteMap[DatabaseColumns.recordRoutineId] ?? noteMap['routine_id'];
             }
-            if (note.containsKey('goal_id')) {
-              recordData[DatabaseColumns.recordGoalId] = note['goal_id'];
+            if (noteMap.containsKey(DatabaseColumns.recordGoalId) ||
+                noteMap.containsKey('goal_id')) {
+              recordData[DatabaseColumns.recordGoalId] =
+                  noteMap[DatabaseColumns.recordGoalId] ?? noteMap['goal_id'];
             }
 
-            final int noteId = await txn.insert(
+            final int insertedNoteId = await txn.insert(
               DatabaseTables.record,
               recordData,
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
 
-            if (note['tags'] != null) {
-              for (final tagId in note['tags']) {
+            final noteTags = noteMap['tags'];
+            if (noteTags != null && noteTags is List) {
+              for (final tagId in noteTags) {
                 await txn.insert(
                   DatabaseTables.recordTag,
                   {
-                    'recordId': noteId,
+                    'recordId': insertedNoteId,
                     'tagId': tagId,
                   },
                   conflictAlgorithm: ConflictAlgorithm.ignore,
@@ -2432,28 +2528,28 @@ class DatabaseHelper {
           final record = await getRecordById(recordId);
           if (record != null) {
             final text = record[DatabaseColumns.recordText] as String;
-            
+
             bool isActive = false;
             int timeMinutes = 0;
             bool isJson = false;
             Map<String, dynamic> jsonData = {};
 
             try {
-               jsonData = jsonDecode(text);
-               isJson = true;
-               isActive = jsonData['status'] == 'active';
-               timeMinutes = jsonData['time_minutes'] ?? 0;
+              jsonData = jsonDecode(text);
+              isJson = true;
+              isActive = jsonData['status'] == 'active';
+              timeMinutes = jsonData['time_minutes'] ?? 0;
             } catch (e) {
-               // Text format
-               isActive = text.contains('status: active');
-               final timeMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
-               timeMinutes = timeMatch != null ? int.parse(timeMatch.group(1)!) : 0;
+              // Text format
+              isActive = text.contains('status: active');
+              final timeMatch = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+              timeMinutes = timeMatch != null ? int.parse(timeMatch.group(1)!) : 0;
             }
 
             // Only update if status is still 'active' (not completed)
             if (isActive) {
               String updatedText;
-              
+
               if (isJson) {
                 jsonData['status'] = 'day_ended';
                 updatedText = jsonEncode(jsonData);
@@ -2589,7 +2685,8 @@ status: day_ended
       final db = await database;
       final maps = await db.query(
         DatabaseTables.todos,
-        orderBy: '${DatabaseColumns.todoIsDone} ASC, ${DatabaseColumns.todoTargetDateTime} ASC, ${DatabaseColumns.todoCreatedAt} DESC',
+        orderBy:
+            '${DatabaseColumns.todoIsDone} ASC, ${DatabaseColumns.todoTargetDateTime} ASC, ${DatabaseColumns.todoCreatedAt} DESC',
       );
       return maps.map((map) => Todo.fromMap(map)).toList();
     } catch (e) {

@@ -14,6 +14,27 @@ class MyColors {
   static const drawalBackground = Color(0xff141414);
 }
 
+const Color defaultTagColor = Color(0xFF808080);
+
+/// Safely parses a tag color string that may be stored in various formats:
+/// - "0xFF808080" (full hex with prefix)
+/// - "A0A0A0" or "FFA0A0A0" (hex without prefix)
+/// - "4294967295" (decimal integer from Color.value)
+/// - null or empty (returns [defaultTagColor])
+Color parseTagColor(String? colorStr) {
+  if (colorStr == null || colorStr.isEmpty) return defaultTagColor;
+  if (colorStr.startsWith('0x') || colorStr.startsWith('0X')) {
+    return Color(int.parse(colorStr));
+  }
+  final asInt = int.tryParse(colorStr);
+  if (asInt != null) return Color(asInt);
+  final asHex = int.tryParse(colorStr, radix: 16);
+  if (asHex != null) {
+    return Color(colorStr.length <= 6 ? (0xFF000000 | asHex) : asHex);
+  }
+  return defaultTagColor;
+}
+
 const Color bgColor = Color(0xFF212227);
 const Color cardColor = Color(0xFF2D2E33);
 const Color cardColor2 = Color.fromARGB(255, 55, 56, 61);

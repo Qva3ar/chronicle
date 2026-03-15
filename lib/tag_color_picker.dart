@@ -62,7 +62,7 @@ class _ColorPickerWidgetState extends State<ColorPickerWidget> {
     if (widget.selected != null && widget.selected!.color != null) {
       // If a selected color is provided, set it initially
       final color = availableColors.where((color) {
-        return color.value == int.parse(widget.selected!.color ?? "0");
+        return color.value == parseTagColor(widget.selected!.color).value;
       }).toList();
       if (color.length > 0) {
         _currentIndex = availableColors.indexOf(color[0]);

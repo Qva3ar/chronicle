@@ -56,36 +56,18 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     final routines = await _db.getAllRoutines();
     final now = DateTime.now();
     final currentDayIndex = now.weekday - 1; // Convert to 0-based index (Monday = 0)
-    final currentTimeInMinutes = now.hour * 60 + now.minute;
 
-    // Filter to only show routines scheduled for today
     final routineList = routines
         .map((r) => Routine.fromMap(r))
         .where((routine) => routine.isActiveOnDay(currentDayIndex))
         .toList();
 
-    // Sort routines by proximity to current time
-    // Completed routines go to the end
     routineList.sort((a, b) {
-      // Put completed routines at the end
       if (a.isDone && !b.isDone) return 1;
       if (!a.isDone && b.isDone) return -1;
-
-      // For non-completed routines, sort by absolute time proximity to current time
-      if (!a.isDone && !b.isDone) {
-        final aTimeInMinutes = a.time.hour * 60 + a.time.minute;
-        final bTimeInMinutes = b.time.hour * 60 + b.time.minute;
-
-        final aProximity = (aTimeInMinutes - currentTimeInMinutes).abs();
-        final bProximity = (bTimeInMinutes - currentTimeInMinutes).abs();
-
-        return aProximity.compareTo(bProximity);
-      }
-
-      // For completed routines, sort by their scheduled time
-      final aTimeInMinutes = a.time.hour * 60 + a.time.minute;
-      final bTimeInMinutes = b.time.hour * 60 + b.time.minute;
-      return aTimeInMinutes.compareTo(bTimeInMinutes);
+      final aMinutes = a.time.hour * 60 + a.time.minute;
+      final bMinutes = b.time.hour * 60 + b.time.minute;
+      return aMinutes.compareTo(bMinutes);
     });
 
     setState(() {
