@@ -67,6 +67,18 @@ class FilterService {
     await _initPrefs();
     await _prefs!.setBool(_showCompletedTodosKey, value);
   }
+
+  static const String _showOtherDayRoutinesKey = 'show_other_day_routines';
+
+  Future<bool> getShowOtherDayRoutines() async {
+    await _initPrefs();
+    return _prefs!.getBool(_showOtherDayRoutinesKey) ?? false;
+  }
+
+  Future<void> setShowOtherDayRoutines(bool value) async {
+    await _initPrefs();
+    await _prefs!.setBool(_showOtherDayRoutinesKey, value);
+  }
 }
 
 class FilterSettings {

@@ -8,6 +8,8 @@ import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/screens/routine_calendar_screen.dart';
 import 'package:chrono/services/routine_widget_service.dart';
+import 'package:chrono/services/filter_service.dart';
+import 'package:chrono/widgets/reminder_timeline_widget.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
   const RoutineManagerScreen({super.key});
@@ -20,6 +22,8 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   final DatabaseHelper _db = DatabaseHelper.instance;
   final NotificationService _notifications = NotificationService();
   List<Routine> _routines = [];
+  List<Routine> _otherDayRoutines = [];
+  bool _showOtherDays = false;
 
   // ignore: cancel_subscriptions
   StreamSubscription? _resetSubscription;
@@ -28,13 +32,18 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadShowOtherDays();
     _loadRoutines();
 
-    // 🎯 Listen for daily reset events to update UI
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) {
       print("🔄 RoutineManagerScreen: Daily reset detected, reloading routines");
       _loadRoutines();
     });
+  }
+
+  Future<void> _loadShowOtherDays() async {
+    final value = await FilterService.instance.getShowOtherDayRoutines();
+    if (mounted) setState(() => _showOtherDays = value);
   }
 
   @override
@@ -55,23 +64,35 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   Future<void> _loadRoutines() async {
     final routines = await _db.getAllRoutines();
     final now = DateTime.now();
-    final currentDayIndex = now.weekday - 1; // Convert to 0-based index (Monday = 0)
+    final currentDayIndex = now.weekday - 1;
 
-    final routineList = routines
-        .map((r) => Routine.fromMap(r))
-        .where((routine) => routine.isActiveOnDay(currentDayIndex))
+    final allRoutines = routines.map((r) => Routine.fromMap(r)).toList();
+
+    final todayList = allRoutines
+        .where((r) => r.isActiveOnDay(currentDayIndex))
         .toList();
 
-    routineList.sort((a, b) {
+    final otherDayList = allRoutines
+        .where((r) => !r.isActiveOnDay(currentDayIndex))
+        .toList();
+
+    todayList.sort((a, b) {
       if (a.isDone && !b.isDone) return 1;
       if (!a.isDone && b.isDone) return -1;
-      final aMinutes = a.time.hour * 60 + a.time.minute;
-      final bMinutes = b.time.hour * 60 + b.time.minute;
-      return aMinutes.compareTo(bMinutes);
+      final aMin = a.time.hour * 60 + a.time.minute;
+      final bMin = b.time.hour * 60 + b.time.minute;
+      return aMin.compareTo(bMin);
+    });
+
+    otherDayList.sort((a, b) {
+      final aMin = a.time.hour * 60 + a.time.minute;
+      final bMin = b.time.hour * 60 + b.time.minute;
+      return aMin.compareTo(bMin);
     });
 
     setState(() {
-      _routines = routineList;
+      _routines = todayList;
+      _otherDayRoutines = otherDayList;
     });
   }
 
@@ -199,141 +220,202 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                     color: white,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add, color: white),
-                  onPressed: () => _showRoutineForm(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_otherDayRoutines.isNotEmpty)
+                      IconButton(
+                        icon: Icon(
+                          _showOtherDays ? Icons.visibility : Icons.visibility_off,
+                          color: _showOtherDays ? white : MyColors.forthyColor,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          setState(() => _showOtherDays = !_showOtherDays);
+                          FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
+                        },
+                        tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: white),
+                      onPressed: () => _showRoutineForm(),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           // List of routines
           Expanded(
-            child: _routines.isEmpty
+            child: _routines.isEmpty && (!_showOtherDays || _otherDayRoutines.isEmpty)
                 ? _buildEmptyState()
-                : ListView.builder(
-                    itemCount: _routines.length,
-                    itemBuilder: (context, index) {
-                      final routine = _routines[index];
-                      return Dismissible(
-                        key: Key(routine.id.toString()),
-                        direction: DismissDirection.horizontal,
-                        background: Container(
-                          color: MyColors.fivyColor,
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.only(left: 16),
-                          child: const Icon(Icons.edit, color: white),
-                        ),
-                        secondaryBackground: Container(
-                          color: MyColors.remove,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 16),
-                          child: const Icon(Icons.delete, color: white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          if (direction == DismissDirection.startToEnd) {
-                            // Swipe right - edit
-                            _showRoutineForm(routine);
-                            return false; // Don't dismiss
-                          } else {
-                            // Swipe left - delete
-                            return await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                backgroundColor: cardColor,
-                                title: const Text('Delete Routine', style: TextStyle(color: white)),
-                                content: Text(
-                                  'Are you sure you want to delete "${routine.name}"?',
-                                  style: const TextStyle(color: white),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel',
-                                        style: TextStyle(color: MyColors.fivyColor)),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Delete',
-                                        style: TextStyle(color: MyColors.remove)),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
-                        onDismissed: (direction) {
-                          if (direction == DismissDirection.endToStart) {
-                            _deleteRoutine(routine);
-                          }
-                        },
-                        child: ListTile(
-                          onTap: () => _toggleRoutineDone(routine),
-                          leading: Checkbox(
-                            value: routine.isDone,
-                            onChanged: (_) => _toggleRoutineDone(routine),
-                            checkColor: MyColors.secondaryColor,
-                            fillColor: WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return MyColors.fivyColor;
-                              }
-                              return MyColors.forthyColor;
-                            }),
-                          ),
-                          title: Text(
-                            routine.name,
-                            style: TextStyle(
-                              color: routine.isDone ? MyColors.forthyColor : white,
-                              decoration: routine.isDone ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${routine.time.format(context)} - ${_formatDaysOfWeek(routine.daysOfWeek)}',
-                            style: TextStyle(
-                              color: routine.isDone ? MyColors.trecondaryColor : MyColors.fivyColor,
-                            ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                : ListView(
+                    children: [
+                      ..._routines.map((r) => _buildRoutineTile(r, isOtherDay: false)),
+                      if (_showOtherDays && _otherDayRoutines.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Row(
                             children: [
-                              if (routine.showStreak && routine.streak > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: MyColors.fivyColor.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text('🔥', style: TextStyle(fontSize: 16)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${routine.streak}',
-                                          style: const TextStyle(
-                                            color: MyColors.fivyColor,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                              Icon(Icons.calendar_month,
+                                  size: 14,
+                                  color: MyColors.forthyColor.withValues(alpha: 0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Other days',
+                                style: TextStyle(
+                                  color: MyColors.forthyColor.withValues(alpha: 0.7),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              IconButton(
-                                icon: const Icon(Icons.calendar_today, color: MyColors.fivyColor),
-                                onPressed: () => _showCalendarHistory(routine),
-                                tooltip: 'View completion history',
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Divider(
+                                  color: MyColors.forthyColor.withValues(alpha: 0.2),
+                                  height: 1,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
+                        ..._otherDayRoutines.map((r) => _buildRoutineTile(r, isOtherDay: true)),
+                      ],
+                    ],
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRoutineTile(Routine routine, {required bool isOtherDay}) {
+    return Dismissible(
+      key: Key('${routine.id}_${isOtherDay ? 'other' : 'today'}'),
+      direction: DismissDirection.horizontal,
+      background: Container(
+        color: MyColors.fivyColor,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.edit, color: white),
+      ),
+      secondaryBackground: Container(
+        color: MyColors.remove,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: white),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          _showRoutineForm(routine);
+          return false;
+        } else {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: cardColor,
+              title: const Text('Delete Routine', style: TextStyle(color: white)),
+              content: Text(
+                'Are you sure you want to delete "${routine.name}"?',
+                style: const TextStyle(color: white),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel',
+                      style: TextStyle(color: MyColors.fivyColor)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Delete',
+                      style: TextStyle(color: MyColors.remove)),
+                ),
+              ],
+            ),
+          );
+        }
+      },
+      onDismissed: (direction) {
+        if (direction == DismissDirection.endToStart) {
+          _deleteRoutine(routine);
+        }
+      },
+      child: Opacity(
+        opacity: isOtherDay ? 0.5 : 1.0,
+        child: ListTile(
+          onTap: isOtherDay ? () => _showRoutineForm(routine) : () => _toggleRoutineDone(routine),
+          leading: isOtherDay
+              ? const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(Icons.calendar_today, color: MyColors.forthyColor, size: 20),
+                )
+              : Checkbox(
+                  value: routine.isDone,
+                  onChanged: (_) => _toggleRoutineDone(routine),
+                  checkColor: MyColors.secondaryColor,
+                  fillColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return MyColors.fivyColor;
+                    }
+                    return MyColors.forthyColor;
+                  }),
+                ),
+          title: Text(
+            routine.name,
+            style: TextStyle(
+              color: isOtherDay
+                  ? MyColors.forthyColor
+                  : routine.isDone
+                      ? MyColors.forthyColor
+                      : white,
+              decoration: routine.isDone && !isOtherDay ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          subtitle: Text(
+            isOtherDay
+                ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
+                : '${routine.time.format(context)} - ${_formatDaysOfWeek(routine.daysOfWeek)}',
+            style: TextStyle(
+              color: isOtherDay ? MyColors.trecondaryColor : (routine.isDone ? MyColors.trecondaryColor : MyColors.fivyColor),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isOtherDay && routine.showStreak && routine.streak > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: MyColors.fivyColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🔥', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${routine.streak}',
+                          style: const TextStyle(
+                            color: MyColors.fivyColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              IconButton(
+                icon: const Icon(Icons.calendar_today, color: MyColors.fivyColor),
+                onPressed: () => _showCalendarHistory(routine),
+                tooltip: 'View completion history',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -414,6 +496,8 @@ class RoutineFormScreen extends StatefulWidget {
 class _RoutineFormScreenState extends State<RoutineFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  late final TextEditingController _periodController;
+  late final TextEditingController _intervalController;
   TimeOfDay _time = TimeOfDay.now();
   final List<bool> _daysOfWeek = List.filled(7, false);
   int _periodAfter = 30;
@@ -431,11 +515,15 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       _interval = widget.routine!.interval;
       _showStreak = widget.routine!.showStreak;
     }
+    _periodController = TextEditingController(text: _periodAfter.toString());
+    _intervalController = TextEditingController(text: _interval.toString());
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _periodController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
@@ -560,32 +648,56 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
               children: [
                 Expanded(
                   child: TextFormField(
-                    initialValue: _periodAfter.toString(),
+                    controller: _periodController,
                     decoration: const InputDecoration(
-                      labelText: 'Period After (minutes)',
+                      labelText: 'Period (min)',
                       border: OutlineInputBorder(),
+                      suffixText: 'min',
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
-                      _periodAfter = int.tryParse(value) ?? 30;
+                      setState(() {
+                        _periodAfter = int.tryParse(value) ?? 30;
+                      });
                     },
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
-                    initialValue: _interval.toString(),
+                    controller: _intervalController,
                     decoration: const InputDecoration(
-                      labelText: 'Interval (minutes)',
+                      labelText: 'Interval (min)',
                       border: OutlineInputBorder(),
+                      suffixText: 'min',
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
-                      _interval = int.tryParse(value) ?? 10;
+                      setState(() {
+                        _interval = int.tryParse(value) ?? 10;
+                      });
                     },
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            ReminderTimelineWidget(
+              scheduledTime: _time,
+              periodAfter: _periodAfter,
+              interval: _interval,
+              onPeriodAfterChanged: (value) {
+                setState(() {
+                  _periodAfter = value;
+                  _periodController.text = value.toString();
+                });
+              },
+              onIntervalChanged: (value) {
+                setState(() {
+                  _interval = value;
+                  _intervalController.text = value.toString();
+                });
+              },
             ),
             const SizedBox(height: 16),
             SwitchListTile(

@@ -45,7 +45,9 @@ class NotificationService {
   // Constants for notification IDs
   static const int _baseNotificationId = 1000;
   static const int _baseRetryId = 2000;
-  static const int _maxRetries = 5;
+  /// ID slot allocation per routine — must be large enough to cover max(periodAfter/interval).
+  /// Not a scheduling cap: all retries derived from periodAfter/interval are scheduled.
+  static const int _idSlotsPerRoutine = 200;
 
   // Checkin notification IDs
   static const int _morningCheckinNotificationId = 3000;
@@ -56,7 +58,7 @@ class NotificationService {
 
   @pragma('vm:entry-point')
   static int _getRetryNotificationId(int routineId, int retryCount) =>
-      _baseRetryId + (routineId * _maxRetries) + retryCount;
+      _baseRetryId + (routineId * _idSlotsPerRoutine) + retryCount;
 
   @pragma('vm:entry-point')
   Future<void> initialize({bool calledFromBackgroundTask = false}) async {
@@ -478,7 +480,7 @@ class NotificationService {
 
         // Schedule retry notifications if needed
         if (numberOfRetries > 0) {
-          for (int retry = 1; retry <= numberOfRetries && retry <= _maxRetries; retry++) {
+          for (int retry = 1; retry <= numberOfRetries; retry++) {
             final retryTime = tz.TZDateTime.from(
               scheduledTime.add(Duration(minutes: retry * interval)),
               tz.local,
@@ -517,7 +519,7 @@ class NotificationService {
 
         // Schedule retry notifications if needed
         if (numberOfRetries > 0) {
-          for (int retry = 1; retry <= numberOfRetries && retry <= _maxRetries; retry++) {
+          for (int retry = 1; retry <= numberOfRetries; retry++) {
             final retryTime = scheduledTime.add(Duration(minutes: retry * interval));
             await BackgroundTaskManager.scheduleRoutineNotification(
               routineId: routineId,
@@ -545,12 +547,12 @@ class NotificationService {
 
     // Cancel displayed notifications
     await _notifications.cancel(_getMainNotificationId(routineId));
-    for (int i = 0; i < _maxRetries; i++) {
+    for (int i = 0; i < _idSlotsPerRoutine; i++) {
       await _notifications.cancel(_getRetryNotificationId(routineId, i));
     }
 
     // Cancel scheduled WorkManager tasks
-    await BackgroundTaskManager.cancelRoutineNotification(routineId, maxRetries: _maxRetries);
+    await BackgroundTaskManager.cancelRoutineNotification(routineId, maxRetries: _idSlotsPerRoutine);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('routine_${routineId}_done');
@@ -595,7 +597,7 @@ class NotificationService {
         }
 
         // Check retry notifications
-        for (int i = 0; i < _maxRetries; i++) {
+        for (int i = 0; i < _idSlotsPerRoutine; i++) {
           if (request.id == _getRetryNotificationId(routineId, i)) {
             await _notifications.cancel(request.id);
             debugPrint('🚫 Cancelled pending retry notification ${request.id} for routine $routineId (retry $i)');

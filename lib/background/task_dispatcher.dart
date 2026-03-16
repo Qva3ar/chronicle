@@ -872,7 +872,7 @@ class BackgroundTaskManager {
   }
 
   /// Cancel routine notification task
-  static Future<void> cancelRoutineNotification(int routineId, {int maxRetries = 5}) async {
+  static Future<void> cancelRoutineNotification(int routineId, {int maxRetries = 200}) async {
     try {
       // Cancel main notification
       await Workmanager().cancelByUniqueName('routine_$routineId');
