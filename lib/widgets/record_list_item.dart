@@ -51,6 +51,8 @@ class RecordListItem extends StatelessWidget {
                     _buildStatusRow('Morning Checkin', Icons.wb_sunny, MyColors.orangeDivider),
                   if (item.recordType == RecordType.eveningCheckin)
                     _buildStatusRow('Evening Checkin', Icons.nightlight, MyColors.contactDivider),
+                  if (item.recordType == RecordType.productivity)
+                    _buildStatusRow('Productivity Index', Icons.trending_up, Colors.purpleAccent),
                   SizedBox(
                       height: _shouldShowStatusRow() ? 8 : 0),
                   _buildContent(),
@@ -134,7 +136,45 @@ class RecordListItem extends StatelessWidget {
     );
   }
 
+  Map<String, dynamic>? _parseProductivityData() {
+    try {
+      final data = jsonDecode(item.text);
+      if (data is Map<String, dynamic> && data.containsKey('score')) return data;
+    } catch (_) {}
+    return null;
+  }
+
   Widget _buildContent() {
+    if (item.recordType == RecordType.productivity) {
+      final data = _parseProductivityData();
+      if (data != null) {
+        final score = (data['score'] as num?)?.toDouble() ?? 0.0;
+        final routinesDone = (data['routines_done'] as num?)?.toInt() ?? 0;
+        final routinesTotal = (data['routines_total'] as num?)?.toInt() ?? 0;
+        final goalsProgress = (data['goals_progress'] as num?)?.toDouble() ?? 0.0;
+        final color = score >= 7 ? Colors.greenAccent : score >= 4 ? Colors.orangeAccent : Colors.redAccent;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics, color: color, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  '${score.toStringAsFixed(1)}/10',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Routines: $routinesDone/$routinesTotal • Goals: ${(goalsProgress * 100).round()}%',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+          ],
+        );
+      }
+    }
     if (item.recordType == RecordType.goal) {
       final data = _parseGoalData();
       if (data != null) {
@@ -213,7 +253,8 @@ class RecordListItem extends StatelessWidget {
     return item.recordType == RecordType.routine ||
         item.recordType == RecordType.goal ||
         item.recordType == RecordType.morningCheckin ||
-        item.recordType == RecordType.eveningCheckin;
+        item.recordType == RecordType.eveningCheckin ||
+        item.recordType == RecordType.productivity;
   }
 
   Color _getCardColor() {
@@ -226,6 +267,8 @@ class RecordListItem extends StatelessWidget {
         return const Color.fromARGB(255, 90, 80, 60); // Morning warm color
       case RecordType.eveningCheckin:
         return const Color.fromARGB(255, 60, 70, 90); // Evening cool color
+      case RecordType.productivity:
+        return const Color.fromARGB(255, 65, 55, 85); // Purple tint for productivity
       default:
         return MyColors.primaryColor;
     }
@@ -241,6 +284,8 @@ class RecordListItem extends StatelessWidget {
         return const BorderSide(color: MyColors.orangeDivider, width: 1);
       case RecordType.eveningCheckin:
         return const BorderSide(color: MyColors.contactDivider, width: 1);
+      case RecordType.productivity:
+        return const BorderSide(color: Colors.purpleAccent, width: 1);
       default:
         return BorderSide.none;
     }

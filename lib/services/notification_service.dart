@@ -19,6 +19,7 @@ import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
+import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:chrono/features/checkin/data/repositories/checkin_time_settings_repository.dart';
@@ -288,6 +289,12 @@ class NotificationService {
         await routineWidgetService.updateWidget();
       } catch (e) {
         debugPrint('⚠️ Failed to update widget after routine done: $e');
+      }
+
+      try {
+        await ProductivityService.instance.createOrUpdateDailyRecord();
+      } catch (e) {
+        debugPrint('⚠️ Failed to update productivity after routine done: $e');
       }
 
       debugPrint('✅ Routine "${routine.name}" marked as done from notification');

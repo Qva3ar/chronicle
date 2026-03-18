@@ -14,6 +14,9 @@ enum RecordType {
 
   /// Evening checkin record
   eveningCheckin,
+
+  /// Daily productivity score record
+  productivity,
 }
 
 /// Extension methods for RecordType enum
@@ -31,6 +34,8 @@ extension RecordTypeExtension on RecordType {
         return 'morning_checkin';
       case RecordType.eveningCheckin:
         return 'evening_checkin';
+      case RecordType.productivity:
+        return 'productivity';
     }
   }
 
@@ -47,6 +52,8 @@ extension RecordTypeExtension on RecordType {
         return 'Утренний чекин';
       case RecordType.eveningCheckin:
         return 'Вечерний чекин';
+      case RecordType.productivity:
+        return 'Продуктивность';
     }
   }
 }
@@ -64,6 +71,8 @@ RecordType recordTypeFromDbValue(String value) {
       return RecordType.morningCheckin;
     case 'evening_checkin':
       return RecordType.eveningCheckin;
+    case 'productivity':
+      return RecordType.productivity;
     default:
       return RecordType.regular; // Default fallback
   }

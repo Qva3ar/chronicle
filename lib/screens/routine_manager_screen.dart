@@ -9,6 +9,7 @@ import 'package:chrono/colors.dart';
 import 'package:chrono/screens/routine_calendar_screen.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/filter_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/widgets/reminder_timeline_widget.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
@@ -99,6 +100,17 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   Future<void> _toggleRoutineDone(Routine routine) async {
     final isDone = !routine.isDone;
     await _db.toggleRoutineDone(routine.id!, isDone);
+
+    // Optimistic UI: update immediately so checkbox responds without lag
+    if (mounted) {
+      setState(() {
+        final idx = _routines.indexWhere((r) => r.id == routine.id);
+        if (idx >= 0) {
+          _routines[idx] = routine.copyWith(isDone: isDone);
+        }
+      });
+    }
+
     if (isDone) {
       try {
         // Create a record for the completed routine
@@ -138,6 +150,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     }
     await _loadRoutines();
     await _updateWidget();
+    await ProductivityService.instance.createOrUpdateDailyRecord();
   }
 
   Future<void> _updateWidget() async {
@@ -503,6 +516,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
   int _periodAfter = 30;
   int _interval = 10;
   bool _showStreak = true;
+  int _priority = 2;
 
   @override
   void initState() {
@@ -514,6 +528,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       _periodAfter = widget.routine!.periodAfter;
       _interval = widget.routine!.interval;
       _showStreak = widget.routine!.showStreak;
+      _priority = widget.routine!.priority;
     }
     _periodController = TextEditingController(text: _periodAfter.toString());
     _intervalController = TextEditingController(text: _interval.toString());
@@ -562,6 +577,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       isDone: widget.routine?.isDone ?? false,
       streak: widget.routine?.streak ?? 0,
       lastCompletedDate: widget.routine?.lastCompletedDate,
+      priority: _priority,
     );
 
     final db = DatabaseHelper.instance;
@@ -592,6 +608,73 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
     if (mounted) {
       Navigator.pop(context, true);
+    }
+  }
+
+  static const _priorityLabels = {
+    1: 'Необязательно',
+    2: 'Стандарт',
+    3: 'Важно',
+    4: 'Ключевая',
+  };
+
+  static const _priorityDescriptions = {
+    1: 'Пропуск почти не влияет на индекс',
+    2: 'Обычная повседневная активность',
+    3: 'Важно выполнить для продуктивности',
+    4: 'Критически важно, сильно влияет на индекс',
+  };
+
+  Widget _buildPrioritySlider() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Важность', style: TextStyle(fontSize: 16)),
+        const SizedBox(height: 4),
+        Slider(
+          value: _priority.toDouble(),
+          min: 1,
+          max: 4,
+          divisions: 3,
+          label: _priorityLabels[_priority],
+          onChanged: (value) {
+            setState(() {
+              _priority = value.round();
+            });
+          },
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _priorityLabels[_priority] ?? '',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _priorityColor(_priority),
+              ),
+            ),
+            Text(
+              _priorityDescriptions[_priority] ?? '',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Color _priorityColor(int priority) {
+    switch (priority) {
+      case 1:
+        return Colors.grey;
+      case 2:
+        return Colors.blue;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return Colors.redAccent;
+      default:
+        return Colors.blue;
     }
   }
 
@@ -710,6 +793,8 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                 });
               },
             ),
+            const SizedBox(height: 16),
+            _buildPrioritySlider(),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saveRoutine,

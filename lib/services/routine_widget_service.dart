@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 
 /// Top-level callback for routine widget interactions
 /// MUST be top-level function for background execution
@@ -71,6 +72,13 @@ Future<void> routineWidgetCallback(Uri? uri) async {
         // Update widget
         final service = RoutineWidgetService(db);
         await service.updateWidget();
+
+        // Update productivity index (for both check and uncheck)
+        try {
+          await ProductivityService.instance.createOrUpdateDailyRecord();
+        } catch (e) {
+          developer.log('[RoutineWidgetService] Failed to update productivity: $e', name: 'routine_widget');
+        }
       } catch (e) {
         developer.log('[RoutineWidgetService] Error toggling routine: $e',
             name: 'routine_widget', error: e);

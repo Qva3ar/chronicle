@@ -15,7 +15,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 38;
+  static const int databaseVersion = 39;
   static const int pageSize = 20;
 }
 
@@ -70,6 +70,7 @@ class DatabaseColumns {
   static const String routineShowStreak = 'show_streak';
   static const String routinePreviousStreak = 'previous_streak';
   static const String routinePreviousLastCompletedDate = 'previous_last_completed_date';
+  static const String routinePriority = 'priority';
 
   // Goal table columns
   static const String goalTitle = 'title';
@@ -84,6 +85,7 @@ class DatabaseColumns {
   static const String goalCreatedFromOnboarding = 'created_from_onboarding';
   static const String goalCurrentDayRecordId = 'current_day_record_id';
   static const String goalArchivedAt = 'archived_at';
+  static const String goalPriority = 'priority';
 
   // AI interest signals columns
   static const String aiSource = 'source';
@@ -327,7 +329,8 @@ class DatabaseHelper {
           ${DatabaseColumns.routineLastCompletedDate} TEXT,
           ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1,
           ${DatabaseColumns.routinePreviousStreak} INTEGER,
-          ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT
+          ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT,
+          ${DatabaseColumns.routinePriority} INTEGER NOT NULL DEFAULT 2
         )
       ''');
 
@@ -346,7 +349,8 @@ class DatabaseHelper {
           ${DatabaseColumns.goalIsPrimary} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalCurrentDayRecordId} INTEGER,
-          ${DatabaseColumns.goalArchivedAt} INTEGER
+          ${DatabaseColumns.goalArchivedAt} INTEGER,
+          ${DatabaseColumns.goalPriority} INTEGER NOT NULL DEFAULT 2
         )
       ''');
 
@@ -1208,6 +1212,18 @@ class DatabaseHelper {
         }
 
         log('Upgraded database to v38: Backfilled record.goal_id for $updatedCount records.');
+      }
+
+      if (oldVersion < 39) {
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.routines}
+          ADD COLUMN ${DatabaseColumns.routinePriority} INTEGER NOT NULL DEFAULT 2
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.goals}
+          ADD COLUMN ${DatabaseColumns.goalPriority} INTEGER NOT NULL DEFAULT 2
+        ''');
+        log('Upgraded database to v39: Added priority column to routines and goals tables.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');

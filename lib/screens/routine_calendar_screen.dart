@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/services/productivity_service.dart';
 
 class RoutineCalendarScreen extends StatefulWidget {
   final Routine routine;
@@ -151,6 +152,13 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         await _db.backdateRoutineCompletion(widget.routine.id!, selectedDay);
         await _loadCompletionDates();
         _dataChanged = true; // Mark that data has changed
+
+        final dateStr = '${selectedDay.year}-${selectedDay.month.toString().padLeft(2, '0')}-${selectedDay.day.toString().padLeft(2, '0')}';
+        try {
+          await ProductivityService.instance.createOrUpdateDailyRecord(forDate: dateStr);
+        } catch (e) {
+          log('Error updating productivity for backdated routine: $e');
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

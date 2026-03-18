@@ -11,6 +11,7 @@ class Routine {
   final int streak;
   final String? lastCompletedDate;
   final bool showStreak;
+  final int priority;
 
   Routine({
     this.id,
@@ -23,6 +24,7 @@ class Routine {
     this.streak = 0,
     this.lastCompletedDate,
     this.showStreak = true,
+    this.priority = 2,
   });
 
   Map<String, dynamic> toMap() {
@@ -38,6 +40,7 @@ class Routine {
       'streak': streak,
       'last_completed_date': lastCompletedDate,
       'show_streak': showStreak ? 1 : 0,
+      'priority': priority,
     };
   }
 
@@ -59,6 +62,7 @@ class Routine {
       streak: map['streak'] as int? ?? 0,
       lastCompletedDate: map['last_completed_date'] as String?,
       showStreak: (map['show_streak'] as int? ?? 1) == 1,
+      priority: map['priority'] as int? ?? 2,
     );
   }
 
@@ -73,6 +77,7 @@ class Routine {
     int? streak,
     String? lastCompletedDate,
     bool? showStreak,
+    int? priority,
   }) {
     return Routine(
       id: id ?? this.id,
@@ -85,6 +90,7 @@ class Routine {
       streak: streak ?? this.streak,
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       showStreak: showStreak ?? this.showStreak,
+      priority: priority ?? this.priority,
     );
   }
 

@@ -28,10 +28,13 @@ import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/widgets/insight_banner.dart';
+import 'package:chrono/widgets/productivity_banner.dart';
+import 'package:chrono/screens/productivity_screen.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/services/widget_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dart:async';
@@ -68,6 +71,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _needsRefresh = false;
   bool isRefreshing = false;
   StreamSubscription<Record>? _recordCreatedSubscription;
+  StreamSubscription<int>? _productivityUpdatedSubscription;
   FilterService filterService = FilterService.instance;
   FilterSettings? currentFilterSettings;
   final TextEditingController _chronoQuickController = TextEditingController();
@@ -179,6 +183,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         });
       }
     });
+
+    _productivityUpdatedSubscription =
+        ProductivityService.instance.onProductivityUpdated.listen((recordId) async {
+      if (!mounted || recordId < 0) return;
+      try {
+        final updated = await dbHelper.getRecordsByIds(recordId.toString());
+        if (updated.isEmpty) return;
+        final newRecord = updated.first;
+        if (!mounted) return;
+        setState(() {
+          final idx = allRecords.indexWhere((r) => r.id == recordId);
+          if (idx >= 0) {
+            allRecords[idx] = newRecord;
+          } else {
+            allRecords.insert(0, newRecord);
+          }
+        });
+      } catch (_) {}
+    });
   }
 
   @override
@@ -186,6 +209,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _recordCreatedSubscription?.cancel();
+    _productivityUpdatedSubscription?.cancel();
     _chronoQuickController.dispose();
     _chronoQuickFocusNode.dispose();
     super.dispose();
@@ -825,6 +849,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             color: Colors.white),
                         // onChanged: filterRecords,
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    ProductivityBanner(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProductivityScreen()),
+                        ).then((_) {
+                          if (mounted) loadRecords(refresh: true);
+                        });
+                      },
                     ),
                   ],
                 ),

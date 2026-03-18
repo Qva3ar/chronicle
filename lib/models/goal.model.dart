@@ -15,6 +15,7 @@ class Goal {
   final bool isPrimary;
   final bool createdFromOnboarding;
   final int? currentDayRecordId; // ID of the record created for today's work
+  final int priority;
 
   Goal({
     this.id,
@@ -24,12 +25,13 @@ class Goal {
     required this.sessionMinutes,
     this.isActive = false,
     this.timeSpentSeconds = 0,
-    this.sessionResumedTimestampSeconds, // Added to constructor
-    this.completedAt, // Added to constructor
+    this.sessionResumedTimestampSeconds,
+    this.completedAt,
     this.archivedAt,
     this.isPrimary = false,
     this.createdFromOnboarding = false,
     this.currentDayRecordId,
+    this.priority = 2,
   });
 
   // Total goal time in seconds
@@ -89,6 +91,7 @@ class Goal {
       createdFromOnboarding:
           (map[DatabaseColumns.goalCreatedFromOnboarding] ?? 0) == 1,
       currentDayRecordId: map[DatabaseColumns.goalCurrentDayRecordId],
+      priority: map[DatabaseColumns.goalPriority] as int? ?? 2,
     );
   }
 
@@ -109,6 +112,7 @@ class Goal {
       DatabaseColumns.goalIsPrimary: isPrimary ? 1 : 0,
       DatabaseColumns.goalCreatedFromOnboarding: createdFromOnboarding ? 1 : 0,
       DatabaseColumns.goalCurrentDayRecordId: currentDayRecordId,
+      DatabaseColumns.goalPriority: priority,
     };
   }
 
@@ -129,7 +133,8 @@ class Goal {
     bool? isPrimary,
     bool? createdFromOnboarding,
     int? currentDayRecordId,
-    bool clearCurrentDayRecordId = false, // Helper parameter to clear the field
+    bool clearCurrentDayRecordId = false,
+    int? priority,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -141,7 +146,6 @@ class Goal {
       timeSpentSeconds: timeSpentSeconds ?? this.timeSpentSeconds,
       completedAt: completedAt ?? this.completedAt,
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
-      // Logic for sessionResumedTimestampSeconds with clear option
       sessionResumedTimestampSeconds: clearSessionResumedTimestamp
           ? null
           : (sessionResumedTimestampSeconds ??
@@ -152,6 +156,7 @@ class Goal {
       currentDayRecordId: clearCurrentDayRecordId
           ? null
           : (currentDayRecordId ?? this.currentDayRecordId),
+      priority: priority ?? this.priority,
     );
   }
 

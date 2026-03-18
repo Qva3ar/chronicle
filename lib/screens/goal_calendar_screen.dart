@@ -8,6 +8,7 @@ import '../colors.dart';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
 import '../record.service.dart';
+import 'package:chrono/services/productivity_service.dart';
 
 class GoalCalendarScreen extends StatefulWidget {
   final Goal goal;
@@ -263,6 +264,13 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       await RecordService().createRecord(record, []);
       _dataChanged = true;
       await _loadGoalHistory();
+
+      final dateStr = '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}';
+      try {
+        await ProductivityService.instance.createOrUpdateDailyRecord(forDate: dateStr);
+      } catch (e) {
+        log('Error updating productivity for backdated goal: $e');
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

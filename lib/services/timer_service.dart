@@ -17,6 +17,7 @@ import '../screens/goals_screen.dart';
 import 'notification_service.dart';
 import 'routine_widget_service.dart';
 import 'goals_widget_updater.dart';
+import 'productivity_service.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 const String ROUTINE_DONE_ACTION_ID = 'ROUTINE_DONE_ACTION';
@@ -939,6 +940,7 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
 
     print('✅ STOP SESSION: Session stopped for "$goalTitle" - All progress preserved');
+    await ProductivityService.instance.createOrUpdateDailyRecord();
   }
 
   // 🎯 NEW: Update progress record with current time spent
@@ -1190,6 +1192,7 @@ class TimerService extends ChangeNotifier {
 
     notifyListeners();
     print('✅ Session stopped due to goal completion');
+    await ProductivityService.instance.createOrUpdateDailyRecord();
   }
 
   // 🎯 NEW: Special session completion notification for goal completion
@@ -1313,6 +1316,7 @@ class TimerService extends ChangeNotifier {
 
     notifyListeners();
     print('✅ SESSION COMPLETION: Session stopped, goal can be resumed later');
+    await ProductivityService.instance.createOrUpdateDailyRecord();
   }
 
   // 🎯 NEW: Show session completion notification with "Continue" action

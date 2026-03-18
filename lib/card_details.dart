@@ -512,7 +512,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
             maxLines: null,
             maxLength: 2000,
             specialTextSpanBuilder: LinkTextSpanBuilder(),
-            autofocus: true,
+            autofocus: false,
             scrollController: _scrollController,
             textCapitalization: TextCapitalization.sentences,
             cursorColor: MyColors.fivyColor,

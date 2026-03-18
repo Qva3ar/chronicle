@@ -1,0 +1,282 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:developer';
+
+import 'package:chrono/db_manager.dart';
+import 'package:chrono/models/record_type.dart';
+import 'package:chrono/models/routine.model.dart';
+import 'package:intl/intl.dart';
+
+class ProductivityScore {
+  final double score;
+  final String date;
+  final int totalWeight;
+  final double completedWeight;
+  final int routinesDone;
+  final int routinesTotal;
+  final double goalsProgress;
+
+  ProductivityScore({
+    required this.score,
+    required this.date,
+    required this.totalWeight,
+    required this.completedWeight,
+    required this.routinesDone,
+    required this.routinesTotal,
+    required this.goalsProgress,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'score': double.parse(score.toStringAsFixed(1)),
+        'date': date,
+        'total_weight': totalWeight,
+        'completed_weight': double.parse(completedWeight.toStringAsFixed(2)),
+        'routines_done': routinesDone,
+        'routines_total': routinesTotal,
+        'goals_progress': double.parse(goalsProgress.toStringAsFixed(2)),
+      };
+
+  factory ProductivityScore.fromJson(Map<String, dynamic> json) {
+    return ProductivityScore(
+      score: (json['score'] as num).toDouble(),
+      date: json['date'] as String,
+      totalWeight: (json['total_weight'] as num).toInt(),
+      completedWeight: (json['completed_weight'] as num).toDouble(),
+      routinesDone: (json['routines_done'] as num).toInt(),
+      routinesTotal: (json['routines_total'] as num).toInt(),
+      goalsProgress: (json['goals_progress'] as num).toDouble(),
+    );
+  }
+}
+
+/// Factor to reduce routine weight vs goals (routines are easier to complete).
+/// 0.6 = a routine contributes 60% of its nominal weight compared to a goal.
+const double routineWeightFactor = 0.6;
+
+class ProductivityService {
+  static final ProductivityService instance = ProductivityService._();
+  final DatabaseHelper _db = DatabaseHelper.instance;
+
+  ProductivityService._();
+
+  /// Calculate the current productivity score from live routine/goal state.
+  Future<ProductivityScore> calculateCurrentScore() async {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(now);
+    return _calculateScoreForDate(dateStr);
+  }
+
+  static final _productivityUpdatedController =
+      StreamController<int>.broadcast(sync: true);
+
+  /// Emits recordId when a productivity record is created or updated.
+  Stream<int> get onProductivityUpdated => _productivityUpdatedController.stream;
+
+  /// Calculate score for a specific date (uses that date's weekday for routine filtering).
+  /// For today: uses live routine.isDone and goal.timeSpentSeconds.
+  /// For past dates: uses completion records (routine records, goal records).
+  Future<ProductivityScore> _calculateScoreForDate(String dateStr) async {
+    final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final isToday = dateStr == todayStr;
+
+    final targetDate = DateTime.tryParse(dateStr) ?? now;
+    final currentDayIndex = targetDate.weekday - 1;
+
+    final routineMaps = await _db.getAllRoutines();
+    final allRoutines = routineMaps.map((m) => Routine.fromMap(m)).toList();
+    final dayRoutines =
+        allRoutines.where((r) => r.isActiveOnDay(currentDayIndex)).toList();
+
+    final allGoals = await _db.getAllGoals();
+    final activeGoals = allGoals.where((g) => !g.isArchived).toList();
+
+    if (dayRoutines.isEmpty && activeGoals.isEmpty) {
+      return ProductivityScore(
+        score: 0,
+        date: dateStr,
+        totalWeight: 0,
+        completedWeight: 0,
+        routinesDone: 0,
+        routinesTotal: 0,
+        goalsProgress: 0,
+      );
+    }
+
+    double totalWeight = 0;
+    double completedWeight = 0;
+    int routinesDone = 0;
+
+    if (isToday) {
+      for (final routine in dayRoutines) {
+        final w = routine.priority * routineWeightFactor;
+        totalWeight += w;
+        if (routine.isDone) {
+          completedWeight += w;
+          routinesDone++;
+        }
+      }
+    } else {
+      final dayStart = DateTime(targetDate.year, targetDate.month, targetDate.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final startMs = dayStart.millisecondsSinceEpoch;
+      final endMs = dayEnd.millisecondsSinceEpoch;
+
+      for (final routine in dayRoutines) {
+        final w = routine.priority * routineWeightFactor;
+        totalWeight += w;
+        final records = await _db.getRecordsByRoutineId(routine.id!);
+        final completedOnDate = records.any((r) {
+          final ts = r[DatabaseColumns.recordCreatedAt] as int;
+          return ts >= startMs && ts < endMs;
+        });
+        if (completedOnDate) {
+          completedWeight += w;
+          routinesDone++;
+        }
+      }
+    }
+
+    double goalsProgressSum = 0;
+    for (final goal in activeGoals) {
+      totalWeight += goal.priority;
+      double progress = 0.0;
+      if (goal.totalSeconds > 0) {
+        if (isToday) {
+          progress = (goal.timeSpentSeconds / goal.totalSeconds).clamp(0.0, 1.0);
+        } else {
+          final dayStart =
+              DateTime(targetDate.year, targetDate.month, targetDate.day);
+          final dayEnd = dayStart.add(const Duration(days: 1));
+          final startMs = dayStart.millisecondsSinceEpoch;
+          final endMs = dayEnd.millisecondsSinceEpoch;
+
+          final records = await _db.getRecordsByGoalId(goal.id!);
+          int minutesThatDay = 0;
+          for (final r in records) {
+            final ts = r[DatabaseColumns.recordCreatedAt] as int?;
+            if (ts == null || ts < startMs || ts >= endMs) continue;
+            final text = r[DatabaseColumns.recordText] as String? ?? '';
+            final m = _extractTimeMinutes(text);
+            if (m != null) minutesThatDay += m;
+          }
+          final targetMinutes = goal.totalSeconds ~/ 60;
+          progress = targetMinutes > 0
+              ? (minutesThatDay / targetMinutes).clamp(0.0, 1.0)
+              : 0.0;
+        }
+      }
+      completedWeight += goal.priority * progress;
+      goalsProgressSum += progress;
+    }
+
+    final score = totalWeight > 0 ? 10 * completedWeight / totalWeight : 0.0;
+    final avgGoalsProgress =
+        activeGoals.isNotEmpty ? goalsProgressSum / activeGoals.length : 0.0;
+
+    return ProductivityScore(
+      score: score,
+      date: dateStr,
+      totalWeight: totalWeight.round(),
+      completedWeight: completedWeight,
+      routinesDone: routinesDone,
+      routinesTotal: dayRoutines.length,
+      goalsProgress: avgGoalsProgress,
+    );
+  }
+
+  int? _extractTimeMinutes(String text) {
+    try {
+      final data = jsonDecode(text);
+      if (data is Map<String, dynamic>) {
+        final tm = data['time_minutes'];
+        if (tm is int) return tm;
+        if (tm is num) return tm.toInt();
+      }
+    } catch (_) {
+      final match = RegExp(r'time_minutes: (\d+)').firstMatch(text);
+      if (match != null) return int.tryParse(match.group(1)!);
+    }
+    return null;
+  }
+
+  /// Create or update today's productivity Record.
+  /// [forDate] - if set, use this date instead of today (e.g. for finalizing yesterday at midnight).
+  Future<int> createOrUpdateDailyRecord({String? forDate}) async {
+    final now = DateTime.now();
+    final targetDate = forDate ?? DateFormat('yyyy-MM-dd').format(now);
+    final score = await _calculateScoreForDate(targetDate);
+    if (score.totalWeight == 0) return -1;
+
+    final db = await _db.database;
+
+    final existing = await db.query(
+      DatabaseTables.record,
+      where:
+          '${DatabaseColumns.recordType} = ? AND ${DatabaseColumns.recordText} LIKE ?',
+      whereArgs: [RecordType.productivity.toDbValue(), '%"date":"$targetDate"%'],
+      limit: 1,
+    );
+
+    final jsonText = jsonEncode(score.toJson());
+    final title = 'Productivity: ${score.score.toStringAsFixed(1)}/10';
+
+    if (existing.isNotEmpty) {
+      final recordId = existing.first[DatabaseColumns.id] as int;
+      await db.update(
+        DatabaseTables.record,
+        {
+          DatabaseColumns.recordTitle: title,
+          DatabaseColumns.recordText: jsonText,
+        },
+        where: '${DatabaseColumns.id} = ?',
+        whereArgs: [recordId],
+      );
+      log('[ProductivityService] Updated daily record #$recordId: ${score.score.toStringAsFixed(1)}');
+      _productivityUpdatedController.add(recordId);
+      return recordId;
+    } else {
+      final recordId = await _db.insertRecord({
+        DatabaseColumns.recordTitle: title,
+        DatabaseColumns.recordText: jsonText,
+        DatabaseColumns.recordCreatedAt:
+            DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: RecordType.productivity.toDbValue(),
+      }, []);
+      log('[ProductivityService] Created daily record #$recordId: ${score.score.toStringAsFixed(1)}');
+      _productivityUpdatedController.add(recordId);
+      return recordId;
+    }
+  }
+
+  /// Get productivity history records for the chart.
+  /// Returns scores sorted by date ascending.
+  Future<List<ProductivityScore>> getHistory({int days = 30}) async {
+    final db = await _db.database;
+
+    final records = await db.query(
+      DatabaseTables.record,
+      where: '${DatabaseColumns.recordType} = ?',
+      whereArgs: [RecordType.productivity.toDbValue()],
+      orderBy: '${DatabaseColumns.recordCreatedAt} ASC',
+    );
+
+    final scores = <ProductivityScore>[];
+    for (final record in records) {
+      try {
+        final text = record[DatabaseColumns.recordText] as String? ?? '';
+        if (text.trim().startsWith('{')) {
+          final json = jsonDecode(text) as Map<String, dynamic>;
+          scores.add(ProductivityScore.fromJson(json));
+        }
+      } catch (e) {
+        log('[ProductivityService] Error parsing record: $e');
+      }
+    }
+
+    if (days > 0 && scores.length > days) {
+      return scores.sublist(scores.length - days);
+    }
+    return scores;
+  }
+}

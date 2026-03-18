@@ -1,6 +1,7 @@
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -130,6 +131,16 @@ class DailyResetService {
   Future<void> _performDailyReset() async {
     final db = DatabaseHelper.instance;
     final goalService = GoalService(db);
+
+    // Finalize productivity record for YESTERDAY before resetting (state still reflects end of yesterday)
+    try {
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+      await ProductivityService.instance.createOrUpdateDailyRecord(forDate: yesterdayStr);
+      print('[DailyResetService] ✅ Productivity record finalized for $yesterdayStr');
+    } catch (e) {
+      print('[DailyResetService] ⚠️ Productivity record finalization failed (non-critical): $e');
+    }
 
     // Reset routines - IMPORTANT: Use resetRoutinesDoneStatus() NOT toggleRoutineDone()
     // toggleRoutineDone() will corrupt streaks during midnight reset (see DAILY_RESET_README.md)
