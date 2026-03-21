@@ -19,6 +19,7 @@ class _ProductivityBannerState extends State<ProductivityBanner> {
   bool _loading = true;
   Timer? _refreshTimer;
   StreamSubscription<void>? _resetSubscription;
+  StreamSubscription<ProductivityScore>? _scoreUpdatedSubscription;
 
   @override
   void initState() {
@@ -26,12 +27,17 @@ class _ProductivityBannerState extends State<ProductivityBanner> {
     _load();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _load());
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) => _load());
+    _scoreUpdatedSubscription =
+        ProductivityService.instance.onProductivityScoreUpdated.listen((score) {
+      if (mounted) setState(() => _currentScore = score);
+    });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _resetSubscription?.cancel();
+    _scoreUpdatedSubscription?.cancel();
     super.dispose();
   }
 

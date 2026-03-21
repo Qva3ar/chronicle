@@ -68,9 +68,16 @@ class ProductivityService {
 
   static final _productivityUpdatedController =
       StreamController<int>.broadcast(sync: true);
+  static final _productivityScoreUpdatedController =
+      StreamController<ProductivityScore>.broadcast(sync: true);
 
   /// Emits recordId when a productivity record is created or updated.
   Stream<int> get onProductivityUpdated => _productivityUpdatedController.stream;
+
+  /// Emits the new score when a productivity record is created or updated.
+  /// Use this so Banner and note stay in sync without recalculating.
+  Stream<ProductivityScore> get onProductivityScoreUpdated =>
+      _productivityScoreUpdatedController.stream;
 
   /// Calculate score for a specific date (uses that date's weekday for routine filtering).
   /// For today: uses live routine.isDone and goal.timeSpentSeconds.
@@ -234,6 +241,7 @@ class ProductivityService {
       );
       log('[ProductivityService] Updated daily record #$recordId: ${score.score.toStringAsFixed(1)}');
       _productivityUpdatedController.add(recordId);
+      _productivityScoreUpdatedController.add(score);
       return recordId;
     } else {
       final recordId = await _db.insertRecord({
@@ -245,6 +253,7 @@ class ProductivityService {
       }, []);
       log('[ProductivityService] Created daily record #$recordId: ${score.score.toStringAsFixed(1)}');
       _productivityUpdatedController.add(recordId);
+      _productivityScoreUpdatedController.add(score);
       return recordId;
     }
   }

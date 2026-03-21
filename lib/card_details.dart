@@ -255,13 +255,16 @@ class _CardDetailPageState extends State<CardDetailPage> {
               return Padding(
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                 child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.6,
+                  ),
                   width: MediaQuery.of(context).size.width,
                   child: Card(
                     color: MyColors.primaryColor,
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisSize: MainAxisSize.max,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
@@ -286,56 +289,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                             ],
                           ),
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: filteredTags.isEmpty
-                                ? Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: Text(
-                                        'No tags found',
-                                        style: TextStyle(color: Colors.white38),
-                                      ),
-                                    ),
-                                  )
-                                : Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 8.0,
-                                    children: filteredTags.map((tag) {
-                                      final isSelected = modalSelected.contains(tag.id);
-                                      final tagColor = parseTagColor(tag.color);
-                                      return FilterChip(
-                                        label: Text(
-                                          tag.name,
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                                        ),
-                                        selected: isSelected,
-                                        selectedColor: tagColor,
-                                        backgroundColor: tagColor.withAlpha(150),
-                                        checkmarkColor: Colors.white,
-                                        side: isSelected
-                                            ? BorderSide(color: Colors.white, width: 1.5)
-                                            : BorderSide.none,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        padding: const EdgeInsets.all(10),
-                                        onSelected: (selected) {
-                                          setModalState(() {
-                                            if (selected) {
-                                              modalSelected.add(tag.id);
-                                            } else {
-                                              modalSelected.remove(tag.id);
-                                            }
-                                          });
-                                          selectedTags = modalSelected.toList();
-                                          setTagIds();
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.only(bottom: 12),
                             child: TextField(
                               controller: tagSearchController,
                               autofocus: false,
@@ -362,6 +316,56 @@ class _CardDetailPageState extends State<CardDetailPage> {
                                 ),
                               ),
                               onChanged: (_) => setModalState(() {}),
+                            ),
+                          ),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              child: filteredTags.isEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      child: Center(
+                                        child: Text(
+                                          'No tags found',
+                                          style: TextStyle(color: Colors.white38),
+                                        ),
+                                      ),
+                                    )
+                                  : Wrap(
+                                      spacing: 8.0,
+                                      runSpacing: 8.0,
+                                      children: filteredTags.map((tag) {
+                                        final isSelected = modalSelected.contains(tag.id);
+                                        final tagColor = parseTagColor(tag.color);
+                                        return FilterChip(
+                                          label: Text(
+                                            tag.name,
+                                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                                          ),
+                                          selected: isSelected,
+                                          selectedColor: tagColor,
+                                          backgroundColor: tagColor.withAlpha(150),
+                                          checkmarkColor: Colors.white,
+                                          side: isSelected
+                                              ? BorderSide(color: Colors.white, width: 1.5)
+                                              : BorderSide.none,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.all(10),
+                                          onSelected: (selected) {
+                                            setModalState(() {
+                                              if (selected) {
+                                                modalSelected.add(tag.id);
+                                              } else {
+                                                modalSelected.remove(tag.id);
+                                              }
+                                            });
+                                            selectedTags = modalSelected.toList();
+                                            setTagIds();
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
                             ),
                           ),
                         ],

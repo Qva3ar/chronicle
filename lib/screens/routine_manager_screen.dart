@@ -113,15 +113,18 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
 
     if (isDone) {
       try {
-        // Create a record for the completed routine
-        final record = {
-          DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
-          DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-          DatabaseColumns.recordType: 'routine', // Mark as routine record
-          DatabaseColumns.recordRoutineId: routine.id,
-        };
+        // Create a record only if there isn't one for today (one note per routine per day)
+        final alreadyHasRecord = await _db.hasRoutineRecordForToday(routine.id!);
+        if (!alreadyHasRecord) {
+          final record = {
+            DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+            DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+            DatabaseColumns.recordType: 'routine', // Mark as routine record
+            DatabaseColumns.recordRoutineId: routine.id,
+          };
 
-        await _db.insertRecord(record, []); // No tags for routine records
+          await _db.insertRecord(record, []); // No tags for routine records
+        }
 
         await _notifications.markRoutineDone(routine.id!);
         await _notifications.cancelRoutineNotification(routine.id!);
@@ -138,6 +141,9 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
         }
       }
     } else {
+      // Delete the routine completion note for today when user unchecks
+      await _db.deleteRoutineRecordsForToday(routine.id!);
+
       // Reschedule notification if routine is marked as undone
       final nextOccurrence = routine.getNextOccurrence();
       await _notifications.scheduleRoutineNotification(

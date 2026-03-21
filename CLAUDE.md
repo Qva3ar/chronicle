@@ -101,6 +101,7 @@ This is a Flutter application called "Chrono" - a goal-oriented note-taking and 
 For detailed documentation on specific systems, see:
 
 - **[DAILY_RESET_README.md](DAILY_RESET_README.md)** - Daily reset system, routine streak logic, and critical implementation details
+- **[PRODUCTIVITY_INDEX_README.md](PRODUCTIVITY_INDEX_README.md)** - Productivity index calculation, Banner/note sync, backdating, and when to call createOrUpdateDailyRecord
 - **[TIMER_SYSTEM_README.md](TIMER_SYSTEM_README.md)** - Goal session timing and background task handling
 - **[INSIGHTS_SYSTEM_README.md](INSIGHTS_SYSTEM_README.md)** - AI insights generation system
 - **[NOTIFICATION_DEBUG_GUIDE.md](NOTIFICATION_DEBUG_GUIDE.md)** - Debugging notification issues

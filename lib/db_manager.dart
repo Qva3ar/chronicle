@@ -1661,6 +1661,54 @@ class DatabaseHelper {
     }
   }
 
+  /// Check if routine has a completion record for today
+  Future<bool> hasRoutineRecordForToday(int routineId) async {
+    try {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final startMs = dayStart.millisecondsSinceEpoch;
+      final endMs = dayEnd.millisecondsSinceEpoch;
+
+      final Database db = await instance.database;
+      final records = await db.query(
+        DatabaseTables.record,
+        where:
+            '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
+            'AND ${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordCreatedAt} < ?',
+        whereArgs: [routineId, 'routine', startMs, endMs],
+        limit: 1,
+      );
+      return records.isNotEmpty;
+    } catch (e) {
+      log('Error checking routine record for today: $e');
+      return false;
+    }
+  }
+
+  /// Delete routine completion records for today (when user unchecks routine)
+  Future<void> deleteRoutineRecordsForToday(int routineId) async {
+    try {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final startMs = dayStart.millisecondsSinceEpoch;
+      final endMs = dayEnd.millisecondsSinceEpoch;
+
+      final Database db = await instance.database;
+      await db.delete(
+        DatabaseTables.record,
+        where:
+            '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
+            'AND ${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordCreatedAt} < ?',
+        whereArgs: [routineId, 'routine', startMs, endMs],
+      );
+    } catch (e) {
+      log('Error deleting routine records for today: $e');
+      rethrow;
+    }
+  }
+
   /// Get records by goal ID
   Future<List<Map<String, dynamic>>> getRecordsByGoalId(int goalId) async {
     try {

@@ -40,14 +40,17 @@ Future<void> routineWidgetCallback(Uri? uri) async {
         await db.toggleRoutineDone(routine.id!, newIsDone);
 
         if (newIsDone) {
-          // 1. Create completion record (Note)
-          final record = {
-            DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
-            DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-            DatabaseColumns.recordType: 'routine',
-            DatabaseColumns.recordRoutineId: routine.id,
-          };
-          await db.insertRecord(record, []);
+          // 1. Create completion record (Note) - only one per routine per day
+          final alreadyHasRecord = await db.hasRoutineRecordForToday(routine.id!);
+          if (!alreadyHasRecord) {
+            final record = {
+              DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+              DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+              DatabaseColumns.recordType: 'routine',
+              DatabaseColumns.recordRoutineId: routine.id,
+            };
+            await db.insertRecord(record, []);
+          }
 
           // 2. Mark done in notifications (cancels alarms)
           await notificationService.markRoutineDone(routine.id!);
@@ -55,7 +58,10 @@ Future<void> routineWidgetCallback(Uri? uri) async {
           developer.log('[RoutineWidgetService] Routine completed and note created',
               name: 'routine_widget');
         } else {
-          // 1. Reschedule notification if undone
+          // 1. Delete the routine completion note for today when user unchecks
+          await db.deleteRoutineRecordsForToday(routine.id!);
+
+          // 2. Reschedule notification if undone
           final nextOccurrence = routine.getNextOccurrence();
           await notificationService.scheduleRoutineNotification(
             routineId: routine.id!,

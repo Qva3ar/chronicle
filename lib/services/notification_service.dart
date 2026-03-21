@@ -273,13 +273,17 @@ class NotificationService {
 
       await db.toggleRoutineDone(routineId, true);
 
-      final record = {
-        DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
-        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-        DatabaseColumns.recordType: 'routine',
-        DatabaseColumns.recordRoutineId: routine.id,
-      };
-      await db.insertRecord(record, []);
+      // Create record only if there isn't one for today (one note per routine per day)
+      final alreadyHasRecord = await db.hasRoutineRecordForToday(routineId);
+      if (!alreadyHasRecord) {
+        final record = {
+          DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+          DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+          DatabaseColumns.recordType: 'routine',
+          DatabaseColumns.recordRoutineId: routine.id,
+        };
+        await db.insertRecord(record, []);
+      }
 
       await markRoutineDone(routineId);
       await _notifications.cancel(1000 + routineId);

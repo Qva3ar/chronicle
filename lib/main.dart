@@ -19,71 +19,48 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   try {
-    print('Starting app initialization...');
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Load persisted OpenAI API key and model
-    await GPTNoteBindService().loadModel();
-
-    // Initialize database
-    print('Initializing database...');
+    // CRITICAL: Only DB is required before first frame - HomePage needs it
     await DatabaseHelper.instance.database;
-    print('Database initialized');
 
-    // Initialize timer service
-    print('Initializing timer service...');
-    await TimerService.instance.initialize();
-    print('Timer service initialized');
-
-    // Initialize app lifecycle service for background handling
-    print('Initializing app lifecycle service...');
-    AppLifecycleService.instance.initialize();
-    print('App lifecycle service initialized');
-
-    // Initialize notification service for daily resets
-    print('Initializing notification service...');
-    await NotificationService().initialize();
-    print('Notification service initialized');
-
-    // Schedule checkin notifications
-    print('Scheduling checkin notifications...');
-    await NotificationService().scheduleCheckinNotifications();
-    print('Checkin notifications scheduled');
-
-    // Initialize unified WorkManager for all background tasks
-    print('Initializing background task manager...');
-    await BackgroundTaskManager.initialize();
-    print('Background task manager initialized');
-
-    // Schedule daily reset (Android WorkManager)
-    await BackgroundTaskManager.scheduleDailyReset();
-
-    // Run fallback daily reset check (all platforms)
-    // This ensures reset happens even if WorkManager doesn't run
-    print('Checking if daily reset needed (fallback)...');
-    await DailyResetService.instance.runDailyResetIfNeeded();
-
-    // Initialize widget services for home screen widgets
-    print('Initializing widget services...');
-    
-    // Register the unified callback for ALL widgets
-    // This must be done only once to handle all widget types (Goals, Routines, Insights)
+    // Register widget callback (sync, must be done before any widget tap)
     HomeWidget.registerInteractivityCallback(unifiedWidgetCallback);
-    
-    final widgetService = WidgetService(DatabaseHelper.instance);
-    await widgetService.initialize();
 
-    final routineWidgetService = RoutineWidgetService(DatabaseHelper.instance);
-    await routineWidgetService.initialize();
-
-    final goalWidgetService = GoalWidgetService(DatabaseHelper.instance);
-    await goalWidgetService.initialize();
-    print('Widget services initialized');
-
-    print('Starting app...');
+    // Show app immediately - no splash screen delay
     runApp(const MyApp());
+
+    // Deferred init: runs in background after first frame
+    // Heavy services (notifications, WorkManager, etc.) don't block app launch
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _deferredInitialization();
+    });
   } catch (e, stackTrace) {
     print('Error during app initialization: $e');
+    print('Stack trace: $stackTrace');
+  }
+}
+
+/// Background initialization - does not block app launch
+Future<void> _deferredInitialization() async {
+  try {
+    await GPTNoteBindService().loadModel();
+    await TimerService.instance.initialize();
+    AppLifecycleService.instance.initialize();
+    await NotificationService().initialize();
+    await NotificationService().scheduleCheckinNotifications();
+    await BackgroundTaskManager.initialize();
+    await BackgroundTaskManager.scheduleDailyReset();
+    await DailyResetService.instance.runDailyResetIfNeeded();
+
+    final widgetService = WidgetService(DatabaseHelper.instance);
+    await widgetService.initialize();
+    final routineWidgetService = RoutineWidgetService(DatabaseHelper.instance);
+    await routineWidgetService.initialize();
+    final goalWidgetService = GoalWidgetService(DatabaseHelper.instance);
+    await goalWidgetService.initialize();
+  } catch (e, stackTrace) {
+    print('Error during deferred initialization: $e');
     print('Stack trace: $stackTrace');
   }
 }
