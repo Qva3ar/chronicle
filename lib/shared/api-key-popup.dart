@@ -59,7 +59,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               items: apiKeyOptions
                   .map((item) => DropdownMenuItem<String>(
                         value: item.value,
-                        child: Text(item.label),
+                        child: Text(item.displayLabel),
                       ))
                   .toList(),
               onChanged: (value) {
@@ -69,6 +69,20 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               },
               decoration: InputDecoration(labelText: 'Select Model'),
             ),
+            if (selectedOption.speedLabel != null &&
+                selectedOption.speedLabel!.isNotEmpty) ...[
+              SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Задержка до ответа: ${selectedOption.speedLabel}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
+              ),
+            ],
             if (selectedOption.tpm != null) ...[
               SizedBox(height: 12),
               Align(
