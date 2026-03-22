@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/goal.model.dart';
 import '../db_manager.dart';
+import '../services/productivity_service.dart';
 
 class AddGoalScreen extends StatefulWidget {
   final Goal? existingGoal;
@@ -246,6 +247,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         );
         await db.insertGoal(newGoal);
       }
+
+      await ProductivityService.instance.createOrUpdateDailyRecord();
 
       if (mounted) {
         Navigator.pop(context, true);

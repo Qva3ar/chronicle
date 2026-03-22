@@ -2117,6 +2117,34 @@ class DatabaseHelper {
     }
   }
 
+  /// Latest goal-progress record for [goalId] on the device's local calendar day.
+  /// Used when [Goal.currentDayRecordId] was cleared (e.g. import + reset) but the note still exists.
+  Future<int?> getGoalProgressRecordIdForLocalDay(int goalId) async {
+    try {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final startMs = dayStart.millisecondsSinceEpoch;
+      final endMs = dayEnd.millisecondsSinceEpoch;
+      final Database db = await instance.database;
+      final rows = await db.query(
+        DatabaseTables.record,
+        columns: [DatabaseColumns.id],
+        where:
+            '${DatabaseColumns.recordGoalId} = ? AND ${DatabaseColumns.recordType} = ? AND '
+            '${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordCreatedAt} < ?',
+        whereArgs: [goalId, 'goal', startMs, endMs],
+        orderBy: '${DatabaseColumns.recordCreatedAt} DESC',
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      return rows.first[DatabaseColumns.id] as int?;
+    } catch (e) {
+      log('Error getting goal progress record for local day: $e');
+      rethrow;
+    }
+  }
+
   /// Internal helper for migration: Calculate and update streak for a routine
   Future<void> _calculateAndUpdateStreakForMigration(Database db, int routineId) async {
     try {

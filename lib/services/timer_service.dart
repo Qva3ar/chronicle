@@ -763,41 +763,77 @@ class TimerService extends ChangeNotifier {
     await stopSession();
     await _clearOldNotifications();
 
+    var sessionGoal = await _db.getGoal(goal.id!);
+    if (sessionGoal == null) {
+      print('❌ START SESSION: Goal not found after stop.');
+      return;
+    }
+
     // 🎯 ENHANCED: Initialize session with precise timing
-    _activeGoal = latestGoal;
+    _activeGoal = sessionGoal;
     final preciseStartTime = DateTime.now();
     _sessionStartTime = preciseStartTime.millisecondsSinceEpoch ~/ 1000;
-    _baselineTimeSpent = latestGoal.timeSpentSeconds;
     _isRunning = true;
 
     print('🚀 START SESSION: Session initialized');
     print('   - Start time: ${preciseStartTime.toIso8601String()}');
-    print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
-    print('   - Goal target: ${formatTime(latestGoal.totalSeconds)}');
-    print('   - Remaining: ${formatTime(latestGoal.totalSeconds - latestGoal.timeSpentSeconds)}');
 
     // 🎯 NEW: Create or get record for today's work session
-    int? recordId = latestGoal.currentDayRecordId;
+    int? recordId = sessionGoal.currentDayRecordId;
 
-    // Check if record still exists (user might have deleted it)
     if (recordId != null) {
       final existingRecord = await _db.getRecordById(recordId);
       if (existingRecord == null) {
         print('📝 START SESSION: Record $recordId was deleted, creating new one');
-        recordId = null; // Force creation of new record
+        recordId = null;
       } else {
         print('📝 START SESSION: Using existing progress record ID: $recordId');
       }
     }
 
+    if (recordId == null && sessionGoal.id != null) {
+      final todayId = await _db.getGoalProgressRecordIdForLocalDay(sessionGoal.id!);
+      if (todayId != null) {
+        final existingRecord = await _db.getRecordById(todayId);
+        if (existingRecord != null) {
+          recordId = todayId;
+          print('📝 START SESSION: Reusing today\'s goal record ID: $recordId');
+        }
+      }
+    }
+
     if (recordId == null) {
-      // First start today or record was deleted - create new record
-      recordId = await _createGoalProgressRecord(latestGoal);
+      recordId = await _createGoalProgressRecord(sessionGoal);
       print('📝 START SESSION: Created new progress record with ID: $recordId');
     }
 
-    // Update goal as active in database with record link
-    final updatedGoal = latestGoal.copyWith(
+    // After import + reset, goal row may be 0 while today's note still has minutes — align baseline.
+    int baselineSeconds = sessionGoal.timeSpentSeconds;
+    if (recordId != null) {
+      final progressRow = await _db.getRecordById(recordId);
+      if (progressRow != null) {
+        final text = progressRow[DatabaseColumns.recordText] as String? ?? '';
+        final minutesFromRecord = _goalProgressMinutesFromRecordText(text);
+        final secondsFromRecord =
+            (minutesFromRecord * 60).clamp(0, sessionGoal.totalSeconds);
+        if (secondsFromRecord > baselineSeconds) {
+          baselineSeconds = secondsFromRecord;
+          sessionGoal =
+              sessionGoal.copyWith(timeSpentSeconds: secondsFromRecord);
+          print(
+              '📝 START SESSION: Synced goal time from note (${minutesFromRecord} min)');
+        }
+      }
+    }
+
+    _baselineTimeSpent = baselineSeconds;
+
+    print('   - Baseline: ${formatTime(_baselineTimeSpent)}');
+    print('   - Goal target: ${formatTime(sessionGoal.totalSeconds)}');
+    print(
+        '   - Remaining: ${formatTime(sessionGoal.totalSeconds - baselineSeconds)}');
+
+    final updatedGoal = sessionGoal.copyWith(
       isActive: true,
       sessionResumedTimestampSeconds:
           _sessionStartTime, // 🎯 FIX: Save start time immediately for recovery
@@ -816,7 +852,21 @@ class TimerService extends ChangeNotifier {
     await GoalsWidgetUpdater(_db).update();
     notifyListeners();
 
-    print('✅ START SESSION: Session started successfully for "${latestGoal.title}"');
+    print('✅ START SESSION: Session started successfully for "${sessionGoal.title}"');
+  }
+
+  int _goalProgressMinutesFromRecordText(String text) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        final tm = decoded['time_minutes'];
+        if (tm is int) return tm;
+        if (tm is num) return tm.round();
+      }
+    } catch (_) {}
+    final match = RegExp(r'time_minutes:\s*(\d+)').firstMatch(text);
+    if (match != null) return int.tryParse(match.group(1)!) ?? 0;
+    return 0;
   }
 
   // 🎯 NEW: Create progress record for goal work session

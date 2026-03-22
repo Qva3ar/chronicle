@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/record_type.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:intl/intl.dart';
@@ -80,8 +82,10 @@ class ProductivityService {
       _productivityScoreUpdatedController.stream;
 
   /// Calculate score for a specific date (uses that date's weekday for routine filtering).
-  /// For today: uses live routine.isDone and goal.timeSpentSeconds.
-  /// For past dates: uses completion records (routine records, goal records).
+  /// For today: routine counts as done if [Routine.isDone] **or** there is a completion
+  /// record that day (covers import: export clears `is_done` but keeps notes).
+  /// Goals: max(timer progress, progress inferred from goal records that day).
+  /// For past dates: completion records only (routine flags are not historical).
   Future<ProductivityScore> _calculateScoreForDate(String dateStr) async {
     final now = DateTime.now();
     final todayStr = DateFormat('yyyy-MM-dd').format(now);
@@ -89,6 +93,13 @@ class ProductivityService {
 
     final targetDate = DateTime.tryParse(dateStr) ?? now;
     final currentDayIndex = targetDate.weekday - 1;
+
+    final DateTime scoreDayStart = isToday
+        ? DateTime(now.year, now.month, now.day)
+        : DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final scoreDayEnd = scoreDayStart.add(const Duration(days: 1));
+    final scoreStartMs = scoreDayStart.millisecondsSinceEpoch;
+    final scoreEndMs = scoreDayEnd.millisecondsSinceEpoch;
 
     final routineMaps = await _db.getAllRoutines();
     final allRoutines = routineMaps.map((m) => Routine.fromMap(m)).toList();
@@ -114,33 +125,23 @@ class ProductivityService {
     double completedWeight = 0;
     int routinesDone = 0;
 
-    if (isToday) {
-      for (final routine in dayRoutines) {
-        final w = routine.priority * routineWeightFactor;
-        totalWeight += w;
-        if (routine.isDone) {
-          completedWeight += w;
-          routinesDone++;
-        }
+    for (final routine in dayRoutines) {
+      final w = routine.priority * routineWeightFactor;
+      totalWeight += w;
+      bool completed = false;
+      if (isToday) {
+        completed = routine.isDone;
       }
-    } else {
-      final dayStart = DateTime(targetDate.year, targetDate.month, targetDate.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-      final startMs = dayStart.millisecondsSinceEpoch;
-      final endMs = dayEnd.millisecondsSinceEpoch;
-
-      for (final routine in dayRoutines) {
-        final w = routine.priority * routineWeightFactor;
-        totalWeight += w;
+      if (!completed && routine.id != null) {
         final records = await _db.getRecordsByRoutineId(routine.id!);
-        final completedOnDate = records.any((r) {
+        completed = records.any((r) {
           final ts = r[DatabaseColumns.recordCreatedAt] as int;
-          return ts >= startMs && ts < endMs;
+          return ts >= scoreStartMs && ts < scoreEndMs;
         });
-        if (completedOnDate) {
-          completedWeight += w;
-          routinesDone++;
-        }
+      }
+      if (completed) {
+        completedWeight += w;
+        routinesDone++;
       }
     }
 
@@ -148,29 +149,22 @@ class ProductivityService {
     for (final goal in activeGoals) {
       totalWeight += goal.priority;
       double progress = 0.0;
-      if (goal.totalSeconds > 0) {
+      if (goal.totalSeconds > 0 && goal.id != null) {
         if (isToday) {
-          progress = (goal.timeSpentSeconds / goal.totalSeconds).clamp(0.0, 1.0);
+          progress =
+              (goal.timeSpentSeconds / goal.totalSeconds).clamp(0.0, 1.0);
+          final fromRecords = await _goalProgressFromRecordsForDay(
+            goal,
+            scoreStartMs,
+            scoreEndMs,
+          );
+          progress = math.max(progress, fromRecords);
         } else {
-          final dayStart =
-              DateTime(targetDate.year, targetDate.month, targetDate.day);
-          final dayEnd = dayStart.add(const Duration(days: 1));
-          final startMs = dayStart.millisecondsSinceEpoch;
-          final endMs = dayEnd.millisecondsSinceEpoch;
-
-          final records = await _db.getRecordsByGoalId(goal.id!);
-          int minutesThatDay = 0;
-          for (final r in records) {
-            final ts = r[DatabaseColumns.recordCreatedAt] as int?;
-            if (ts == null || ts < startMs || ts >= endMs) continue;
-            final text = r[DatabaseColumns.recordText] as String? ?? '';
-            final m = _extractTimeMinutes(text);
-            if (m != null) minutesThatDay += m;
-          }
-          final targetMinutes = goal.totalSeconds ~/ 60;
-          progress = targetMinutes > 0
-              ? (minutesThatDay / targetMinutes).clamp(0.0, 1.0)
-              : 0.0;
+          progress = await _goalProgressFromRecordsForDay(
+            goal,
+            scoreStartMs,
+            scoreEndMs,
+          );
         }
       }
       completedWeight += goal.priority * progress;
@@ -190,6 +184,27 @@ class ProductivityService {
       routinesTotal: dayRoutines.length,
       goalsProgress: avgGoalsProgress,
     );
+  }
+
+  Future<double> _goalProgressFromRecordsForDay(
+    Goal goal,
+    int startMs,
+    int endMs,
+  ) async {
+    if (goal.totalSeconds <= 0 || goal.id == null) return 0.0;
+    final records = await _db.getRecordsByGoalId(goal.id!);
+    int minutesThatDay = 0;
+    for (final r in records) {
+      final ts = r[DatabaseColumns.recordCreatedAt] as int?;
+      if (ts == null || ts < startMs || ts >= endMs) continue;
+      final text = r[DatabaseColumns.recordText] as String? ?? '';
+      final m = _extractTimeMinutes(text);
+      if (m != null) minutesThatDay += m;
+    }
+    final targetMinutes = goal.totalSeconds ~/ 60;
+    return targetMinutes > 0
+        ? (minutesThatDay / targetMinutes).clamp(0.0, 1.0)
+        : 0.0;
   }
 
   int? _extractTimeMinutes(String text) {

@@ -659,6 +659,8 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       );
     }
 
+    await ProductivityService.instance.createOrUpdateDailyRecord();
+
     if (mounted) {
       Navigator.pop(context, true);
     }
