@@ -9,8 +9,10 @@ import 'package:chrono/colors.dart';
 
 class TodoListScreen extends StatefulWidget {
   final int? highlightTodoId; // To highlight a specific todo when opened from notification
+  /// When set (e.g. inside [DraggableScrollableSheet]), list scroll is linked to sheet drag.
+  final ScrollController? sheetScrollController;
 
-  const TodoListScreen({super.key, this.highlightTodoId});
+  const TodoListScreen({super.key, this.highlightTodoId, this.sheetScrollController});
 
   @override
   State<TodoListScreen> createState() => _TodoListScreenState();
@@ -170,65 +172,141 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
+  Widget _buildHeader() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: MyColors.forthyColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Todo List',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: white,
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _showCompleted ? Icons.visibility : Icons.visibility_off,
+                      color: white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showCompleted = !_showCompleted;
+                      });
+                      FilterService.instance.setShowCompletedTodos(_showCompleted);
+                    },
+                    tooltip: _showCompleted ? 'Hide completed' : 'Show completed',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: white),
+                    onPressed: () => _showTodoForm(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildTodoListChildren() {
+    return [
+      if (_activeTodos.isNotEmpty) ..._buildGroupedTodos(),
+      if (_showCompleted && _completedTodos.isNotEmpty) ...[
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: 8,
+            top: _activeTodos.isNotEmpty ? 16 : 8,
+          ),
+          child: const Text(
+            'Completed',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: MyColors.fivyColor,
+            ),
+          ),
+        ),
+        ..._completedTodos.map((todo) => _buildTodoItem(todo)),
+      ],
+      const SizedBox(height: 16),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sheetCtrl = widget.sheetScrollController;
+
+    if (sheetCtrl != null) {
+      final empty = _activeTodos.isEmpty && _completedTodos.isEmpty;
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          color: cardColor,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: empty
+                    ? ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: const [
+                          SizedBox(
+                            height: 200,
+                            child: Center(
+                              child: Text(
+                                'No todos yet\nTap + to create one',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: MyColors.fivyColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: _buildTodoListChildren(),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: MyColors.forthyColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Todo List',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: white,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _showCompleted ? Icons.visibility : Icons.visibility_off,
-                        color: white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _showCompleted = !_showCompleted;
-                        });
-                        FilterService.instance.setShowCompletedTodos(_showCompleted);
-                      },
-                      tooltip: _showCompleted ? 'Hide completed' : 'Show completed',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: white),
-                      onPressed: () => _showTodoForm(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Todo list
+          _buildHeader(),
           Expanded(
             child: _activeTodos.isEmpty && _completedTodos.isEmpty
                 ? const Center(
@@ -243,29 +321,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   )
                 : ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      // Active todos grouped by time period
-                      if (_activeTodos.isNotEmpty) ..._buildGroupedTodos(),
-                      // Completed todos
-                      if (_showCompleted && _completedTodos.isNotEmpty) ...[
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: 8,
-                            top: _activeTodos.isNotEmpty ? 16 : 8,
-                          ),
-                          child: const Text(
-                            'Completed',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: MyColors.fivyColor,
-                            ),
-                          ),
-                        ),
-                        ..._completedTodos.map((todo) => _buildTodoItem(todo)),
-                      ],
-                      const SizedBox(height: 16),
-                    ],
+                    children: _buildTodoListChildren(),
                   ),
           ),
         ],

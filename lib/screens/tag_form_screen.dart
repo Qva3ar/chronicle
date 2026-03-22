@@ -58,9 +58,13 @@ class _TagFormScreenState extends State<TagFormScreen> {
 
     try {
       if (isEditing && widget.existingTag != null) {
+        // System tag name cannot be changed (only color)
+        final nameToSave = widget.existingTag!.isSystem
+            ? widget.existingTag!.name
+            : _tagNameController.text.trim();
         await recordService.updateTag(
           widget.existingTag!.id,
-          _tagNameController.text.trim(),
+          nameToSave,
           selectedColor,
         );
       } else {
@@ -152,6 +156,7 @@ class _TagFormScreenState extends State<TagFormScreen> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                readOnly: widget.existingTag?.isSystem ?? false,
                 style: const TextStyle(color: MyColors.secondaryColor),
                 decoration: InputDecoration(
                   fillColor: Colors.white,
@@ -168,7 +173,9 @@ class _TagFormScreenState extends State<TagFormScreen> {
                       width: 1.0,
                     ),
                   ),
-                  hintText: 'Enter tag name',
+                  hintText: widget.existingTag?.isSystem ?? false
+                      ? 'System tag name cannot be changed'
+                      : 'Enter tag name',
                   hintStyle: TextStyle(color: Colors.grey[600]),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,

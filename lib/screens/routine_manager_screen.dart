@@ -13,7 +13,10 @@ import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/widgets/reminder_timeline_widget.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
-  const RoutineManagerScreen({super.key});
+  /// When set (e.g. inside [DraggableScrollableSheet]), list scroll is linked to sheet drag.
+  final ScrollController? sheetScrollController;
+
+  const RoutineManagerScreen({super.key, this.sheetScrollController});
 
   @override
   State<RoutineManagerScreen> createState() => _RoutineManagerScreenState();
@@ -205,8 +208,132 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     await _updateWidget();
   }
 
+  Widget _buildHeader() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: MyColors.forthyColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Routine Manager',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: white,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_otherDayRoutines.isNotEmpty)
+                    IconButton(
+                      icon: Icon(
+                        _showOtherDays ? Icons.visibility : Icons.visibility_off,
+                        color: _showOtherDays ? white : MyColors.forthyColor,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() => _showOtherDays = !_showOtherDays);
+                        FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
+                      },
+                      tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: white),
+                    onPressed: () => _showRoutineForm(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildRoutineListChildren() {
+    return [
+      ..._routines.map((r) => _buildRoutineTile(r, isOtherDay: false)),
+      if (_showOtherDays && _otherDayRoutines.isNotEmpty) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Icon(Icons.calendar_month,
+                  size: 14, color: MyColors.forthyColor.withValues(alpha: 0.7)),
+              const SizedBox(width: 6),
+              Text(
+                'Other days',
+                style: TextStyle(
+                  color: MyColors.forthyColor.withValues(alpha: 0.7),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Divider(
+                  color: MyColors.forthyColor.withValues(alpha: 0.2),
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ..._otherDayRoutines.map((r) => _buildRoutineTile(r, isOtherDay: true)),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sheetCtrl = widget.sheetScrollController;
+
+    if (sheetCtrl != null) {
+      final empty = _routines.isEmpty && (!_showOtherDays || _otherDayRoutines.isEmpty);
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          color: cardColor,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: empty
+                    ? ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.sizeOf(context).height * 0.35,
+                            child: _buildEmptyState(),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: _buildRoutineListChildren(),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
@@ -215,92 +342,12 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
       ),
       child: Column(
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: MyColors.forthyColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Routine Manager',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: white,
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_otherDayRoutines.isNotEmpty)
-                      IconButton(
-                        icon: Icon(
-                          _showOtherDays ? Icons.visibility : Icons.visibility_off,
-                          color: _showOtherDays ? white : MyColors.forthyColor,
-                          size: 20,
-                        ),
-                        onPressed: () {
-                          setState(() => _showOtherDays = !_showOtherDays);
-                          FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
-                        },
-                        tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: white),
-                      onPressed: () => _showRoutineForm(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // List of routines
+          _buildHeader(),
           Expanded(
             child: _routines.isEmpty && (!_showOtherDays || _otherDayRoutines.isEmpty)
                 ? _buildEmptyState()
                 : ListView(
-                    children: [
-                      ..._routines.map((r) => _buildRoutineTile(r, isOtherDay: false)),
-                      if (_showOtherDays && _otherDayRoutines.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          child: Row(
-                            children: [
-                              Icon(Icons.calendar_month,
-                                  size: 14,
-                                  color: MyColors.forthyColor.withValues(alpha: 0.7)),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Other days',
-                                style: TextStyle(
-                                  color: MyColors.forthyColor.withValues(alpha: 0.7),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Divider(
-                                  color: MyColors.forthyColor.withValues(alpha: 0.2),
-                                  height: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ..._otherDayRoutines.map((r) => _buildRoutineTile(r, isOtherDay: true)),
-                      ],
-                    ],
+                    children: _buildRoutineListChildren(),
                   ),
           ),
         ],

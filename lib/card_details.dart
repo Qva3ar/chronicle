@@ -288,36 +288,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
                               ),
                             ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: TextField(
-                              controller: tagSearchController,
-                              autofocus: false,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                hintText: 'Search tags...',
-                                hintStyle: TextStyle(color: Colors.white38),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
-                                suffixIcon: tagSearchController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
-                                        onPressed: () {
-                                          tagSearchController.clear();
-                                          setModalState(() {});
-                                        },
-                                      )
-                                    : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                filled: true,
-                                fillColor: MyColors.secondaryColor,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                              onChanged: (_) => setModalState(() {}),
-                            ),
-                          ),
                           Flexible(
                             child: SingleChildScrollView(
                               child: filteredTags.isEmpty
@@ -366,6 +336,36 @@ class _CardDetailPageState extends State<CardDetailPage> {
                                         );
                                       }).toList(),
                                     ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 8),
+                            child: TextField(
+                              controller: tagSearchController,
+                              autofocus: false,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Search tags...',
+                                hintStyle: TextStyle(color: Colors.white38),
+                                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                                suffixIcon: tagSearchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                                        onPressed: () {
+                                          tagSearchController.clear();
+                                          setModalState(() {});
+                                        },
+                                      )
+                                    : null,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                filled: true,
+                                fillColor: MyColors.secondaryColor,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              onChanged: (_) => setModalState(() {}),
                             ),
                           ),
                         ],

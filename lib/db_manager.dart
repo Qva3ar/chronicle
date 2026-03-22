@@ -15,7 +15,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 39;
+  static const int databaseVersion = 44;
   static const int pageSize = 20;
 }
 
@@ -207,6 +207,7 @@ class DatabaseHelper {
     log('🔓 Database opened successfully');
     // Safety net: ensure system "Chrono" tag exists even if migrations were skipped
     // or the tag was removed before it became a system tag.
+    await _ensureSingleChronoSystemTag(db);
     await _insertChronoTag(db);
   }
 
@@ -1225,6 +1226,184 @@ class DatabaseHelper {
         ''');
         log('Upgraded database to v39: Added priority column to routines and goals tables.');
       }
+
+      if (oldVersion < 40) {
+        log('Starting migration to v40: Fix duplicate tags and ensure single Chrono system tag...');
+        // 1. Merge duplicate tags by name (e.g. multiple "Chrono App")
+        final allTags =
+            await db.query(DatabaseTables.category, orderBy: '${DatabaseColumns.id} ASC');
+        final Map<String, List<Map<String, dynamic>>> byName = {};
+        for (final tag in allTags) {
+          final name = (tag[DatabaseColumns.tagName] as String?) ?? '';
+          byName.putIfAbsent(name, () => []).add(tag);
+        }
+        for (final entry in byName.entries) {
+          final list = entry.value;
+          if (list.length <= 1) continue;
+          list.sort((a, b) {
+            final aSys = (a[DatabaseColumns.tagIsSystem] ?? 0) == 1 ? 1 : 0;
+            final bSys = (b[DatabaseColumns.tagIsSystem] ?? 0) == 1 ? 1 : 0;
+            return bSys.compareTo(aSys);
+          });
+          final keeperId = list.first[DatabaseColumns.id] as int;
+          for (int i = 1; i < list.length; i++) {
+            final dupId = list[i][DatabaseColumns.id] as int;
+            final links = await db.query(
+              DatabaseTables.recordTag,
+              where: 'tagId = ?',
+              whereArgs: [dupId],
+            );
+            for (final link in links) {
+              final recordId = link['recordId'] as int;
+              final existing = await db.query(
+                DatabaseTables.recordTag,
+                where: 'recordId = ? AND tagId = ?',
+                whereArgs: [recordId, keeperId],
+              );
+              if (existing.isEmpty) {
+                await db.insert(DatabaseTables.recordTag, {
+                  'recordId': recordId,
+                  'tagId': keeperId,
+                });
+              }
+            }
+            await db.delete(
+              DatabaseTables.recordTag,
+              where: 'tagId = ?',
+              whereArgs: [dupId],
+            );
+            await db.delete(
+              DatabaseTables.category,
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [dupId],
+            );
+            log('Merged duplicate tag "${entry.key}" id=$dupId into id=$keeperId');
+          }
+        }
+        // 2. Ensure exactly one "Chrono" system tag: fix renamed system tags first, then create if missing
+        final systemTags = await db.query(
+          DatabaseTables.category,
+          where: '${DatabaseColumns.tagIsSystem} = ?',
+          whereArgs: [1],
+        );
+        if (systemTags.isNotEmpty) {
+          // Rename any system tag not named "Chrono" back to "Chrono"
+          for (final t in systemTags) {
+            final name = t[DatabaseColumns.tagName] as String? ?? '';
+            if (name != 'Chrono') {
+              await db.update(
+                DatabaseTables.category,
+                {DatabaseColumns.tagName: 'Chrono'},
+                where: '${DatabaseColumns.id} = ?',
+                whereArgs: [t[DatabaseColumns.id]],
+              );
+              log('Renamed system tag back to "Chrono" from "$name"');
+            }
+          }
+        }
+        await _insertChronoTag(db);
+        log('Upgraded database to v40: Fixed duplicate tags and Chrono system tag.');
+      }
+
+      if (oldVersion < 41) {
+        log('Starting migration to v41: Fix duplicate Chrono names and tag ordering...');
+        // If we have multiple "Chrono" tags, the user one (isSystem=0) was wrongly renamed - restore to "Chrono App"
+        final chronoTags = await db.query(
+          DatabaseTables.category,
+          where: '${DatabaseColumns.tagName} = ?',
+          whereArgs: ['Chrono'],
+        );
+        if (chronoTags.length > 1) {
+          for (final t in chronoTags) {
+            if ((t[DatabaseColumns.tagIsSystem] ?? 0) != 1) {
+              await db.update(
+                DatabaseTables.category,
+                {DatabaseColumns.tagName: 'Chrono App'},
+                where: '${DatabaseColumns.id} = ?',
+                whereArgs: [t[DatabaseColumns.id]],
+              );
+              log('Renamed user tag back to "Chrono App" (id=${t[DatabaseColumns.id]})');
+            }
+          }
+        }
+        log('Upgraded database to v41: Fixed Chrono/Chrono App naming.');
+      }
+
+      if (oldVersion < 42) {
+        log('Starting migration to v42: Fix duplicate system Chrono tags...');
+        // If multiple "Chrono" tags exist and BOTH have isSystem=1, demote duplicates to user tags
+        final chronoTags = await db.query(
+          DatabaseTables.category,
+          where: '${DatabaseColumns.tagName} = ?',
+          whereArgs: ['Chrono'],
+          orderBy: '${DatabaseColumns.id} ASC',
+        );
+        if (chronoTags.length > 1) {
+          // Keep first as system tag, demote the rest to "Chrono App" (user, deletable)
+          for (int i = 1; i < chronoTags.length; i++) {
+            final t = chronoTags[i];
+            await db.update(
+              DatabaseTables.category,
+              {
+                DatabaseColumns.tagName: 'Chrono App',
+                DatabaseColumns.tagIsSystem: 0,
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [t[DatabaseColumns.id]],
+            );
+            log('Demoted duplicate Chrono (id=${t[DatabaseColumns.id]}) to user tag "Chrono App"');
+          }
+        }
+        log('Upgraded database to v42: Fixed duplicate system Chrono tags.');
+      }
+
+      if (oldVersion < 43) {
+        log('Starting migration to v43: Fix Chrono/Chrono App swap (identify by system color)...');
+        // System Chrono has color 4283452749 (from _insertChronoTag). The tag with this color
+        // should be Chrono (system); the other should be Chrono App (user).
+        const String systemChronoColor = '4283452749';
+        final chronoRelated = await db.query(
+          DatabaseTables.category,
+          where: '${DatabaseColumns.tagName} IN (?, ?)',
+          whereArgs: ['Chrono', 'Chrono App'],
+        );
+        for (final t in chronoRelated) {
+          final id = t[DatabaseColumns.id] as int;
+          final color = t[DatabaseColumns.tagColor]?.toString() ?? '';
+          final isSystemColor = color == systemChronoColor;
+          if (isSystemColor) {
+            await db.update(
+              DatabaseTables.category,
+              {
+                DatabaseColumns.tagName: 'Chrono',
+                DatabaseColumns.tagIsSystem: 1,
+                DatabaseColumns.tagColor: systemChronoColor,
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            log('Set tag id=$id as system Chrono (has system color)');
+          } else {
+            await db.update(
+              DatabaseTables.category,
+              {
+                DatabaseColumns.tagName: 'Chrono App',
+                DatabaseColumns.tagIsSystem: 0,
+              },
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [id],
+            );
+            log('Set tag id=$id as user Chrono App (different color)');
+          }
+        }
+        log('Upgraded database to v43: Fixed Chrono/Chrono App assignment by color.');
+      }
+
+      if (oldVersion < 44) {
+        log('Starting migration to v44: Enforce single system Chrono tag...');
+        await _ensureSingleChronoSystemTag(db);
+        log('Upgraded database to v44: Single system Chrono enforced.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1250,46 +1429,117 @@ class DatabaseHelper {
     }
   }
 
+  /// Official system "Chrono" tag color (ARGB 255,80,77,77).
+  static const String _systemChronoColor = '4283452749';
+
+  /// Ensures at most one tag is the system Chrono. Demotes duplicates to user "Chrono App".
+  /// Picks canonical: unique tag with system color, else tag with max _id (newer insert from app).
+  Future<void> _ensureSingleChronoSystemTag(Database db) async {
+    try {
+      final systemRows = await db.query(
+        DatabaseTables.category,
+        where: '${DatabaseColumns.tagIsSystem} = ?',
+        whereArgs: [1],
+      );
+      if (systemRows.length <= 1) {
+        return;
+      }
+
+      final withSystemColor = systemRows
+          .where((t) => (t[DatabaseColumns.tagColor]?.toString() ?? '') == _systemChronoColor)
+          .toList();
+
+      int canonicalId;
+      if (withSystemColor.length == 1) {
+        canonicalId = withSystemColor.first[DatabaseColumns.id] as int;
+      } else {
+        systemRows.sort(
+          (a, b) =>
+              (a[DatabaseColumns.id] as int).compareTo(b[DatabaseColumns.id] as int),
+        );
+        canonicalId = systemRows.last[DatabaseColumns.id] as int;
+      }
+
+      for (final t in systemRows) {
+        final id = t[DatabaseColumns.id] as int;
+        if (id == canonicalId) {
+          await db.update(
+            DatabaseTables.category,
+            {
+              DatabaseColumns.tagName: 'Chrono',
+              DatabaseColumns.tagIsSystem: 1,
+              DatabaseColumns.tagColor: _systemChronoColor,
+            },
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [id],
+          );
+        } else {
+          await db.update(
+            DatabaseTables.category,
+            {
+              DatabaseColumns.tagName: 'Chrono App',
+              DatabaseColumns.tagIsSystem: 0,
+            },
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [id],
+          );
+        }
+      }
+      log('✅ _ensureSingleChronoSystemTag: kept system Chrono id=$canonicalId, demoted ${systemRows.length - 1} duplicate(s)');
+    } catch (e) {
+      log('❌ _ensureSingleChronoSystemTag: $e');
+    }
+  }
+
   /// Insert default "Chrono" system tag
   Future<void> _insertChronoTag(Database db) async {
     try {
-      // ARGB(255, 80, 77, 77) => 0xFF504D4D => 4283452749
-      const String chronoColor = '4283452749';
+      const String chronoColor = _systemChronoColor;
 
-      // Check if Chrono tag already exists
-      final existing = await db.query(
+      // Must update by row id only — WHERE name='Chrono' would update every duplicate row.
+      final systemChrono = await db.query(
         DatabaseTables.category,
-        where: '${DatabaseColumns.tagName} = ?',
-        whereArgs: ['Chrono'],
+        where: '${DatabaseColumns.tagName} = ? AND ${DatabaseColumns.tagIsSystem} = ?',
+        whereArgs: ['Chrono', 1],
+        limit: 1,
       );
 
-      if (existing.isEmpty) {
-        await db.insert(
+      if (systemChrono.isEmpty) {
+        // No system row yet: avoid creating a second "Chrono" if a user row still has that name
+        await _ensureSingleChronoSystemTag(db);
+        final again = await db.query(
           DatabaseTables.category,
-          {
-            DatabaseColumns.tagName: 'Chrono',
-            DatabaseColumns.tagColor: chronoColor,
-            DatabaseColumns.tagIsSystem: 1, // Mark as system tag
-          },
+          where: '${DatabaseColumns.tagName} = ? AND ${DatabaseColumns.tagIsSystem} = ?',
+          whereArgs: ['Chrono', 1],
+          limit: 1,
         );
-        log('✅ Created default "Chrono" system tag');
+        if (again.isEmpty) {
+          await db.insert(
+            DatabaseTables.category,
+            {
+              DatabaseColumns.tagName: 'Chrono',
+              DatabaseColumns.tagColor: chronoColor,
+              DatabaseColumns.tagIsSystem: 1,
+            },
+          );
+          log('✅ Created default "Chrono" system tag');
+        }
       } else {
-        // Ensure it's marked as system (in case it existed before the system-tag feature)
-        final row = existing.first;
+        final row = systemChrono.first;
+        final id = row[DatabaseColumns.id] as int;
         final isSystem = (row[DatabaseColumns.tagIsSystem] ?? 0) == 1;
         final existingColor = row[DatabaseColumns.tagColor]?.toString();
         if (!isSystem || existingColor != chronoColor) {
-          final updates = <String, dynamic>{
-            DatabaseColumns.tagIsSystem: 1,
-            DatabaseColumns.tagColor: chronoColor,
-          };
           await db.update(
             DatabaseTables.category,
-            updates,
-            where: '${DatabaseColumns.tagName} = ?',
-            whereArgs: ['Chrono'],
+            {
+              DatabaseColumns.tagIsSystem: 1,
+              DatabaseColumns.tagColor: chronoColor,
+            },
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [id],
           );
-          log('✅ Updated existing "Chrono" tag (system/color)');
+          log('✅ Updated system "Chrono" tag id=$id (system/color)');
         }
       }
     } catch (e) {
@@ -1419,11 +1669,10 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryAllRows() async {
     try {
       final Database db = await instance.database;
-      // Keep system "Chrono" tag first for consistent UX.
+      // Keep system tag (Chrono) first for consistent UX, then alphabetical.
       return await db.query(
         DatabaseTables.category,
-        orderBy:
-            "CASE WHEN ${DatabaseColumns.tagName} = 'Chrono' THEN 0 ELSE 1 END, "
+        orderBy: "CASE WHEN ${DatabaseColumns.tagIsSystem} = 1 THEN 0 ELSE 1 END, "
             "LOWER(${DatabaseColumns.tagName}) ASC",
       );
     } catch (e) {
@@ -1673,8 +1922,7 @@ class DatabaseHelper {
       final Database db = await instance.database;
       final records = await db.query(
         DatabaseTables.record,
-        where:
-            '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
+        where: '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
             'AND ${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordCreatedAt} < ?',
         whereArgs: [routineId, 'routine', startMs, endMs],
         limit: 1,
@@ -1698,8 +1946,7 @@ class DatabaseHelper {
       final Database db = await instance.database;
       await db.delete(
         DatabaseTables.record,
-        where:
-            '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
+        where: '${DatabaseColumns.recordRoutineId} = ? AND ${DatabaseColumns.recordType} = ? '
             'AND ${DatabaseColumns.recordCreatedAt} >= ? AND ${DatabaseColumns.recordCreatedAt} < ?',
         whereArgs: [routineId, 'routine', startMs, endMs],
       );

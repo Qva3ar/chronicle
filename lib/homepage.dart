@@ -482,6 +482,71 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  /// Goals / Routines / Todo: [DraggableScrollableSheet] so pulling down on scrollable content
+  /// shrinks and dismisses the sheet; list stays scrollable when not at the top.
+  void _showDraggablePersistentSheet({
+    required String id,
+    required Widget Function(BuildContext context, ScrollController scrollController) builder,
+  }) {
+    if (_activeSheetId == id) {
+      _closePersistentBottomSheet();
+      setState(() {});
+      return;
+    }
+
+    _closePersistentBottomSheet();
+
+    final dragController = DraggableScrollableController();
+    PersistentBottomSheetController? sheetController;
+    var dismissScheduled = false;
+
+    void tryDismissSheet() {
+      if (!mounted || dismissScheduled) return;
+      if (!dragController.isAttached) return;
+      if (dragController.size < 0.05) {
+        dismissScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final sc = sheetController;
+          if (sc != null && _bottomSheetController == sc) {
+            sc.close();
+          }
+        });
+      }
+    }
+
+    sheetController = _scaffoldKey.currentState?.showBottomSheet(
+      (context) => DraggableScrollableSheet(
+        controller: dragController,
+        expand: false,
+        initialChildSize: 0.5,
+        minChildSize: 0.0,
+        maxChildSize: 0.92,
+        builder: (context, scrollController) => builder(context, scrollController),
+      ),
+      backgroundColor: Colors.transparent,
+    );
+
+    dragController.addListener(tryDismissSheet);
+
+    if (sheetController != null) {
+      setState(() {
+        _bottomSheetController = sheetController;
+        _activeSheetId = id;
+      });
+      sheetController.closed.then((_) {
+        dragController.removeListener(tryDismissSheet);
+        if (_bottomSheetController == sheetController) {
+          setState(() {
+            _bottomSheetController = null;
+            _activeSheetId = null;
+          });
+          loadRecords(refresh: true);
+        }
+      });
+    }
+  }
+
   Future<int?> _getChronoTagId() async {
     try {
       for (final t in allTags) {
@@ -491,6 +556,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final rows = await dbHelper.queryAllRows();
       for (final row in rows) {
         if (row[DatabaseColumns.tagName] == 'Chrono') {
+          return row[DatabaseColumns.id] as int?;
+        }
+      }
+      // Fallback: use system tag if Chrono was renamed before migration
+      for (final row in rows) {
+        if ((row[DatabaseColumns.tagIsSystem] ?? 0) == 1) {
           return row[DatabaseColumns.id] as int?;
         }
       }
@@ -714,7 +785,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-                    _showPersistentSheet((context) => const GoalsScreen(), id: 'goals');
+                    _showDraggablePersistentSheet(
+                      id: 'goals',
+                      builder: (context, scrollController) =>
+                          GoalsScreen(sheetScrollController: scrollController),
+                    );
                   },
                   icon: const Icon(
                     Icons.flag,
@@ -724,7 +799,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-                    _showPersistentSheet((context) => const RoutineManagerScreen(), id: 'routines');
+                    _showDraggablePersistentSheet(
+                      id: 'routines',
+                      builder: (context, scrollController) =>
+                          RoutineManagerScreen(sheetScrollController: scrollController),
+                    );
                   },
                   icon: const Icon(
                     Icons.arrow_upward_rounded,
@@ -734,7 +813,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               IconButton(
                   onPressed: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-                    _showPersistentSheet((context) => const TodoListScreen(), id: 'todos');
+                    _showDraggablePersistentSheet(
+                      id: 'todos',
+                      builder: (context, scrollController) =>
+                          TodoListScreen(sheetScrollController: scrollController),
+                    );
                   },
                   icon: const Icon(
                     Icons.checklist,

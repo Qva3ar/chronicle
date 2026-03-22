@@ -11,7 +11,11 @@ import '../colors.dart';
 import 'goal_calendar_screen.dart';
 
 class GoalsScreen extends StatefulWidget {
-  const GoalsScreen({Key? key}) : super(key: key);
+  /// When set (e.g. inside [DraggableScrollableSheet]), list scroll is linked to sheet drag so
+  /// pulling down on content dismisses the sheet while keeping the list scrollable.
+  final ScrollController? sheetScrollController;
+
+  const GoalsScreen({Key? key, this.sheetScrollController}) : super(key: key);
 
   @override
   State<GoalsScreen> createState() => _GoalsScreenState();
@@ -253,8 +257,148 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     _goalService.saveGoalOrder(ids);
   }
 
+  Widget _buildHeader() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: MyColors.forthyColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Goal Manager',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: white,
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _showArchived ? Icons.visibility : Icons.visibility_off,
+                      color: white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showArchived = !_showArchived;
+                      });
+                    },
+                    tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: white),
+                    onPressed: _showAddGoalForm,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sheetCtrl = widget.sheetScrollController;
+
+    if (sheetCtrl != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          color: cardColor,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _isLoading
+                    ? ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(
+                            height: 280,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ],
+                      )
+                    : (_activeGoals.isEmpty && (!_showArchived || _archivedGoals.isEmpty))
+                        ? ListView(
+                            controller: sheetCtrl,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height: MediaQuery.sizeOf(context).height * 0.35,
+                                child: _buildEmptyState(),
+                              ),
+                            ],
+                          )
+                        : ReorderableListView(
+                            scrollController: sheetCtrl,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            onReorder: _onReorder,
+                            footer: (_showArchived && _archivedGoals.isNotEmpty)
+                                ? Column(
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                        child: Text(
+                                          'Completed',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: MyColors.fivyColor,
+                                          ),
+                                        ),
+                                      ),
+                                      ..._archivedGoals.map(
+                                        (goal) => GoalCard(
+                                          key: ValueKey(goal.id),
+                                          goal: goal,
+                                          onTap: () => _toggleGoalSession(goal),
+                                          onDelete: _deleteGoal,
+                                          onEdit: _showEditGoalForm,
+                                          onCalendar: () => _openCalendar(goal),
+                                          onToggleArchived: () => _toggleArchived(goal),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            children: [
+                              ..._activeGoals.map(
+                                (goal) => GoalCard(
+                                  key: ValueKey(goal.id),
+                                  goal: goal,
+                                  onTap: () => _toggleGoalSession(goal),
+                                  onDelete: _deleteGoal,
+                                  onEdit: _showEditGoalForm,
+                                  onCalendar: () => _openCalendar(goal),
+                                  onToggleArchived: () => _toggleArchived(goal),
+                                ),
+                              ),
+                            ],
+                          ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
@@ -263,53 +407,9 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       ),
       child: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: MyColors.forthyColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Goal Manager',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: white,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _showArchived ? Icons.visibility : Icons.visibility_off,
-                        color: white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _showArchived = !_showArchived;
-                        });
-                      },
-                      tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: white),
-                      onPressed: _showAddGoalForm,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(),
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Expanded(child: Center(child: CircularProgressIndicator()))
               : Expanded(
                   child: (_activeGoals.isEmpty && (!_showArchived || _archivedGoals.isEmpty))
                       ? _buildEmptyState()
@@ -332,7 +432,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                                     ),
                                     ..._archivedGoals.map(
                                       (goal) => GoalCard(
-                                        key: ValueKey(goal.id), // Key helps UI diffing
+                                        key: ValueKey(goal.id),
                                         goal: goal,
                                         onTap: () => _toggleGoalSession(goal),
                                         onDelete: _deleteGoal,
