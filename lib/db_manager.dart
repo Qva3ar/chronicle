@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/models/record.dart';
@@ -15,7 +16,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 44;
+  static const int databaseVersion = 46;
   static const int pageSize = 20;
 }
 
@@ -204,11 +205,64 @@ class DatabaseHelper {
 
   /// Verify data integrity when opening database
   Future<void> _onOpen(Database db) async {
+    debugPrint('🔓 Database onOpen: Chrono maintenance + tag dump');
     log('🔓 Database opened successfully');
     // Safety net: ensure system "Chrono" tag exists even if migrations were skipped
     // or the tag was removed before it became a system tag.
     await _ensureSingleChronoSystemTag(db);
     await _insertChronoTag(db);
+    await _logTagsDebugDump(db);
+  }
+
+  /// Dumps all tags to the Flutter console via [debugPrint] (visible in `flutter run` / IDE).
+  /// Also uses [log] for tools that capture DevTools logging.
+  Future<void> _logTagsDebugDump(Database db) async {
+    try {
+      final tags = await db.query(
+        DatabaseTables.category,
+        orderBy: '${DatabaseColumns.id} ASC',
+      );
+      final countRows = await db.rawQuery(
+        'SELECT tagId, COUNT(*) AS c FROM ${DatabaseTables.recordTag} GROUP BY tagId',
+      );
+      final linkCount = <int, int>{};
+      for (final r in countRows) {
+        final tid = r['tagId'];
+        final c = r['c'];
+        final tidInt = tid is int ? tid : int.tryParse('$tid');
+        final cInt = c is int ? c : (c is num ? c.toInt() : int.tryParse('$c'));
+        if (tidInt != null && cInt != null) {
+          linkCount[tidInt] = cInt;
+        }
+      }
+
+      void line(String s) {
+        debugPrint(s);
+        log(s, name: 'TAGS_DEBUG');
+      }
+
+      line('========== TAGS_DEBUG_DUMP_START (copy this block) ==========');
+      line('dbVersion=${DatabaseConfig.databaseVersion} tag_count=${tags.length}');
+      for (final t in tags) {
+        final id = t[DatabaseColumns.id];
+        final name = t[DatabaseColumns.tagName];
+        final color = t[DatabaseColumns.tagColor];
+        final isSys = t[DatabaseColumns.tagIsSystem];
+        final n = linkCount[id as int] ?? 0;
+        line('TAG_ROW id=$id name="$name" color=$color is_system=$isSys linked_records=$n');
+      }
+      line('========== TAGS_DEBUG_DUMP_END ==========');
+    } catch (e, st) {
+      debugPrint('TAGS_DEBUG_DUMP failed: $e');
+      debugPrint('$st');
+      log('TAGS_DEBUG_DUMP failed: $e', stackTrace: st);
+    }
+  }
+
+  /// Call from Settings (debug) or after hot reload — same dump as on DB open.
+  Future<void> debugPrintTagsDumpToConsole() async {
+    final db = await database;
+    await _logTagsDebugDump(db);
   }
 
   /// Verify data integrity and log recent records
@@ -1404,6 +1458,18 @@ class DatabaseHelper {
         await _ensureSingleChronoSystemTag(db);
         log('Upgraded database to v44: Single system Chrono enforced.');
       }
+
+      if (oldVersion < 45) {
+        log('Starting migration to v45: Re-run Chrono dedupe (keep lowest _id when colors match)...');
+        await _ensureSingleChronoSystemTag(db);
+        log('Upgraded database to v45: Chrono dedupe (min id canonical).');
+      }
+
+      if (oldVersion < 46) {
+        log('Starting migration to v46: Swap record links between Chrono and Chrono App...');
+        await _swapChronoAndChronoAppRecordLinks(db);
+        log('Upgraded database to v46: Chrono ↔ Chrono App note links swapped.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1432,6 +1498,72 @@ class DatabaseHelper {
   /// Official system "Chrono" tag color (ARGB 255,80,77,77).
   static const String _systemChronoColor = '4283452749';
 
+  /// Swaps all [record_tag] rows between system "Chrono" and user "Chrono App"
+  /// (fixes inverted note assignments after dedupe migrations).
+  Future<void> _swapChronoAndChronoAppRecordLinks(Database db) async {
+    try {
+      final sysRows = await db.query(
+        DatabaseTables.category,
+        where:
+            '${DatabaseColumns.tagName} = ? AND ${DatabaseColumns.tagIsSystem} = ?',
+        whereArgs: ['Chrono', 1],
+        limit: 1,
+      );
+      final appRows = await db.query(
+        DatabaseTables.category,
+        where:
+            '${DatabaseColumns.tagName} = ? AND ${DatabaseColumns.tagIsSystem} = ?',
+        whereArgs: ['Chrono App', 0],
+        limit: 1,
+      );
+      if (sysRows.isEmpty || appRows.isEmpty) {
+        log('_swapChronoAndChronoAppRecordLinks: missing Chrono or Chrono App, skip');
+        return;
+      }
+      final int systemId = sysRows.first[DatabaseColumns.id] as int;
+      final int appId = appRows.first[DatabaseColumns.id] as int;
+      if (systemId == appId) return;
+
+      await db.transaction((txn) async {
+        final links = await txn.query(
+          DatabaseTables.recordTag,
+          where: 'tagId IN (?, ?)',
+          whereArgs: [systemId, appId],
+        );
+        if (links.isEmpty) return;
+
+        final seen = <String>{};
+        final toInsert = <Map<String, dynamic>>[];
+        for (final row in links) {
+          final rid = row['recordId'];
+          final tid = row['tagId'];
+          final ridInt = rid is int ? rid : int.tryParse('$rid');
+          final tidInt = tid is int ? tid : int.tryParse('$tid');
+          if (ridInt == null || tidInt == null) continue;
+          final newTid = tidInt == systemId ? appId : systemId;
+          final key = '$ridInt-$newTid';
+          if (seen.add(key)) {
+            toInsert.add({'recordId': ridInt, 'tagId': newTid});
+          }
+        }
+        await txn.delete(
+          DatabaseTables.recordTag,
+          where: 'tagId IN (?, ?)',
+          whereArgs: [systemId, appId],
+        );
+        for (final m in toInsert) {
+          await txn.insert(DatabaseTables.recordTag, m);
+        }
+      });
+      debugPrint(
+          '✅ Swapped record_tag: Chrono id=$systemId ↔ Chrono App id=$appId');
+      log('✅ Swapped record_tag between Chrono ($systemId) and Chrono App ($appId)');
+    } catch (e, st) {
+      log('❌ _swapChronoAndChronoAppRecordLinks: $e', stackTrace: st);
+      rethrow;
+    }
+  }
+
   /// Ensures at most one tag is the system Chrono. Demotes duplicates to user "Chrono App".
   /// Picks canonical: unique tag with system color, else tag with max _id (newer insert from app).
   Future<void> _ensureSingleChronoSystemTag(Database db) async {
@@ -1449,15 +1581,26 @@ class DatabaseHelper {
           .where((t) => (t[DatabaseColumns.tagColor]?.toString() ?? '') == _systemChronoColor)
           .toList();
 
+      // Canonical system Chrono:
+      // - If exactly one row has the official color → that one.
+      // - If several share the same color (duplicate inserts) → keep LOWEST _id (original row);
+      //   higher ids are almost always a later duplicate from migrations / rename churn.
+      // - If none match color → lowest _id among all is_system rows.
       int canonicalId;
       if (withSystemColor.length == 1) {
+        canonicalId = withSystemColor.first[DatabaseColumns.id] as int;
+      } else if (withSystemColor.isNotEmpty) {
+        withSystemColor.sort(
+          (a, b) =>
+              (a[DatabaseColumns.id] as int).compareTo(b[DatabaseColumns.id] as int),
+        );
         canonicalId = withSystemColor.first[DatabaseColumns.id] as int;
       } else {
         systemRows.sort(
           (a, b) =>
               (a[DatabaseColumns.id] as int).compareTo(b[DatabaseColumns.id] as int),
         );
-        canonicalId = systemRows.last[DatabaseColumns.id] as int;
+        canonicalId = systemRows.first[DatabaseColumns.id] as int;
       }
 
       for (final t in systemRows) {
@@ -1486,8 +1629,10 @@ class DatabaseHelper {
         }
       }
       log('✅ _ensureSingleChronoSystemTag: kept system Chrono id=$canonicalId, demoted ${systemRows.length - 1} duplicate(s)');
+      debugPrint('✅ _ensureSingleChronoSystemTag: canonical Chrono id=$canonicalId');
     } catch (e) {
       log('❌ _ensureSingleChronoSystemTag: $e');
+      debugPrint('❌ _ensureSingleChronoSystemTag: $e');
     }
   }
 
@@ -2280,28 +2425,30 @@ class DatabaseHelper {
           }
         }
 
-        // Ensure the default system tag exists and is marked as system after import.
-        final chronoExisting = await txn.query(
+        // Ensure the default system tag exists after import (update by row id only — never
+        // WHERE name='Chrono', which would mark every duplicate row as system).
+        final chronoRows = await txn.query(
           DatabaseTables.category,
           where: '${DatabaseColumns.tagName} = ?',
           whereArgs: const ['Chrono'],
-          limit: 1,
+          orderBy: '${DatabaseColumns.id} ASC',
         );
-        if (chronoExisting.isEmpty) {
+        if (chronoRows.isEmpty) {
           await txn.insert(DatabaseTables.category, {
             DatabaseColumns.tagName: 'Chrono',
             DatabaseColumns.tagColor: '4283452749',
             DatabaseColumns.tagIsSystem: 1,
           });
         } else {
+          final firstId = chronoRows.first[DatabaseColumns.id] as int;
           await txn.update(
             DatabaseTables.category,
             {
               DatabaseColumns.tagIsSystem: 1,
               DatabaseColumns.tagColor: '4283452749',
             },
-            where: '${DatabaseColumns.tagName} = ?',
-            whereArgs: const ['Chrono'],
+            where: '${DatabaseColumns.id} = ?',
+            whereArgs: [firstId],
           );
         }
 
@@ -2372,6 +2519,9 @@ class DatabaseHelper {
           }
         }
       });
+      // Heal duplicate system Chrono rows that may come from older backups.
+      await _ensureSingleChronoSystemTag(db);
+      await _insertChronoTag(db);
     } catch (e) {
       log('Error importing records: $e');
       rethrow;

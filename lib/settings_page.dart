@@ -6,6 +6,7 @@ import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -349,6 +350,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 SizedBox(height: 20),
+                if (kDebugMode) ...[
+                  ElevatedButton(
+                    onPressed: () async {
+                      await DatabaseHelper.instance.debugPrintTagsDumpToConsole();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Tags printed to debug console (flutter run / Logcat)'),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Debug: print tags to console'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ],
             )),
             ElevatedButton(
