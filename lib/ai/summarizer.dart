@@ -8,6 +8,11 @@ class Summarizer {
   static final Summarizer instance = Summarizer._();
 
   Future<void> runDailySummary() async {
+    await AiClient.instance.ensureLoaded();
+    if (!AiClient.instance.isConfigured) {
+      return;
+    }
+
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
