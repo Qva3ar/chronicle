@@ -41,3 +41,25 @@ const Color cardColor2 = Color.fromARGB(255, 55, 56, 61);
 const Color cardColor3 = Color.fromARGB(255, 71, 72, 77);
 const Color black = Color(0xFF000000);
 const Color white = Color(0xFFFFFFFF);
+
+// ── Semantic design-system tokens ──────────────────────────────────────────
+
+/// Subtle border colour – slightly lighter than cardColor3
+const Color cardBorder = Color(0xFF54555B);
+
+/// Very faint accent glow for backgrounds / hover states
+const Color accentGlow = Color(0x14FFC77E); // orangeDivider @ 8 %
+
+/// Surface colour for elevated cards (between cardColor and cardColor2)
+const Color surfaceElevated = Color(0xFF35363B);
+
+// Status / semantic colours
+const Color successColor = Color(0xFF66BB6A);
+const Color warningColor = Color(0xFFFFB74D);
+const Color infoColor = Color(0xFF4FC3F7);
+
+// Text hierarchy
+const Color textPrimary = Color(0xFFF0F0F2);
+const Color textSecondary = Color(0xFFC3C5C9); // ≈ fivyColor
+const Color textMuted = Color(0xFF7E8287); // ≈ forthyColor
+const Color textHint = Color(0xFF5D6164); // ≈ trecondaryColor

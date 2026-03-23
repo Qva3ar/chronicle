@@ -6,6 +6,8 @@ import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/shared/chrono_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -74,12 +76,14 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete All Goals'),
-          content: Text('Are you sure you want to delete all goals? This action cannot be undone.'),
+          backgroundColor: cardColor,
+          title: const Text('Delete All Goals', style: TextStyle(color: textPrimary)),
+          content: const Text('Are you sure you want to delete all goals? This action cannot be undone.',
+              style: TextStyle(color: textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -87,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   await DatabaseHelper.instance.deleteAllGoals();
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('All goals deleted successfully')),
+                    const SnackBar(content: Text('All goals deleted successfully')),
                   );
                 } catch (e) {
                   Navigator.of(context).pop();
@@ -96,8 +100,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text('Delete All', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: MyColors.remove),
+              child: const Text('Delete All', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -110,22 +114,21 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete All Routines'),
-          content: Text(
-              'Are you sure you want to delete all routines? This will also cancel all routine notifications. This action cannot be undone.'),
+          backgroundColor: cardColor,
+          title: const Text('Delete All Routines', style: TextStyle(color: textPrimary)),
+          content: const Text(
+              'Are you sure you want to delete all routines? This will also cancel all routine notifications. This action cannot be undone.',
+              style: TextStyle(color: textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
             ),
             ElevatedButton(
               onPressed: () async {
                 try {
-                  // First get all routines to cancel their notifications
                   List<Map<String, dynamic>> routines =
                       await DatabaseHelper.instance.getAllRoutines();
-
-                  // Cancel notifications for each routine
                   for (var routine in routines) {
                     try {
                       await _notificationService.cancelRoutineNotification(routine['_id']);
@@ -133,13 +136,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       print('Error canceling notification for routine ${routine['_id']}: $e');
                     }
                   }
-
-                  // Delete all routines from database
                   await DatabaseHelper.instance.deleteAllRoutines();
-
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('All routines deleted successfully')),
+                    const SnackBar(content: Text('All routines deleted successfully')),
                   );
                 } catch (e) {
                   Navigator.of(context).pop();
@@ -148,8 +148,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text('Delete All', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: MyColors.remove),
+              child: const Text('Delete All', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -162,45 +162,42 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Reset Routines'),
-          content: Text(
+          backgroundColor: cardColor,
+          title: const Text('Reset Routines', style: TextStyle(color: textPrimary)),
+          content: const Text(
               'Are you sure you want to reset all routines? This will:\n\n'
               '• Mark all routines as not done\n'
               '• Reschedule all notifications\n\n'
-              'This action cannot be undone.'),
+              'This action cannot be undone.',
+              style: TextStyle(color: textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
             ),
             ElevatedButton(
               onPressed: () async {
                 try {
                   final dbManager = DatabaseHelper.instance;
                   final routineService = RoutineService(dbManager);
-
-                  // Reset all routines
                   final routines = await routineService.getAllRoutines();
                   for (final routine in routines) {
                     await routineService.resetRoutine(routine.id);
                   }
-
-                  // Reschedule notifications
                   await _notificationService.checkAndRescheduleRoutines();
-
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Routines reset successfully')),
+                    const SnackBar(content: Text('Routines reset successfully')),
                   );
                 } catch (e) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error resetting routines: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text('Error resetting routines: $e'), backgroundColor: MyColors.remove),
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: Text('Reset', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: warningColor),
+              child: const Text('Reset', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -213,40 +210,39 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Reset Goals'),
-          content: Text(
+          backgroundColor: cardColor,
+          title: const Text('Reset Goals', style: TextStyle(color: textPrimary)),
+          content: const Text(
               'Are you sure you want to reset all goals? This will:\n\n'
               '• Reset all goal completion status\n'
               '• Reset time spent to 0\n'
               '• Stop all active sessions\n\n'
-              'This action cannot be undone.'),
+              'This action cannot be undone.',
+              style: TextStyle(color: textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
             ),
             ElevatedButton(
               onPressed: () async {
                 try {
                   final dbManager = DatabaseHelper.instance;
                   final goalService = GoalService(dbManager);
-
-                  // Reset all goals
                   await goalService.resetAllGoals();
-
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Goals reset successfully')),
+                    const SnackBar(content: Text('Goals reset successfully')),
                   );
                 } catch (e) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error resetting goals: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text('Error resetting goals: $e'), backgroundColor: MyColors.remove),
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-              child: Text('Reset', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: infoColor),
+              child: const Text('Reset', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -257,135 +253,127 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text('Manage Records'),
+        backgroundColor: bgColor,
+        title: const Text('Settings', style: TextStyle(color: textPrimary)),
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-                child: Column(
-              children: [
-                SizedBox(height: 100),
-                ElevatedButton(
-                  onPressed: _editMainIntention,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Edit Main Intention'),
-                      if (_mainIntentionText.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            _mainIntentionText,
-                            style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 60),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _importRecords,
-                  child: Text('Import Records'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _exportRecords,
-                  child: Text('Export Records'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _deleteAllGoals,
-                  child: Text('Delete All Goals'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _deleteAllRoutines,
-                  child: Text('Delete All Routines'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _resetRoutines,
-                  child: Text('Reset Routines'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _resetGoals,
-                  child: Text('Reset Goals'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50),
-                  ),
-                ),
-                SizedBox(height: 20),
-                if (kDebugMode) ...[
-                  ElevatedButton(
-                    onPressed: () async {
-                      await DatabaseHelper.instance.debugPrintTagsDumpToConsole();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Tags printed to debug console (flutter run / Logcat)'),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Debug: print tags to console'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ],
-            )),
-            ElevatedButton(
-              onPressed: () {
-                _deleteAllRecords(context);
-              },
-              child: Text('Delete All Records'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 50),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // ── Main Intention ──
+          ChronoSettingsGroup(
+            title: 'Main Intention',
+            children: [
+              ChronoSettingsRow(
+                icon: Icons.flag_rounded,
+                iconColor: Colors.purple,
+                label: 'Edit Main Intention',
+                subtitle: _mainIntentionText.isNotEmpty ? _mainIntentionText : null,
+                onTap: _editMainIntention,
               ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Data ──
+          ChronoSettingsGroup(
+            title: 'Data',
+            children: [
+              ChronoSettingsRow(
+                icon: Icons.file_download_outlined,
+                iconColor: infoColor,
+                label: 'Import Records',
+                onTap: _importRecords,
+              ),
+              ChronoSettingsRow(
+                icon: Icons.file_upload_outlined,
+                iconColor: infoColor,
+                label: 'Export Records',
+                onTap: _exportRecords,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Reset ──
+          ChronoSettingsGroup(
+            title: 'Reset',
+            children: [
+              ChronoSettingsRow(
+                icon: Icons.refresh,
+                iconColor: warningColor,
+                label: 'Reset Routines',
+                subtitle: 'Mark all as not done, reschedule notifications',
+                onTap: _resetRoutines,
+              ),
+              ChronoSettingsRow(
+                icon: Icons.restart_alt,
+                iconColor: infoColor,
+                label: 'Reset Goals',
+                subtitle: 'Reset completion status and time spent',
+                onTap: _resetGoals,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Danger Zone ──
+          ChronoSettingsGroup(
+            title: 'Danger Zone',
+            children: [
+              ChronoSettingsRow(
+                icon: Icons.delete_outline,
+                iconColor: warningColor,
+                label: 'Delete All Goals',
+                onTap: _deleteAllGoals,
+              ),
+              ChronoSettingsRow(
+                icon: Icons.delete_outline,
+                iconColor: warningColor,
+                label: 'Delete All Routines',
+                onTap: _deleteAllRoutines,
+              ),
+              ChronoSettingsRow(
+                icon: Icons.delete_forever,
+                iconColor: MyColors.remove,
+                label: 'Delete All Records',
+                subtitle: 'This cannot be undone',
+                onTap: () => _deleteAllRecords(context),
+              ),
+            ],
+          ),
+
+          if (kDebugMode) ...[
+            const SizedBox(height: 20),
+            ChronoSettingsGroup(
+              title: 'Debug',
+              children: [
+                ChronoSettingsRow(
+                  icon: Icons.bug_report_outlined,
+                  iconColor: textMuted,
+                  label: 'Print Tags to Console',
+                  onTap: () async {
+                    await DatabaseHelper.instance.debugPrintTagsDumpToConsole();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Tags printed to debug console (flutter run / Logcat)'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
           ],
-        ),
+
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }

@@ -639,60 +639,135 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildChronoQuickInputBar() {
-    return SizedBox(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       width: double.infinity,
-      child: Material(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-        elevation: 6,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white12),
+      decoration: BoxDecoration(
+        color: cardColor2,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: _chronoQuickFocusNode.hasFocus
+            ? [
+                BoxShadow(
+                    color: MyColors.orangeDivider.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    spreadRadius: 2)
+              ]
+            : [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4))
+              ],
+        border: Border.all(
+          color: _chronoQuickFocusNode.hasFocus
+              ? MyColors.orangeDivider.withValues(alpha: 0.5)
+              : cardBorder.withValues(alpha: 0.4),
+          width: _chronoQuickFocusNode.hasFocus ? 1.5 : 1,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cardBorder, width: 0.5),
+            ),
+            child: const Text(
+              'Chrono',
+              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: MyColors.primaryColor,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Text(
-                  'Chrono',
-                  style: TextStyle(color: white, fontWeight: FontWeight.w700),
-                ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _chronoQuickController,
+              focusNode: _chronoQuickFocusNode,
+              style: const TextStyle(color: textPrimary, fontSize: 14),
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _submitChronoQuickNote(),
+              decoration: const InputDecoration(
+                hintText: 'Quick chrono note...',
+                hintStyle: TextStyle(color: textHint),
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _chronoQuickController,
-                  focusNode: _chronoQuickFocusNode,
-                  style: const TextStyle(color: white, fontSize: 14),
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _submitChronoQuickNote(),
-                  decoration: const InputDecoration(
-                    hintText: 'Quick chrono note…',
-                    hintStyle: TextStyle(color: Colors.white54),
-                    border: InputBorder.none,
-                    isDense: true,
+            ),
+          ),
+          const SizedBox(width: 6),
+          _isSubmittingChronoQuick
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: MyColors.orangeDivider),
                   ),
+                )
+              : IconButton(
+                  onPressed: _submitChronoQuickNote,
+                  icon: Icon(
+                    Icons.send_rounded,
+                    color:
+                        _chronoQuickController.text.isNotEmpty ? MyColors.orangeDivider : textMuted,
+                  ),
+                  tooltip: 'Send',
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required Widget icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    // Determine if active based on current sheet (for visual feedback)
+    bool isActive = false;
+    if (label == 'Goals' && _activeSheetId == 'goals') isActive = true;
+    if (label == 'Routines' && _activeSheetId == 'routines') isActive = true;
+    if (label == 'Todo' && _activeSheetId == 'todos') isActive = true;
+    if (label == 'Tags' && _activeSheetId == 'tags') isActive = true;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color:
+                    isActive ? MyColors.orangeDivider.withValues(alpha: 0.15) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 6),
-              IconButton(
-                onPressed: _isSubmittingChronoQuick ? null : _submitChronoQuickNote,
-                icon: Icon(
-                  Icons.send_rounded,
-                  color: _isSubmittingChronoQuick ? Colors.white38 : MyColors.fivyColor,
-                ),
-                tooltip: 'Send',
+              child: icon,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? MyColors.orangeDivider : textMuted,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -712,78 +787,92 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         keyboardHeight: MediaQuery.of(context).viewInsets.bottom,
       ),
       appBar: AppBar(
-        backgroundColor: MyColors.primaryColor,
+        backgroundColor: bgColor,
+        elevation: 0,
+        scrolledUnderElevation: 0, // Disable material 3 scroll tinting
         centerTitle: true,
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.import_export),
-            tooltip: 'Export Notes',
-            onPressed: () async {
-              var dataExporter = DataExporter();
-              File file = await dataExporter.exportData();
-              await sendEmailWithAttachment(file);
-            },
-          ),
-        ],
+        // actions: <Widget>[
+        //   IconButton(
+        //     icon: const Icon(Icons.import_export, color: textMuted),
+        //     tooltip: 'Export Notes',
+        //     onPressed: () async {
+        //       var dataExporter = DataExporter();
+        //       File file = await dataExporter.exportData();
+        //       await sendEmailWithAttachment(file);
+        //     },
+        //   ),
+        // ],
         leading: widget.recordIds != null
-            ? BackButton()
+            ? const BackButton(color: textPrimary)
             : Builder(builder: (context) {
                 return IconButton(
-                  color: Color.fromARGB(255, 190, 190, 190),
-                  icon: Icon(Icons.menu), // Change to your desired icon
+                  color: textMuted,
+                  icon: const Icon(Icons.menu_rounded),
                   onPressed: () {
-                    // Handle the onPressed action for the alternate leading widget
-                    //open drawer
                     Scaffold.of(context).openDrawer();
                   },
                 );
               }),
-        title: Text("CHRONO", style: TextStyle(color: Color.fromARGB(255, 190, 190, 190))),
+        title: const Text(
+          "CHRONO",
+          style: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 2.0,
+            fontSize: 16,
+          ),
+        ),
       ),
       floatingActionButton: SizedBox(
-          width: MediaQuery.of(context).size.width - 24,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: FloatingActionButton(
-                  backgroundColor: MyColors.secondaryColor,
-                  heroTag: 'addButton',
-                  onPressed: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => CardDetailPage(
-                                  title: "",
-                                  text: "",
-                                  recordId: null,
-                                ))).then((value) => loadRecords(refresh: true));
-                  },
-                  child: Icon(Icons.add, color: MyColors.fivyColor),
-                ),
+        width: MediaQuery.of(context).size.width - 24,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: FloatingActionButton(
+                backgroundColor: MyColors.secondaryColor,
+                heroTag: 'addButton',
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => CardDetailPage(
+                                title: "",
+                                text: "",
+                                recordId: null,
+                              ))).then((value) => loadRecords(refresh: true));
+                },
+                child: Icon(Icons.add, color: MyColors.fivyColor),
               ),
-              const SizedBox(height: 10),
-              _buildChronoQuickInputBar(),
-            ],
-          ),
+            ),
+            const SizedBox(height: 10),
+            _buildChronoQuickInputBar(),
+          ],
+        ),
       ),
-      bottomNavigationBar: BottomAppBar(
-        //bottom navigation bar on scaffold
-        color: MyColors.primaryColor,
-        height: 60, // Устанавливаем фиксированную высоту
-        // notchMargin:
-        //     5, //notche margin between floating button and bottom appbar
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          child: Row(
-            //children inside bottom appbar
-            // mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              IconButton(
-                  onPressed: () {
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: surfaceElevated,
+          border: Border(
+            top: BorderSide(color: cardBorder.withValues(alpha: 0.5), width: 1),
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(
+                  icon: Icon(
+                    Icons.flag_rounded,
+                    color: _activeSheetId == 'goals' ? MyColors.orangeDivider : textSecondary,
+                    size: 26,
+                  ),
+                  label: 'Goals',
+                  onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'goals',
@@ -791,13 +880,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           GoalsScreen(sheetScrollController: scrollController),
                     );
                   },
-                  icon: const Icon(
-                    Icons.flag,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
-              IconButton(
-                  onPressed: () {
+                ),
+                _buildNavItem(
+                  icon: Icon(
+                    Icons.loop_rounded,
+                    color: _activeSheetId == 'routines' ? MyColors.orangeDivider : textSecondary,
+                    size: 26,
+                  ),
+                  label: 'Routines',
+                  onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'routines',
@@ -805,13 +896,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           RoutineManagerScreen(sheetScrollController: scrollController),
                     );
                   },
-                  icon: const Icon(
-                    Icons.arrow_upward_rounded,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
-              IconButton(
-                  onPressed: () {
+                ),
+                _buildNavItem(
+                  icon: Icon(
+                    Icons.checklist_rounded,
+                    color: _activeSheetId == 'todos' ? MyColors.orangeDivider : textSecondary,
+                    size: 26,
+                  ),
+                  label: 'Todo',
+                  onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'todos',
@@ -819,13 +912,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           TodoListScreen(sheetScrollController: scrollController),
                     );
                   },
-                  icon: const Icon(
-                    Icons.checklist,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
-              IconButton(
-                  onPressed: () {
+                ),
+                _buildNavItem(
+                  icon: Icon(
+                    Icons.grid_view_rounded,
+                    color: _activeSheetId == 'tags' ? MyColors.orangeDivider : textSecondary,
+                    size: 26,
+                  ),
+                  label: 'Tags',
+                  onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showPersistentSheet(
                       (context) => TagsManager(
@@ -835,35 +930,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       id: 'tags',
                     );
                   },
-                  tooltip: 'Tags',
-                  icon: const Icon(
-                    Icons.category,
-                    color: Colors.white,
-                    size: 24.0,
-                  )),
-              IconButton(
-                icon: SvgPicture.asset(
-                  'assets/icons/chat.svg', // Replace with the path to your SVG file
-                  width: 28, // Specify the width
-                  height: 28,
-                  // colorFilter: // <-- Use the color filter property to specify the
-                  //     ColorFilter.mode(Color.fromARGB(255, 67, 0, 79), BlendMode.srcIn),
                 ),
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  if (gptNoteBindService.isKeyProvided()) {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ChatPage(
-                                  messageService: messageServie,
-                                )));
-                  } else {
-                    _showApiKeyPopup(context);
-                  }
-                },
-              ),
-            ],
+                _buildNavItem(
+                  icon: SvgPicture.asset(
+                    'assets/icons/chat.svg',
+                    width: 24,
+                    height: 24,
+                    colorFilter: ColorFilter.mode(
+                      textSecondary,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  label: 'AI Chat',
+                  onTap: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    if (gptNoteBindService.isKeyProvided()) {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => ChatPage(
+                                    messageService: messageServie,
+                                  )));
+                    } else {
+                      _showApiKeyPopup(context);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -877,60 +971,77 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: searchController,
-                        // focusNode: FocusNode(canRequestFocus: false),
-                        decoration: InputDecoration(
-                          labelText: 'Search',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 12),
-                              Icon(Icons.search, color: Colors.white70),
-                              Stack(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.filter_list, color: Colors.white70),
-                                    onPressed: () => _showFilterDialog(),
-                                    tooltip: 'Filter records',
-                                  ),
-                                  if (currentFilterSettings != null &&
-                                      (!currentFilterSettings!.showGoalRecords ||
-                                          !currentFilterSettings!.showRoutineRecords))
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.orange,
-                                          shape: BoxShape.circle,
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: cardColor2,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: cardBorder, width: 0.5),
+                        ),
+                        child: TextField(
+                          controller: searchController,
+                          style: const TextStyle(color: textPrimary, fontSize: 15),
+                          decoration: InputDecoration(
+                            hintText: 'Search records...',
+                            hintStyle: const TextStyle(color: textHint),
+                            border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            prefixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(width: 14),
+                                const Icon(Icons.search, color: textMuted, size: 20),
+                                const SizedBox(width: 4),
+                                Stack(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.tune_rounded,
+                                          color: textSecondary, size: 20),
+                                      onPressed: _showFilterDialog,
+                                      tooltip: 'Filter records',
+                                      padding: EdgeInsets.zero,
+                                      constraints:
+                                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    ),
+                                    if (currentFilterSettings != null &&
+                                        (!currentFilterSettings!.showGoalRecords ||
+                                            !currentFilterSettings!.showRoutineRecords))
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: MyColors.orangeDivider,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: cardColor2, width: 1.5),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          suffixIcon: searchController.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: Icon(Icons.clear),
-                                  onPressed: () {
-                                    setState(() {
-                                      searchController.clear();
-                                    });
-                                  },
+                                  ],
                                 ),
+                              ],
+                            ),
+                            suffixIcon: searchController.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.clear, color: textMuted, size: 18),
+                                    onPressed: () {
+                                      setState(() {
+                                        searchController.clear();
+                                      });
+                                    },
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  ),
+                          ),
                         ),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                            height: 1.5,
-                            color: Colors.white),
-                        // onChanged: filterRecords,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1182,14 +1293,11 @@ class _CenterFloatAboveContent extends FloatingActionButtonLocation {
     final fabHeight = geometry.floatingActionButtonSize.height;
     final x = (geometry.scaffoldSize.width - fabWidth) / 2.0;
 
-    final normalY = geometry.contentBottom -
-        fabHeight -
-        geometry.bottomSheetSize.height -
-        bottomMargin;
+    final normalY =
+        geometry.contentBottom - fabHeight - geometry.bottomSheetSize.height - bottomMargin;
 
     if (keyboardHeight > 0) {
-      final aboveKeyboard =
-          geometry.scaffoldSize.height - keyboardHeight - fabHeight;
+      final aboveKeyboard = geometry.scaffoldSize.height - keyboardHeight - fabHeight;
       return Offset(x, aboveKeyboard < normalY ? aboveKeyboard : normalY);
     }
 

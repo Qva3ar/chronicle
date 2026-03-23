@@ -5,6 +5,7 @@ import 'package:chrono/services/todo_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/shared/chrono_ui.dart';
 
 class TodoEditScreen extends StatefulWidget {
   final Todo? existingTodo;
@@ -67,19 +68,35 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     final date = await showDatePicker(
       context: context,
       initialDate: _selectedDateTime ?? DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MyColors.orangeDivider,
+            surface: Color(0xFF2D2E33),
+          ),
+        ),
+        child: child!,
+      ),
     );
 
-    if (date == null) return;
-
-    if (!mounted) return;
+    if (date == null || !mounted) return;
 
     final time = await showTimePicker(
       context: context,
       initialTime: _selectedDateTime != null
           ? TimeOfDay.fromDateTime(_selectedDateTime!)
           : TimeOfDay.now(),
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MyColors.orangeDivider,
+            surface: Color(0xFF2D2E33),
+          ),
+        ),
+        child: child!,
+      ),
     );
 
     if (time == null) return;
@@ -112,25 +129,38 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     final result = await showDialog<Map<String, int>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Custom Reminder'),
+        backgroundColor: cardColor,
+        title: const Text('Custom Reminder', style: TextStyle(color: textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: hoursController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              style: const TextStyle(color: textPrimary),
+              decoration: InputDecoration(
                 labelText: 'Hours before',
-                border: OutlineInputBorder(),
+                labelStyle: const TextStyle(color: textMuted),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: cardBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: minutesController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              style: const TextStyle(color: textPrimary),
+              decoration: InputDecoration(
                 labelText: 'Minutes before',
-                border: OutlineInputBorder(),
+                labelStyle: const TextStyle(color: textMuted),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: cardBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ],
@@ -138,7 +168,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -146,7 +176,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
               final m = int.tryParse(minutesController.text) ?? 0;
               Navigator.pop(context, {'hours': h, 'minutes': m});
             },
-            child: const Text('OK'),
+            child: const Text('OK', style: TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -231,296 +261,294 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     }
   }
 
+  // ── Quick-date helpers ──────────────────────────────────────────────────
+
+  void _setQuickDate(DateTime date) {
+    setState(() {
+      _selectedDateTime = date;
+    });
+  }
+
+  DateTime _today9am() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, 9, 0);
+  }
+
+  DateTime _tomorrow9am() {
+    final t = DateTime.now().add(const Duration(days: 1));
+    return DateTime(t.year, t.month, t.day, 9, 0);
+  }
+
+  DateTime _nextWeek9am() {
+    // Next Monday
+    final now = DateTime.now();
+    final daysUntilMonday = (DateTime.monday - now.weekday + 7) % 7;
+    final monday = now.add(Duration(days: daysUntilMonday == 0 ? 7 : daysUntilMonday));
+    return DateTime(monday.year, monday.month, monday.day, 9, 0);
+  }
+
+  // ── UI ──────────────────────────────────────────────────────────────────
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: textMuted),
+      border: OutlineInputBorder(
+        borderSide: BorderSide(color: cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: MyColors.orangeDivider, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: MyColors.remove),
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: cardColor,
+        backgroundColor: bgColor,
+        elevation: 0,
         title: Text(
           _isEditing ? 'Edit Todo' : 'New Todo',
-          style: const TextStyle(color: white),
+          style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         ),
-        iconTheme: const IconThemeData(color: white),
+        iconTheme: const IconThemeData(color: textPrimary),
+        actions: [
+          TextButton(
+            onPressed: _saveTodo,
+            child: Text(
+              _isEditing ? 'Save' : 'Create',
+              style: const TextStyle(
+                color: MyColors.orangeDivider,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // Title field
+            // ── Title ──
             TextFormField(
               controller: _titleController,
-              style: const TextStyle(color: white),
-              decoration: InputDecoration(
-                labelText: 'Title',
-                labelStyle: const TextStyle(color: MyColors.forthyColor),
-                border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.forthyColor),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.forthyColor),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.fivyColor, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              style: const TextStyle(color: textPrimary, fontSize: 16),
+              decoration: _inputDecoration('Title'),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter a title';
                 }
                 return null;
               },
+              textInputAction: TextInputAction.next,
             ),
-            const SizedBox(height: 16),
-            // Description field
+
+            const SizedBox(height: 14),
+
+            // ── Description ──
             TextFormField(
               controller: _descriptionController,
-              style: const TextStyle(color: white),
+              style: const TextStyle(color: textPrimary),
               maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Description (optional)',
-                labelStyle: const TextStyle(color: MyColors.forthyColor),
-                border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.forthyColor),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.forthyColor),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: MyColors.fivyColor, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              decoration: _inputDecoration('Description (optional)'),
             ),
-            const SizedBox(height: 24),
-            // Date & Time section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Date & Time',
-                    style: TextStyle(
-                      color: white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Quick action buttons
-                  Row(
+
+            const SizedBox(height: 20),
+
+            // ── Date & Time section ──
+            ChronoSettingsGroup(
+              title: 'Date & Time',
+              children: [
+                // Quick-set date chips
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            final tomorrow = DateTime.now().add(const Duration(days: 1));
-                            setState(() {
-                              _selectedDateTime = DateTime(
-                                tomorrow.year,
-                                tomorrow.month,
-                                tomorrow.day,
-                                9, // 9 AM
-                                0,
-                              );
-                            });
-                          },
-                          icon: const Text('📅', style: TextStyle(fontSize: 16)),
-                          label: const Text('Tomorrow'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: white,
-                            side: const BorderSide(color: MyColors.forthyColor),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                      _quickChip(
+                        label: 'Today',
+                        icon: Icons.today,
+                        isActive: _isMatchingDate(_today9am()),
+                        onTap: () => _setQuickDate(_today9am()),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _selectedDateTime = null;
-                              _selectedReminders.clear();
-                            });
-                          },
-                          icon: const Text('💭', style: TextStyle(fontSize: 16)),
-                          label: const Text('Someday'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: white,
-                            side: const BorderSide(color: MyColors.forthyColor),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                      _quickChip(
+                        label: 'Tomorrow',
+                        icon: Icons.event,
+                        isActive: _isMatchingDate(_tomorrow9am()),
+                        onTap: () => _setQuickDate(_tomorrow9am()),
+                      ),
+                      _quickChip(
+                        label: 'Next week',
+                        icon: Icons.date_range,
+                        isActive: _isMatchingDate(_nextWeek9am()),
+                        onTap: () => _setQuickDate(_nextWeek9am()),
+                      ),
+                      _quickChip(
+                        label: 'No date',
+                        icon: Icons.block,
+                        isActive: _selectedDateTime == null,
+                        onTap: () {
+                          setState(() {
+                            _selectedDateTime = null;
+                            _selectedReminders.clear();
+                          });
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Divider(color: MyColors.forthyColor),
-                  const SizedBox(height: 12),
-                  Row(
+                ),
+
+                // Current date display + custom picker
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+                  child: Row(
                     children: [
+                      Icon(
+                        _selectedDateTime != null ? Icons.event_available : Icons.event_busy,
+                        size: 18,
+                        color: _selectedDateTime != null ? infoColor : textHint,
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _selectedDateTime == null
-                              ? 'No specific date'
+                              ? 'No specific date set'
                               : _formatDateTime(_selectedDateTime!),
-                          style: const TextStyle(
-                            color: MyColors.fivyColor,
+                          style: TextStyle(
+                            color: _selectedDateTime != null ? textPrimary : textHint,
                             fontSize: 14,
                           ),
                         ),
                       ),
-                      if (_selectedDateTime != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear, color: MyColors.forthyColor),
-                          onPressed: () {
-                            setState(() {
-                              _selectedDateTime = null;
-                              _selectedReminders.clear();
-                            });
-                          },
-                        ),
-                      ElevatedButton.icon(
+                      TextButton.icon(
                         onPressed: _pickDateTime,
-                        icon: const Icon(Icons.calendar_today),
-                        label: Text(_selectedDateTime == null ? 'Pick Date' : 'Change'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: MyColors.forthyColor,
-                          foregroundColor: white,
+                        icon: const Icon(Icons.edit_calendar, size: 16),
+                        label: const Text('Custom'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: MyColors.orangeDivider,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: MyColors.orangeDivider.withValues(alpha: 0.3)),
+                          ),
                         ),
                       ),
                     ],
                   ),
+                ),
+              ],
+            ),
+
+            // ── Reminders section ──
+            if (_selectedDateTime != null) ...[
+              const SizedBox(height: 16),
+              ChronoSettingsGroup(
+                title: 'Reminders',
+                children: [
+                  _reminderRow(
+                    label: '1 hour before',
+                    icon: Icons.alarm,
+                    type: TodoReminderType.oneHourBefore,
+                  ),
+                  _reminderRow(
+                    label: 'Morning of the day (8:00)',
+                    icon: Icons.wb_sunny_outlined,
+                    type: TodoReminderType.morningOfDay,
+                  ),
+                  _reminderRow(
+                    label: '1 day before',
+                    icon: Icons.hourglass_top,
+                    type: TodoReminderType.oneDayBefore,
+                  ),
+                  _customReminderRow(),
                 ],
               ),
-            ),
-            // Reminders section
-            if (_selectedDateTime != null) ...[
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Reminders',
-                      style: TextStyle(
-                        color: white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      title: const Text(
-                        '1 hour before',
-                        style: TextStyle(color: white),
-                      ),
-                      value: _selectedReminders.contains(TodoReminderType.oneHourBefore),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedReminders.add(TodoReminderType.oneHourBefore);
-                          } else {
-                            _selectedReminders.remove(TodoReminderType.oneHourBefore);
-                          }
-                        });
-                      },
-                      activeColor: Colors.green,
-                    ),
-                    CheckboxListTile(
-                      title: const Text(
-                        'Morning of the day (8:00 AM)',
-                        style: TextStyle(color: white),
-                      ),
-                      value: _selectedReminders.contains(TodoReminderType.morningOfDay),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedReminders.add(TodoReminderType.morningOfDay);
-                          } else {
-                            _selectedReminders.remove(TodoReminderType.morningOfDay);
-                          }
-                        });
-                      },
-                      activeColor: Colors.green,
-                    ),
-                    CheckboxListTile(
-                      title: const Text(
-                        '1 day before',
-                        style: TextStyle(color: white),
-                      ),
-                      value: _selectedReminders.contains(TodoReminderType.oneDayBefore),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedReminders.add(TodoReminderType.oneDayBefore);
-                          } else {
-                            _selectedReminders.remove(TodoReminderType.oneDayBefore);
-                          }
-                        });
-                      },
-                      activeColor: Colors.green,
-                    ),
-                    ListTile(
-                      title: Text(
-                        _customOffsetMinutes != null
-                            ? 'Custom: ${_customOffsetMinutes! ~/ 60}h ${_customOffsetMinutes! % 60}m before'
-                            : 'Custom time',
-                        style: const TextStyle(color: white),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit, color: MyColors.forthyColor),
-                        onPressed: _showCustomOffsetDialog,
-                      ),
-                      leading: Checkbox(
-                        value: _selectedReminders.contains(TodoReminderType.custom),
-                        onChanged: (value) {
-                          if (value == true) {
-                            _showCustomOffsetDialog();
-                          } else {
-                            setState(() {
-                              _selectedReminders.remove(TodoReminderType.custom);
-                              _customOffsetMinutes = null;
-                            });
-                          }
-                        },
-                        activeColor: Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
-            const SizedBox(height: 32),
-            // Save button
-            ElevatedButton(
+
+            const SizedBox(height: 80), // space for button
+          ],
+        ),
+      ),
+
+      // ── Sticky save button at bottom ──
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
               onPressed: _saveTodo,
               style: ElevatedButton.styleFrom(
-                backgroundColor: MyColors.forthyColor,
-                foregroundColor: bgColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: MyColors.orangeDivider,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
               child: Text(
-                _isEditing ? 'Update Todo' : 'Save Todo',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                _isEditing ? 'Update Todo' : 'Create Todo',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Quick-date chip ────────────────────────────────────────────────────
+
+  bool _isMatchingDate(DateTime target) {
+    if (_selectedDateTime == null) return false;
+    final s = _selectedDateTime!;
+    return s.year == target.year && s.month == target.month && s.day == target.day;
+  }
+
+  Widget _quickChip({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor2,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isActive ? MyColors.orangeDivider : textMuted),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? MyColors.orangeDivider : textSecondary,
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],
@@ -528,6 +556,129 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
       ),
     );
   }
+
+  // ── Reminder row ──────────────────────────────────────────────────────
+
+  Widget _reminderRow({
+    required String label,
+    required IconData icon,
+    required TodoReminderType type,
+  }) {
+    final isSelected = _selectedReminders.contains(type);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedReminders.remove(type);
+          } else {
+            _selectedReminders.add(type);
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: isSelected ? successColor : textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? textPrimary : textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: isSelected ? successColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isSelected ? successColor : textMuted,
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _customReminderRow() {
+    final isSelected = _selectedReminders.contains(TodoReminderType.custom);
+    final hasValue = _customOffsetMinutes != null && _customOffsetMinutes! > 0;
+
+    return InkWell(
+      onTap: () {
+        if (isSelected) {
+          setState(() {
+            _selectedReminders.remove(TodoReminderType.custom);
+            _customOffsetMinutes = null;
+          });
+        } else {
+          _showCustomOffsetDialog();
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.tune, size: 18, color: isSelected ? successColor : textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Custom',
+                    style: TextStyle(
+                      color: isSelected ? textPrimary : textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (hasValue)
+                    Text(
+                      '${_customOffsetMinutes! ~/ 60}h ${_customOffsetMinutes! % 60}m before',
+                      style: const TextStyle(color: textMuted, fontSize: 12),
+                    ),
+                ],
+              ),
+            ),
+            if (!isSelected)
+              const Icon(Icons.add, size: 18, color: textMuted),
+            if (isSelected) ...[
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 16, color: textMuted),
+                onPressed: _showCustomOffsetDialog,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: successColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.check, size: 14, color: Colors.white),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -541,7 +692,9 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     } else if (targetDay == tomorrow) {
       dateStr = 'Tomorrow';
     } else {
-      dateStr = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      dateStr = '${weekdays[dateTime.weekday - 1]}, ${dateTime.day} ${months[dateTime.month - 1]}';
     }
 
     final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';

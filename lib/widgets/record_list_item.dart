@@ -24,113 +24,128 @@ class RecordListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Card(
-        elevation: 0,
-        margin: EdgeInsets.symmetric(
-          vertical: 8,
-          horizontal: 16,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        decoration: BoxDecoration(
+          color: _getCardColor(),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _getBorderColor(),
+            width: 1,
+          ),
         ),
-        color: _getCardColor(),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: _getBorderSide(),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (item.recordType == RecordType.routine)
-                    _buildStatusRow('Routine Completed', Icons.check_circle, Colors.orange),
-                  if (item.recordType == RecordType.goal)
-                    _buildGoalStatusRow(),
-                  if (item.recordType == RecordType.morningCheckin)
-                    _buildStatusRow('Morning Checkin', Icons.wb_sunny, MyColors.orangeDivider),
-                  if (item.recordType == RecordType.eveningCheckin)
-                    _buildStatusRow('Evening Checkin', Icons.nightlight, MyColors.contactDivider),
-                  if (item.recordType == RecordType.productivity)
-                    _buildStatusRow('Productivity Index', Icons.trending_up, Colors.purpleAccent),
-                  SizedBox(
-                      height: _shouldShowStatusRow() ? 8 : 0),
-                  _buildContent(),
-                  if (item.goalId != null || item.routineId != null) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      item.goalId != null
-                          ? 'Goal ID: ${item.goalId}'
-                          : 'Routine ID: ${item.routineId}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0, right: 8.0, bottom: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (tags.isNotEmpty)
-                    Expanded(
-                      child: SizedBox(
-                        height: 35,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: tags.length,
-                          itemBuilder: (context, index) {
-                            final tag = tags[index];
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                              decoration: BoxDecoration(
-                                color: parseTagColor(tag.color),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  tag.name,
-                                  style: const TextStyle(color: Colors.black, fontSize: 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                // Left colour indicator
+                Container(
+                  width: 4,
+                  color: _getIndicatorColor(),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (item.recordType == RecordType.routine)
+                              _buildStatusRow('Routine Completed', Icons.check_circle, Colors.orange),
+                            if (item.recordType == RecordType.goal)
+                              _buildGoalStatusRow(),
+                            if (item.recordType == RecordType.morningCheckin)
+                              _buildStatusRow('Morning Checkin', Icons.wb_sunny, MyColors.orangeDivider),
+                            if (item.recordType == RecordType.eveningCheckin)
+                              _buildStatusRow('Evening Checkin', Icons.nightlight, MyColors.contactDivider),
+                            if (item.recordType == RecordType.productivity)
+                              _buildStatusRow('Productivity Index', Icons.trending_up, Colors.purpleAccent),
+                            SizedBox(height: _shouldShowStatusRow() ? 6 : 0),
+                            _buildContent(),
+                            if (item.goalId != null || item.routineId != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                item.goalId != null
+                                    ? 'Goal ID: ${item.goalId}'
+                                    : 'Routine ID: ${item.routineId}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: textMuted,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
-                            );
-                          },
+                            ],
+                          ],
                         ),
                       ),
-                    ),
-                  if (tags.isEmpty) const Spacer(),
-                  Text(
-                    _formatDateTime(context, item.createdAt),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  if (item.isLocked)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Icon(
-                        Icons.lock,
-                        size: 18,
-                        color: Colors.white30,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 6, 8, 8),
+                        child: Row(
+                          children: [
+                            if (tags.isNotEmpty)
+                              Expanded(
+                                child: SizedBox(
+                                  height: 28,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: tags.length,
+                                    separatorBuilder: (_, __) => const SizedBox(width: 4),
+                                    itemBuilder: (context, index) {
+                                      final tag = tags[index];
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: parseTagColor(tag.color).withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: parseTagColor(tag.color).withValues(alpha: 0.3),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          tag.name,
+                                          style: TextStyle(
+                                            color: parseTagColor(tag.color),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            if (tags.isEmpty) const Spacer(),
+                            Text(
+                              _formatDateTime(context, item.createdAt),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: textMuted,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            if (item.isLocked)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Icon(Icons.lock, size: 16, color: textHint),
+                              ),
+                            IconButton(
+                              onPressed: () => onDelete(item.id),
+                              icon: const Icon(Icons.delete_outline, color: textHint, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  IconButton(
-                    onPressed: () => onDelete(item.id),
-                    icon: const Icon(
-                      Icons.delete,
-                      color: Colors.white30,
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -260,36 +275,54 @@ class RecordListItem extends StatelessWidget {
   Color _getCardColor() {
     switch (item.recordType) {
       case RecordType.routine:
-        return const Color.fromARGB(255, 100, 80, 80);
+        return const Color(0xFF3D3232);
       case RecordType.goal:
-        return const Color.fromARGB(255, 60, 90, 60);
+        return const Color(0xFF2D3B2D);
       case RecordType.morningCheckin:
-        return const Color.fromARGB(255, 90, 80, 60); // Morning warm color
+        return const Color(0xFF3B3328);
       case RecordType.eveningCheckin:
-        return const Color.fromARGB(255, 60, 70, 90); // Evening cool color
+        return const Color(0xFF28303B);
       case RecordType.productivity:
-        return const Color.fromARGB(255, 65, 55, 85); // Purple tint for productivity
+        return const Color(0xFF302740);
       default:
-        return MyColors.primaryColor;
+        return cardColor2;
     }
   }
 
-  BorderSide _getBorderSide() {
+  Color _getBorderColor() {
     switch (item.recordType) {
       case RecordType.routine:
-        return const BorderSide(color: Colors.orange, width: 1);
+        return Colors.orange.withValues(alpha: 0.3);
       case RecordType.goal:
-        return const BorderSide(color: Colors.greenAccent, width: 1);
+        return successColor.withValues(alpha: 0.3);
       case RecordType.morningCheckin:
-        return const BorderSide(color: MyColors.orangeDivider, width: 1);
+        return MyColors.orangeDivider.withValues(alpha: 0.3);
       case RecordType.eveningCheckin:
-        return const BorderSide(color: MyColors.contactDivider, width: 1);
+        return MyColors.contactDivider.withValues(alpha: 0.3);
       case RecordType.productivity:
-        return const BorderSide(color: Colors.purpleAccent, width: 1);
+        return Colors.purpleAccent.withValues(alpha: 0.3);
       default:
-        return BorderSide.none;
+        return cardBorder.withValues(alpha: 0.3);
     }
   }
+
+  Color _getIndicatorColor() {
+    switch (item.recordType) {
+      case RecordType.routine:
+        return Colors.orange.withValues(alpha: 0.8);
+      case RecordType.goal:
+        return successColor.withValues(alpha: 0.8);
+      case RecordType.morningCheckin:
+        return MyColors.orangeDivider.withValues(alpha: 0.8);
+      case RecordType.eveningCheckin:
+        return MyColors.contactDivider.withValues(alpha: 0.8);
+      case RecordType.productivity:
+        return Colors.purpleAccent.withValues(alpha: 0.8);
+      default:
+        return cardBorder.withValues(alpha: 0.5);
+    }
+  }
+
 
   Widget _buildStatusRow(String text, IconData icon, Color color) {
     return Row(

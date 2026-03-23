@@ -142,190 +142,245 @@ class GoalCard extends StatelessWidget {
     );
   }
 
+  /// Border colour derived from the current progress level.
+  Color _borderForProgress(double progress) {
+    if (progress >= 1.0) return successColor;
+    if (progress >= 0.5) return infoColor.withValues(alpha: 0.5);
+    return cardBorder.withValues(alpha: 0.4);
+  }
+
+  /// Icon container accent based on running/done state.
+  Color _iconAccent(bool isRunning) {
+    if (goal.isArchived) return successColor;
+    if (goal.isCompleted) return successColor;
+    if (isRunning) return const Color(0xFF66BB6A);
+    return MyColors.orangeDivider;
+  }
+
   Widget _buildGoalCard(BuildContext context, TimerService timerService,
       bool isActiveGoal, bool isRunning, double realtimeProgress) {
+    final progressColor = _getProgressColor(realtimeProgress);
+    final accent = _iconAccent(isRunning);
+
     return GestureDetector(
       onTap: (goal.isArchived || goal.isCompleted) ? null : onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        height: 72,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: cardColor2,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _borderForProgress(realtimeProgress),
+            width: 1,
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              // Icon container
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: cardColor3,
-                  borderRadius: BorderRadius.circular(8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                // Left colour indicator
+                Container(
+                  width: 4,
+                  color: accent.withValues(alpha: 0.7),
                 ),
-                child: Center(
-                  child: Icon(
-                    goal.isArchived
-                        ? Icons.check_circle_outline
-                        : goal.isCompleted
-                            ? Icons.check
-                            : isRunning
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                    size: 24,
-                    color: white,
-                  ),
-                ),
-              ),
 
-              const SizedBox(width: 16),
-
-              // Title and progress section
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Title
-                    Text(
-                      goal.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: white,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    // Timer for active goals, spent time for inactive goals
-                    if (isActiveGoal) ...[
-                      Text(
-                        isRunning
-                            ? 'Running: ${timerService.formatTime(timerService.totalTimeElapsed)}'
-                            : 'Time spent: ${goal.formattedTimeSpent}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color:
-                              isRunning ? Colors.green[400] : MyColors.fivyColor,
-                          height: 1.2,
-                        ),
-                      ),
-                    ] else ...[
-                      Text(
-                        'Time spent: ${goal.formattedTimeSpent}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: MyColors.fivyColor,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 2),
-
-                    // Progress bar and percentage
-                    Row(
+                // Main content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
                       children: [
-                        // Progress bar
+                        // Icon container
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accent.withValues(alpha: 0.20),
+                                accent.withValues(alpha: 0.06),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              goal.isArchived
+                                  ? Icons.check_circle_outline
+                                  : goal.isCompleted
+                                      ? Icons.check
+                                      : isRunning
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                              size: 22,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 14),
+
+                        // Title and progress section
                         Expanded(
-                          child: Container(
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: MyColors.forthyColor,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: realtimeProgress,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _getProgressColor(realtimeProgress),
-                                  borderRadius: BorderRadius.circular(2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Title
+                              Text(
+                                goal.title,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                  height: 1.2,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
+
+                              const SizedBox(height: 2),
+
+                              // Timer for active goals, spent time for inactive goals
+                              if (isActiveGoal) ...[
+                                Text(
+                                  isRunning
+                                      ? 'Running: ${timerService.formatTime(timerService.totalTimeElapsed)}'
+                                      : 'Time spent: ${goal.formattedTimeSpent}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: isRunning ? const Color(0xFF66BB6A) : textSecondary,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ] else ...[
+                                Text(
+                                  'Time spent: ${goal.formattedTimeSpent}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: textSecondary,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 6),
+
+                              // Progress bar and percentage
+                              Row(
+                                children: [
+                                  // Progress bar
+                                  Expanded(
+                                    child: Container(
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: cardColor3.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: FractionallySizedBox(
+                                        alignment: Alignment.centerLeft,
+                                        widthFactor: realtimeProgress,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                progressColor,
+                                                progressColor.withValues(alpha: 0.7),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 10),
+
+                                  // Percentage
+                                  Text(
+                                    '${(realtimeProgress * 100).round()}%',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: progressColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Trailing actions (overflow menu)
+                        if (onCalendar != null || onToggleArchived != null) ...[
+                          const SizedBox(width: 4),
+                          PopupMenuButton<_GoalCardAction>(
+                            tooltip: 'Actions',
+                            color: cardColor3,
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: textMuted,
+                              size: 20,
                             ),
+                            itemBuilder: (context) => [
+                              if (onCalendar != null)
+                                const PopupMenuItem<_GoalCardAction>(
+                                  value: _GoalCardAction.calendar,
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_today, size: 18, color: textSecondary),
+                                      SizedBox(width: 10),
+                                      Text('Calendar', style: TextStyle(color: textPrimary)),
+                                    ],
+                                  ),
+                                ),
+                              if (onToggleArchived != null)
+                                PopupMenuItem<_GoalCardAction>(
+                                  value: _GoalCardAction.toggleArchived,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        goal.isArchived ? Icons.undo : Icons.check_circle_outline,
+                                        size: 18,
+                                        color: textPrimary,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        goal.isArchived ? 'Uncomplete' : 'Complete',
+                                        style: const TextStyle(color: textPrimary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                            onSelected: (action) {
+                              switch (action) {
+                                case _GoalCardAction.calendar:
+                                  onCalendar?.call();
+                                  break;
+                                case _GoalCardAction.toggleArchived:
+                                  onToggleArchived?.call();
+                                  break;
+                              }
+                            },
                           ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        // Percentage
-                        Text(
-                          '${(realtimeProgress * 100).round()}%',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: white,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
-                  ],
-                ),
-              ),
-
-              // Trailing actions (overflow menu)
-              if (onCalendar != null || onToggleArchived != null) ...[
-                const SizedBox(width: 8),
-                PopupMenuButton<_GoalCardAction>(
-                  tooltip: 'Actions',
-                  color: cardColor3,
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: MyColors.fivyColor,
-                    size: 20,
                   ),
-                  itemBuilder: (context) => [
-                    if (onCalendar != null)
-                      const PopupMenuItem<_GoalCardAction>(
-                        value: _GoalCardAction.calendar,
-                        child: Row(
-                          children: [
-                            Icon(Icons.calendar_today, size: 18, color: MyColors.fivyColor),
-                            SizedBox(width: 10),
-                            Text('Calendar', style: TextStyle(color: white)),
-                          ],
-                        ),
-                      ),
-                    if (onToggleArchived != null)
-                      PopupMenuItem<_GoalCardAction>(
-                        value: _GoalCardAction.toggleArchived,
-                        child: Row(
-                          children: [
-                            Icon(
-                              goal.isArchived ? Icons.undo : Icons.check_circle_outline,
-                              size: 18,
-                              color: white,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              goal.isArchived ? 'Uncomplete' : 'Complete',
-                              style: const TextStyle(color: white),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                  onSelected: (action) {
-                    switch (action) {
-                      case _GoalCardAction.calendar:
-                        onCalendar?.call();
-                        break;
-                      case _GoalCardAction.toggleArchived:
-                        onToggleArchived?.call();
-                        break;
-                    }
-                  },
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -359,14 +414,9 @@ class GoalCard extends StatelessWidget {
   }
 
   Color _getProgressColor(double progress) {
-    if (progress >= 1.0) {
-      return Colors.green; // Completed
-    } else if (progress >= 0.8) {
-      return Colors.orange; // Nearly complete
-    } else if (progress >= 0.5) {
-      return Colors.blue; // Good progress
-    } else {
-      return const Color(0xFF121417); // Just started/minimal progress
-    }
+    if (progress >= 1.0) return successColor;
+    if (progress >= 0.8) return warningColor;
+    if (progress >= 0.5) return infoColor;
+    return MyColors.forthyColor;
   }
 }

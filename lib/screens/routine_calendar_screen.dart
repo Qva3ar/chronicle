@@ -117,7 +117,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Routine already completed on this date'),
-            backgroundColor: MyColors.fivyColor,
+            backgroundColor: MyColors.orangeDivider,
           ),
         );
       }
@@ -129,19 +129,19 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Mark as Complete', style: TextStyle(color: white)),
+        title: const Text('Mark as Complete', style: TextStyle(color: textPrimary)),
         content: Text(
           'Mark "${widget.routine.name}" as completed on ${selectedDay.day}/${selectedDay.month}/${selectedDay.year}?\n\nThis will update your streak accordingly.',
-          style: const TextStyle(color: white),
+          style: const TextStyle(color: textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: MyColors.forthyColor)),
+            child: const Text('Cancel', style: TextStyle(color: textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm', style: TextStyle(color: MyColors.fivyColor)),
+            child: const Text('Confirm', style: TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -164,7 +164,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Routine completion added successfully'),
-              backgroundColor: MyColors.fivyColor,
+              backgroundColor: MyColors.orangeDivider,
             ),
           );
         }
@@ -193,11 +193,14 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: MyColors.secondaryColor,
+        backgroundColor: bgColor,
         appBar: AppBar(
           title: Text('${widget.routine.name} - History'),
-          backgroundColor: cardColor,
-          foregroundColor: white,
+          backgroundColor: bgColor,
+          foregroundColor: textPrimary,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: textPrimary),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context, _dataChanged),
@@ -241,10 +244,10 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: MyColors.fivyColor.withAlpha(26),
+                color: MyColors.orangeDivider.withAlpha(26),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: MyColors.fivyColor.withAlpha(77),
+                  color: MyColors.orangeDivider.withAlpha(77),
                   width: 1,
                 ),
               ),
@@ -252,7 +255,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                 children: [
                   Icon(
                     Icons.info_outline,
-                    color: MyColors.fivyColor,
+                    color: MyColors.orangeDivider,
                     size: 20,
                   ),
                   SizedBox(width: 10),
@@ -260,7 +263,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                     child: Text(
                       'Tap any past date to mark as complete', // TODO: Add "(within 14 days)" when limit enabled
                       style: TextStyle(
-                        color: MyColors.fivyColor,
+                        color: MyColors.orangeDivider,
                         fontSize: 13,
                       ),
                     ),
@@ -303,52 +306,52 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                 calendarStyle: CalendarStyle(
                   // Today's date
                   todayDecoration: BoxDecoration(
-                    color: MyColors.fivyColor.withAlpha(128),
+                    color: MyColors.orangeDivider.withAlpha(128),
                     shape: BoxShape.circle,
                   ),
                   todayTextStyle: const TextStyle(
-                    color: white,
+                    color: textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                   // Selected date
                   selectedDecoration: const BoxDecoration(
-                    color: MyColors.fivyColor,
+                    color: MyColors.orangeDivider,
                     shape: BoxShape.circle,
                   ),
                   selectedTextStyle: const TextStyle(
-                    color: white,
+                    color: textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                   // Completion dates - highlighted
                   markerDecoration: const BoxDecoration(
-                    color: MyColors.fivyColor,
+                    color: MyColors.orangeDivider,
                     shape: BoxShape.circle,
                   ),
                   // Default text colors
-                  defaultTextStyle: const TextStyle(color: white),
-                  weekendTextStyle: const TextStyle(color: MyColors.fivyColor),
-                  outsideTextStyle: const TextStyle(color: MyColors.forthyColor),
+                  defaultTextStyle: const TextStyle(color: textPrimary),
+                  weekendTextStyle: const TextStyle(color: MyColors.orangeDivider),
+                  outsideTextStyle: const TextStyle(color: textMuted),
                 ),
                 headerStyle: const HeaderStyle(
                   formatButtonVisible: true,
                   titleCentered: true,
                   formatButtonShowsNext: false,
                   titleTextStyle: TextStyle(
-                    color: white,
+                    color: textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                  leftChevronIcon: Icon(Icons.chevron_left, color: white),
-                  rightChevronIcon: Icon(Icons.chevron_right, color: white),
-                  formatButtonTextStyle: TextStyle(color: white),
+                  leftChevronIcon: Icon(Icons.chevron_left, color: textPrimary),
+                  rightChevronIcon: Icon(Icons.chevron_right, color: textPrimary),
+                  formatButtonTextStyle: TextStyle(color: textPrimary),
                   formatButtonDecoration: BoxDecoration(
-                    border: Border.fromBorderSide(BorderSide(color: white)),
+                    border: Border.fromBorderSide(BorderSide(color: textPrimary)),
                     borderRadius: BorderRadius.all(Radius.circular(8)),
                   ),
                 ),
                 daysOfWeekStyle: const DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(color: white),
-                  weekendStyle: TextStyle(color: MyColors.fivyColor),
+                  weekdayStyle: TextStyle(color: textPrimary),
+                  weekendStyle: TextStyle(color: MyColors.orangeDivider),
                 ),
                 calendarBuilders: CalendarBuilders(
                   // Custom builder to highlight completion dates
@@ -357,10 +360,10 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                       return Container(
                         margin: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: MyColors.fivyColor.withAlpha(77),
+                          color: MyColors.orangeDivider.withAlpha(77),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: MyColors.fivyColor,
+                            color: MyColors.orangeDivider,
                             width: 2,
                           ),
                         ),
@@ -368,7 +371,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                           child: Text(
                             '${day.day}',
                             style: const TextStyle(
-                              color: white,
+                              color: textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -382,10 +385,10 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                       return Container(
                         margin: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: MyColors.fivyColor.withAlpha(51),
+                          color: MyColors.orangeDivider.withAlpha(51),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: MyColors.fivyColor.withAlpha(128),
+                            color: MyColors.orangeDivider.withAlpha(128),
                             width: 1,
                           ),
                         ),
@@ -393,7 +396,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                           child: Text(
                             '${day.day}',
                             style: const TextStyle(
-                              color: MyColors.forthyColor,
+                              color: textMuted,
                             ),
                           ),
                         ),
@@ -422,10 +425,10 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: MyColors.fivyColor.withAlpha(77),
+                      color: MyColors.orangeDivider.withAlpha(77),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: MyColors.fivyColor,
+                        color: MyColors.orangeDivider,
                         width: 2,
                       ),
                     ),
@@ -433,7 +436,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                   const SizedBox(width: 8),
                   const Text(
                     'Completed on this day',
-                    style: TextStyle(color: white),
+                    style: TextStyle(color: textPrimary),
                   ),
                 ],
               ),
@@ -454,14 +457,14 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
     return Column(
       children: [
         if (icon != null)
-          Icon(icon, color: MyColors.fivyColor, size: 32)
+          Icon(icon, color: MyColors.orangeDivider, size: 32)
         else if (emoji != null)
           Text(emoji, style: const TextStyle(fontSize: 32)),
         const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
-            color: white,
+            color: textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -470,7 +473,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: MyColors.forthyColor,
+            color: textMuted,
             fontSize: 12,
           ),
         ),

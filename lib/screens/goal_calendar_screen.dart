@@ -101,11 +101,11 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
     // Green fill means "has work record"
     // Border indicates state (selected/today/outside)
     final Color borderColor = isSelected
-        ? MyColors.forthyColor
-        : (isToday ? MyColors.fivyColor : Colors.transparent);
+        ? textMuted
+        : (isToday ? MyColors.orangeDivider : Colors.transparent);
 
     final TextStyle textStyle = TextStyle(
-      color: isOutside ? MyColors.fivyColor.withAlpha(160) : white,
+      color: isOutside ? MyColors.orangeDivider.withAlpha(160) : textPrimary,
       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
     );
 
@@ -145,10 +145,10 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
     if (widget.goal.isArchived) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This goal is completed and cannot be edited'),
-          backgroundColor: MyColors.remove,
-        ),
+          const SnackBar(
+            content: Text('This goal is completed and cannot be edited'),
+            backgroundColor: MyColors.remove,
+          ),
       );
       return;
     }
@@ -172,36 +172,36 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Add work session', style: TextStyle(color: white)),
+        title: const Text('Add work session', style: TextStyle(color: textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Add "${widget.goal.title}" work for ${selected.day}/${selected.month}/${selected.year}',
-              style: const TextStyle(color: white),
+              style: const TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: white),
+              style: const TextStyle(color: textPrimary),
               decoration: InputDecoration(
                 labelText: 'Minutes',
-                labelStyle: const TextStyle(color: MyColors.fivyColor),
+                labelStyle: const TextStyle(color: MyColors.orangeDivider),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: MyColors.fivyColor.withAlpha(80),
+                    color: MyColors.orangeDivider.withAlpha(80),
                   ),
                 ),
                 focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: MyColors.fivyColor),
+                  borderSide: BorderSide(color: MyColors.orangeDivider),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Daily target: $targetMinutes min',
-              style: const TextStyle(color: MyColors.fivyColor, fontSize: 12),
+              style: const TextStyle(color: MyColors.orangeDivider, fontSize: 12),
             ),
           ],
         ),
@@ -209,12 +209,12 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child:
-                const Text('Cancel', style: TextStyle(color: MyColors.forthyColor)),
+                const Text('Cancel', style: TextStyle(color: textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child:
-                const Text('Confirm', style: TextStyle(color: MyColors.fivyColor)),
+                const Text('Confirm', style: TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -276,7 +276,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Added successfully'),
-          backgroundColor: MyColors.fivyColor,
+          backgroundColor: MyColors.orangeDivider,
         ),
       );
     } catch (e) {
@@ -304,11 +304,14 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: MyColors.secondaryColor,
+        backgroundColor: bgColor,
         appBar: AppBar(
           title: Text('${widget.goal.title} - History'),
-          backgroundColor: cardColor,
-          foregroundColor: white,
+          backgroundColor: bgColor,
+          foregroundColor: textPrimary,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: textPrimary),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context, _dataChanged),
@@ -324,10 +327,10 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: MyColors.fivyColor.withAlpha(26),
+                  color: MyColors.orangeDivider.withAlpha(26),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: MyColors.fivyColor.withAlpha(77),
+                    color: MyColors.orangeDivider.withAlpha(77),
                     width: 1,
                   ),
                 ),
@@ -335,7 +338,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: MyColors.fivyColor,
+                      color: MyColors.orangeDivider,
                       size: 20,
                     ),
                     SizedBox(width: 10),
@@ -343,7 +346,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                       child: Text(
                         'Tap any past date to add a work session',
                         style: TextStyle(
-                          color: MyColors.fivyColor,
+                          color: MyColors.orangeDivider,
                           fontSize: 13,
                         ),
                       ),
@@ -404,16 +407,16 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                         onPageChanged: (focused) => _focusedDay = focused,
                         calendarStyle: CalendarStyle(
                           todayDecoration: BoxDecoration(
-                            color: MyColors.fivyColor.withAlpha(90),
+                            color: MyColors.orangeDivider.withAlpha(90),
                             shape: BoxShape.circle,
                           ),
                           selectedDecoration: const BoxDecoration(
-                            color: MyColors.forthyColor,
+                            color: textMuted,
                             shape: BoxShape.circle,
                           ),
-                          defaultTextStyle: const TextStyle(color: white),
+                          defaultTextStyle: const TextStyle(color: textPrimary),
                           weekendTextStyle:
-                              const TextStyle(color: MyColors.fivyColor),
+                              const TextStyle(color: MyColors.orangeDivider),
                         ),
                         calendarBuilders: CalendarBuilders(
                           defaultBuilder: (context, day, focused) {
@@ -457,7 +460,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                             selectedMinutes == null
                                 ? 'No data'
                                 : 'Time on this day: ${_formatMinutes(selectedMinutes)}',
-                            style: const TextStyle(color: white),
+                            style: const TextStyle(color: textPrimary),
                           ),
                         ),
                       ),
@@ -479,7 +482,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
         Text(
           value,
           style: const TextStyle(
-            color: white,
+            color: textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -488,7 +491,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: MyColors.fivyColor,
+            color: MyColors.orangeDivider,
             fontSize: 12,
           ),
         ),

@@ -516,7 +516,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
             maxLines: null,
             maxLength: 2000,
             specialTextSpanBuilder: LinkTextSpanBuilder(),
-            autofocus: false,
+            autofocus: widget.recordId == null,
             scrollController: _scrollController,
             textCapitalization: TextCapitalization.sentences,
             cursorColor: MyColors.fivyColor,

@@ -42,7 +42,8 @@ class Instractions {
         return "$tagId";
       }).join(', ');
 
-      return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: ${tagIds}\nCreated At: ${note.createdAt}\n\n";
+      final date = DateTime.fromMillisecondsSinceEpoch(note.createdAt);
+      return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: $tagIds\nCreated At: ${date.toIso8601String()}\n\n";
     }).join('\n');
 
     final tags = allTags.map((tag) {

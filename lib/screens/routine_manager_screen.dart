@@ -6,6 +6,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/shared/chrono_ui.dart';
 import 'package:chrono/screens/routine_calendar_screen.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/filter_service.dart';
@@ -209,55 +210,27 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   }
 
   Widget _buildHeader() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: MyColors.forthyColor,
-            borderRadius: BorderRadius.circular(2),
+    return ChronoSheetHeader(
+      title: 'Routines',
+      titleIcon: Icons.arrow_upward_rounded,
+      itemCount: _routines.length,
+      actions: [
+        if (_otherDayRoutines.isNotEmpty)
+          IconButton(
+            icon: Icon(
+              _showOtherDays ? Icons.visibility : Icons.visibility_off,
+              color: _showOtherDays ? textPrimary : textMuted,
+              size: 20,
+            ),
+            onPressed: () {
+              setState(() => _showOtherDays = !_showOtherDays);
+              FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
+            },
+            tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Routine Manager',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: white,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_otherDayRoutines.isNotEmpty)
-                    IconButton(
-                      icon: Icon(
-                        _showOtherDays ? Icons.visibility : Icons.visibility_off,
-                        color: _showOtherDays ? white : MyColors.forthyColor,
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        setState(() => _showOtherDays = !_showOtherDays);
-                        FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
-                      },
-                      tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: white),
-                    onPressed: () => _showRoutineForm(),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        IconButton(
+          icon: const Icon(Icons.add, color: textPrimary),
+          onPressed: () => _showRoutineForm(),
         ),
       ],
     );
@@ -355,18 +328,38 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     );
   }
 
+  Color _priorityColor(int priority) {
+    switch (priority) {
+      case 1: return textMuted;
+      case 2: return infoColor;
+      case 3: return warningColor;
+      case 4: return MyColors.remove;
+      default: return infoColor;
+    }
+  }
+
   Widget _buildRoutineTile(Routine routine, {required bool isOtherDay}) {
+    final prioColor = _priorityColor(routine.priority);
+
     return Dismissible(
       key: Key('${routine.id}_${isOtherDay ? 'other' : 'today'}'),
       direction: DismissDirection.horizontal,
       background: Container(
-        color: MyColors.fivyColor,
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: infoColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 16),
         child: const Icon(Icons.edit, color: white),
       ),
       secondaryBackground: Container(
-        color: MyColors.remove,
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: MyColors.remove,
+          borderRadius: BorderRadius.circular(12),
+        ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
         child: const Icon(Icons.delete, color: white),
@@ -380,16 +373,16 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
             context: context,
             builder: (context) => AlertDialog(
               backgroundColor: cardColor,
-              title: const Text('Delete Routine', style: TextStyle(color: white)),
+              title: const Text('Delete Routine', style: TextStyle(color: textPrimary)),
               content: Text(
                 'Are you sure you want to delete "${routine.name}"?',
-                style: const TextStyle(color: white),
+                style: const TextStyle(color: textPrimary),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
                   child: const Text('Cancel',
-                      style: TextStyle(color: MyColors.fivyColor)),
+                      style: TextStyle(color: textSecondary)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -408,76 +401,91 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
       },
       child: Opacity(
         opacity: isOtherDay ? 0.5 : 1.0,
-        child: ListTile(
+        child: ChronoCard(
+          leftIndicator: prioColor.withValues(alpha: 0.7),
+          borderColor: routine.isDone && !isOtherDay
+              ? successColor.withValues(alpha: 0.3)
+              : cardBorder.withValues(alpha: 0.3),
           onTap: isOtherDay ? () => _showRoutineForm(routine) : () => _toggleRoutineDone(routine),
-          leading: isOtherDay
-              ? const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Icon(Icons.calendar_today, color: MyColors.forthyColor, size: 20),
-                )
-              : Checkbox(
-                  value: routine.isDone,
-                  onChanged: (_) => _toggleRoutineDone(routine),
-                  checkColor: MyColors.secondaryColor,
-                  fillColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return MyColors.fivyColor;
-                    }
-                    return MyColors.forthyColor;
-                  }),
-                ),
-          title: Text(
-            routine.name,
-            style: TextStyle(
-              color: isOtherDay
-                  ? MyColors.forthyColor
-                  : routine.isDone
-                      ? MyColors.forthyColor
-                      : white,
-              decoration: routine.isDone && !isOtherDay ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          subtitle: Text(
-            isOtherDay
-                ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
-                : '${routine.time.format(context)} - ${_formatDaysOfWeek(routine.daysOfWeek)}',
-            style: TextStyle(
-              color: isOtherDay ? MyColors.trecondaryColor : (routine.isDone ? MyColors.trecondaryColor : MyColors.fivyColor),
-            ),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              if (!isOtherDay && routine.showStreak && routine.streak > 0)
+              // Checkbox / calendar icon
+              if (isOtherDay)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Icon(Icons.calendar_today, color: textMuted, size: 20),
+                )
+              else
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: MyColors.fivyColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('🔥', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${routine.streak}',
-                          style: const TextStyle(
-                            color: MyColors.fivyColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: routine.isDone,
+                      onChanged: (_) => _toggleRoutineDone(routine),
+                      checkColor: cardColor2,
+                      fillColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return successColor;
+                        }
+                        return textMuted;
+                      }),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
                 ),
+
+              // Name + time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      routine.name,
+                      style: TextStyle(
+                        color: isOtherDay
+                            ? textMuted
+                            : routine.isDone
+                                ? textMuted
+                                : textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        decoration: routine.isDone && !isOtherDay ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isOtherDay
+                          ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
+                          : '${routine.time.format(context)} — ${_formatDaysOfWeek(routine.daysOfWeek)}',
+                      style: TextStyle(
+                        color: isOtherDay ? textHint : routine.isDone ? textHint : textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Streak badge + calendar
+              if (!isOtherDay && routine.showStreak && routine.streak > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: ChronoBadge(
+                    label: '${routine.streak}',
+                    icon: Icons.local_fire_department,
+                    color: warningColor,
+                  ),
+                ),
               IconButton(
-                icon: const Icon(Icons.calendar_today, color: MyColors.fivyColor),
+                icon: Icon(Icons.calendar_today, color: textMuted, size: 18),
                 onPressed: () => _showCalendarHistory(routine),
                 tooltip: 'View completion history',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
             ],
           ),
@@ -498,54 +506,12 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.schedule_outlined,
-                size: 80,
-                color: MyColors.forthyColor,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'No Routines Yet',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: white,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Create your first routine to build consistent daily habits and stay organized.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: MyColors.fivyColor,
-                    ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => _showRoutineForm(),
-                icon: const Icon(Icons.add),
-                label: const Text('Create Your First Routine'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return ChronoEmptyState(
+      icon: Icons.schedule_outlined,
+      title: 'No Routines Yet',
+      subtitle: 'Create your first routine to build consistent daily habits and stay organized.',
+      buttonLabel: 'Create Your First Routine',
+      onButton: () => _showRoutineForm(),
     );
   }
 }
@@ -684,33 +650,49 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Важность', style: TextStyle(fontSize: 16)),
-        const SizedBox(height: 4),
-        Slider(
-          value: _priority.toDouble(),
-          min: 1,
-          max: 4,
-          divisions: 3,
-          label: _priorityLabels[_priority],
-          onChanged: (value) {
-            setState(() {
-              _priority = value.round();
-            });
-          },
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: _priorityColor(_priority),
+            inactiveTrackColor: cardBorder,
+            thumbColor: _priorityColor(_priority),
+            overlayColor: _priorityColor(_priority).withValues(alpha: 0.2),
+            valueIndicatorColor: _priorityColor(_priority),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: _priority.toDouble(),
+            min: 1,
+            max: 4,
+            divisions: 3,
+            label: _priorityLabels[_priority],
+            onChanged: (value) {
+              setState(() {
+                _priority = value.round();
+              });
+            },
+          ),
         ),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              _priorityLabels[_priority] ?? '',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: _priorityColor(_priority),
-              ),
-            ),
-            Text(
-              _priorityDescriptions[_priority] ?? '',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _priorityLabels[_priority] ?? '',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: _priorityColor(_priority),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _priorityDescriptions[_priority] ?? '',
+                  style: const TextStyle(fontSize: 12, color: textMuted),
+                ),
+              ],
             ),
           ],
         ),
@@ -721,141 +703,268 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
   Color _priorityColor(int priority) {
     switch (priority) {
       case 1:
-        return Colors.grey;
+        return textMuted;
       case 2:
-        return Colors.blue;
+        return infoColor;
       case 3:
-        return Colors.orange;
+        return warningColor;
       case 4:
-        return Colors.redAccent;
+        return MyColors.remove;
       default:
-        return Colors.blue;
+        return infoColor;
     }
+  }
+
+  InputDecoration _inputDecoration(String label, {String? helperText, String? suffixText}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: textMuted),
+      helperText: helperText,
+      helperStyle: const TextStyle(color: textHint, fontSize: 12),
+      suffixText: suffixText,
+      suffixStyle: const TextStyle(color: textMuted),
+      border: OutlineInputBorder(
+        borderSide: const BorderSide(color: cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: MyColors.orangeDivider, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: MyColors.remove),
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isEditing = widget.routine != null;
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text(widget.routine == null ? 'Add Routine' : 'Edit Routine'),
+        backgroundColor: bgColor,
+        title: Text(
+          isEditing ? 'Edit Routine' : 'New Routine',
+          style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+        ),
+        iconTheme: const IconThemeData(color: textPrimary),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actions: [
+          TextButton(
+            onPressed: _saveRoutine,
+            child: Text(
+              isEditing ? 'Save' : 'Create',
+              style: const TextStyle(
+                color: MyColors.orangeDivider,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
+            // ── Basic Info ──
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Routine Name',
-                border: OutlineInputBorder(),
-              ),
+              style: const TextStyle(color: textPrimary, fontSize: 16),
+              decoration: _inputDecoration('Routine Name'),
               validator: (value) {
-                if (value == null || value.isEmpty) {
+                if (value == null || value.trim().isEmpty) {
                   return 'Please enter a name';
                 }
                 return null;
               },
+              textInputAction: TextInputAction.next,
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Time'),
-              subtitle: Text(_time.format(context)),
-              trailing: const Icon(Icons.access_time),
-              onTap: _selectTime,
-            ),
-            const SizedBox(height: 16),
-            const Text('Days of Week'),
-            Wrap(
-              spacing: 8,
+
+            const SizedBox(height: 24),
+
+            // ── Schedule ──
+            ChronoSettingsGroup(
+              title: 'Schedule',
               children: [
-                for (var i = 0; i < 7; i++)
-                  FilterChip(
-                    label: Text(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]),
-                    selected: _daysOfWeek[i],
-                    onSelected: (selected) {
-                      setState(() {
-                        _daysOfWeek[i] = selected;
-                      });
-                    },
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  title: const Text('Time', style: TextStyle(color: textPrimary, fontSize: 16)),
+                  subtitle: Text(_time.format(context), style: const TextStyle(color: textMuted)),
+                  trailing: const Icon(Icons.access_time_rounded, color: textSecondary),
+                  onTap: _selectTime,
+                ),
+                Divider(height: 1, color: cardBorder.withValues(alpha: 0.5)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Days of Week', style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: List.generate(7, (i) {
+                          final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                          final isSelected = _daysOfWeek[i];
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                _daysOfWeek[i] = !isSelected;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor3,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Text(
+                                dayNames[i],
+                                style: TextStyle(
+                                  color: isSelected ? MyColors.orangeDivider : textMuted,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
                   ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
+
+            const SizedBox(height: 24),
+
+            // ── Reminders & Persistence ──
+            ChronoSettingsGroup(
+              title: 'Reminders & Persistence',
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _periodController,
-                    decoration: const InputDecoration(
-                      labelText: 'Period (min)',
-                      border: OutlineInputBorder(),
-                      suffixText: 'min',
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _periodController,
+                          style: const TextStyle(color: textPrimary),
+                          decoration: _inputDecoration('Duration', suffixText: 'min'),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            setState(() {
+                              _periodAfter = int.tryParse(value) ?? 30;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _intervalController,
+                          style: const TextStyle(color: textPrimary),
+                          decoration: _inputDecoration('Interval', suffixText: 'min'),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            setState(() {
+                              _interval = int.tryParse(value) ?? 10;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  child: ReminderTimelineWidget(
+                    scheduledTime: _time,
+                    periodAfter: _periodAfter,
+                    interval: _interval,
+                    onPeriodAfterChanged: (value) {
                       setState(() {
-                        _periodAfter = int.tryParse(value) ?? 30;
+                        _periodAfter = value;
+                        _periodController.text = value.toString();
+                      });
+                    },
+                    onIntervalChanged: (value) {
+                      setState(() {
+                        _interval = value;
+                        _intervalController.text = value.toString();
                       });
                     },
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _intervalController,
-                    decoration: const InputDecoration(
-                      labelText: 'Interval (min)',
-                      border: OutlineInputBorder(),
-                      suffixText: 'min',
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      setState(() {
-                        _interval = int.tryParse(value) ?? 10;
-                      });
-                    },
-                  ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Extras & Importance ──
+            ChronoSettingsGroup(
+              title: 'Additional',
+              children: [
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  title: const Text('Track streak', style: TextStyle(color: textPrimary, fontSize: 15)),
+                  subtitle: const Text('Display streak count when completing this routine', style: TextStyle(color: textMuted, fontSize: 13)),
+                  activeColor: MyColors.orangeDivider,
+                  value: _showStreak,
+                  onChanged: (value) {
+                    setState(() {
+                      _showStreak = value;
+                    });
+                  },
+                ),
+                Divider(height: 1, color: cardBorder.withValues(alpha: 0.5)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                  child: _buildPrioritySlider(),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            ReminderTimelineWidget(
-              scheduledTime: _time,
-              periodAfter: _periodAfter,
-              interval: _interval,
-              onPeriodAfterChanged: (value) {
-                setState(() {
-                  _periodAfter = value;
-                  _periodController.text = value.toString();
-                });
-              },
-              onIntervalChanged: (value) {
-                setState(() {
-                  _interval = value;
-                  _intervalController.text = value.toString();
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Show Streak'),
-              subtitle: const Text('Display streak count when completing this routine'),
-              value: _showStreak,
-              onChanged: (value) {
-                setState(() {
-                  _showStreak = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildPrioritySlider(),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _saveRoutine,
-              child: Text(widget.routine == null ? 'Add Routine' : 'Save Changes'),
-            ),
+
+            const SizedBox(height: 80), // Padding for sticky bottom button
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _saveRoutine,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MyColors.orangeDivider,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                isEditing ? 'Update Routine' : 'Create Routine',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         ),
       ),
     );

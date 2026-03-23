@@ -143,7 +143,7 @@ class _ChatPageState extends State<ChatPage> {
           backgroundColor: cardColor,
           title: Text(
             'Context Too Large',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: textPrimary),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -151,12 +151,12 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               Text(
                 'Your selected context exceeds the model\'s limit.',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: textPrimary),
               ),
               SizedBox(height: 12),
               Text(
                 'We can split it into approximately $estimatedChunks chunks and process them sequentially. The AI will receive all context before responding.',
-                style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                style: TextStyle(color: textPrimary.withOpacity(0.8)),
               ),
               SizedBox(height: 12),
               Text(
@@ -173,16 +173,16 @@ class _ChatPageState extends State<ChatPage> {
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: Text('Cancel', style: TextStyle(color: Colors.white)),
+              child: Text('Cancel', style: TextStyle(color: textPrimary)),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop(true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: MyColors.primaryColor,
+                backgroundColor: MyColors.orangeDivider,
               ),
-              child: Text('Continue with Chunking', style: TextStyle(color: Colors.white)),
+              child: Text('Continue with Chunking', style: TextStyle(color: bgColor)),
             ),
           ],
         );
@@ -236,7 +236,8 @@ class _ChatPageState extends State<ChatPage> {
       int chunkNumber, int totalChunks, List<Record> records, bool isLast, String? userQuery) {
     final notesString = records.map((note) {
       String tagIds = note.tagIds.map((tagId) => "$tagId").join(', ');
-      return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: ${tagIds}\nCreated At: ${note.createdAt}\n\n";
+      final date = DateTime.fromMillisecondsSinceEpoch(note.createdAt);
+      return "NoteId ${note.id}:\nText: ${note.text}\nTag IDs: $tagIds\nCreated At: ${date.toIso8601String()}\n\n";
     }).join('\n');
 
     final tags = allTags.map((tag) {
@@ -350,10 +351,14 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: cardColor,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Chat'),
-        backgroundColor: Color(0x0d2196f3),
+        title: const Text('AI Coach', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: bgColor,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
       body: Column(
         mainAxisSize: MainAxisSize.min,
@@ -375,134 +380,180 @@ class _ChatPageState extends State<ChatPage> {
           ),
           InstructionsBlockWidget(onSubmitted: _onSubmitted),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              "Include user data",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            if (includeAllNote && selectedTagIds.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: InkWell(
-                                  onTap: () async {
-                                    // Allow re-opening dialog to change selection
-                                    final result = await showDialog<List<int>?>(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return TagSelectionDialog(
-                                          availableTags: allTags,
-                                          initialSelectedTagIds: selectedTagIds,
-                                        );
-                                      },
-                                    );
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: surfaceElevated,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cardBorder, width: 0.5),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+              child: Column(
+                children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.psychology, color: MyColors.orangeDivider, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "AI Context",
+                                style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+                              ),
+                              if (includeAllNote && selectedTagIds.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final result = await showDialog<List<int>?>(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return TagSelectionDialog(
+                                            availableTags: allTags,
+                                            initialSelectedTagIds: selectedTagIds,
+                                          );
+                                        },
+                                      );
 
-                                    if (result != null && result.isNotEmpty) {
-                                      setState(() {
-                                        selectedTagIds = result;
-                                      });
-                                      getUserNotes();
-                                    } else if (result != null && result.isEmpty) {
-                                      // User confirmed with no tags - turn off
-                                      setState(() {
-                                        includeAllNote = false;
-                                        selectedTagIds = [];
-                                        tokenCount = 0;
-                                      });
-                                    }
-                                  },
-                                  child: Icon(
-                                    Icons.edit,
-                                    size: 16,
-                                    color: Colors.white.withOpacity(0.7),
+                                      if (result != null && result.isNotEmpty) {
+                                        setState(() {
+                                          selectedTagIds = result;
+                                        });
+                                        getUserNotes();
+                                      } else if (result != null && result.isEmpty) {
+                                        setState(() {
+                                          includeAllNote = false;
+                                          selectedTagIds = [];
+                                          tokenCount = 0;
+                                        });
+                                      }
+                                    },
+                                    child: const Icon(
+                                      Icons.edit,
+                                      size: 16,
+                                      color: textMuted,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                        if (includeAllNote && selectedTagIds.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Wrap(
-                              spacing: 4.0,
-                              runSpacing: 4.0,
-                              children: allTags
-                                  .where((tag) => selectedTagIds.contains(tag.id))
-                                  .map((tag) => Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: parseTagColor(tag.color),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          tag.name,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
+                              if (includeAllNote)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 12),
+                                  child: InkWell(
+                                    onTap: () {
+                                      final rawText = Instractions.useUserAllNotes(allRecords, allTags);
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          backgroundColor: cardColor,
+                                          title: const Text('AI Context Preview', style: TextStyle(color: textPrimary, fontSize: 16)),
+                                          content: SingleChildScrollView(
+                                            child: Text(
+                                              rawText,
+                                              style: const TextStyle(color: textMuted, fontSize: 12, fontFamily: 'monospace'),
+                                            ),
                                           ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(ctx).pop(),
+                                              child: const Text('Close', style: TextStyle(color: MyColors.orangeDivider)),
+                                            )
+                                          ],
                                         ),
-                                      ))
-                                  .toList(),
-                            ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.visibility,
+                                      size: 16,
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
+                          if (includeAllNote && selectedTagIds.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                spacing: 6.0,
+                                runSpacing: 6.0,
+                                children: allTags
+                                    .where((tag) => selectedTagIds.contains(tag.id))
+                                    .map((tag) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: parseTagColor(tag.color).withAlpha(100),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: parseTagColor(tag.color), width: 1.5),
+                                          ),
+                                          child: Text(
+                                            tag.name,
+                                            style: TextStyle(
+                                              color: parseTagColor(tag.color),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ))
+                                    .toList(),
+                              ),
+                            ),
+                          if (includeAllNote && selectedTagIds.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4, left: 28),
+                              child: Text(
+                                "Using all notes",
+                                style: TextStyle(fontSize: 12, color: textMuted),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Switch(
-                    value: includeAllNote,
-                    onChanged: (newValue) async {
-                      if (newValue) {
-                        // Show tag selection dialog
-                        final result = await showDialog<List<int>?>(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return TagSelectionDialog(
-                              availableTags: allTags,
-                              initialSelectedTagIds: selectedTagIds,
-                            );
-                          },
-                        );
+                    Switch(
+                      value: includeAllNote,
+                      activeColor: MyColors.orangeDivider,
+                      onChanged: (newValue) async {
+                        if (newValue) {
+                          final result = await showDialog<List<int>?>(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return TagSelectionDialog(
+                                availableTags: allTags,
+                                initialSelectedTagIds: selectedTagIds,
+                              );
+                            },
+                          );
 
-                        // Handle dialog result
-                        if (result != null && result.isNotEmpty) {
-                          // User confirmed with tags selected
-                          setState(() {
-                            selectedTagIds = result;
-                            includeAllNote = true;
-                          });
-                          getUserNotes();
+                          if (result != null && result.isNotEmpty) {
+                            setState(() {
+                              selectedTagIds = result;
+                              includeAllNote = true;
+                            });
+                            getUserNotes();
+                          } else {
+                            setState(() {
+                              includeAllNote = false;
+                              selectedTagIds = [];
+                              tokenCount = 0;
+                            });
+                          }
                         } else {
-                          // User cancelled or confirmed with no tags
                           setState(() {
                             includeAllNote = false;
                             selectedTagIds = [];
                             tokenCount = 0;
                           });
                         }
-                      } else {
-                        // Turning switch OFF
-                        setState(() {
-                          includeAllNote = false;
-                          selectedTagIds = [];
-                          tokenCount = 0;
-                        });
-                      }
-                    },
-                  ),
-                ]),
-              ],
+                      },
+                    ),
+                  ]),
+                ],
+              ),
             ),
           ),
           if (includeAllNote)
@@ -520,13 +571,13 @@ class _ChatPageState extends State<ChatPage> {
                         SizedBox(width: 8),
                         Text(
                           'Counting tokens...',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(color: textMuted, fontSize: 12),
                         ),
                       ],
                     )
                   : Text(
                       'Cost: ~\$$tokenCount',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: const TextStyle(color: textMuted, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
             ),
@@ -536,10 +587,10 @@ class _ChatPageState extends State<ChatPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: MyColors.fivyColor.withAlpha(26),
+                  color: MyColors.orangeDivider.withAlpha(26),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: MyColors.fivyColor.withAlpha(77),
+                    color: MyColors.orangeDivider.withAlpha(77),
                     width: 1,
                   ),
                 ),
@@ -554,7 +605,7 @@ class _ChatPageState extends State<ChatPage> {
                     const SizedBox(width: 12),
                     Text(
                       'Processing chunk $_currentChunk/$_totalChunks',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: textPrimary, fontSize: 13),
                     ),
                   ],
                 ),

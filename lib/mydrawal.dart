@@ -2,12 +2,11 @@ import 'package:chrono/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/instuction_page.dart';
 import 'package:chrono/shared/api-key-popup.dart';
-import 'package:chrono/screens/routine_manager_screen.dart';
-import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
+import 'shared/chrono_ui.dart';
 import 'package:chrono/screens/settings/insights_settings_screen.dart';
 import 'package:chrono/features/checkin/presentation/screens/checkin_time_settings_screen.dart';
 
@@ -39,169 +38,138 @@ class MyDrawal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(top: 55),
+      margin: const EdgeInsets.only(top: 55),
       child: Drawer(
         backgroundColor: MyColors.drawalBackground,
-        // Add a ListView to the drawer. This ensures the user can scroll
-        // through the options in the drawer if there isn't enough vertical
-        // space to fit everything.
-        child: ListView(
-          // Important: Remove any padding from the ListView.
-          padding: EdgeInsets.zero,
-          children: [
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'AI INSIGHTS SETTINGS',
-                style: TextStyle(color: Colors.white),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            children: [
+              // ── AI & Prompts ──
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
+                child: Text(
+                  'AI & PROMPTS',
+                  style: TextStyle(
+                    color: textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                ),
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const InsightsSettingsScreen()),
-                );
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'CHECKIN TIME SETTINGS',
-                style: TextStyle(color: Colors.white),
+              ChronoSettingsGroup(
+                children: [
+                  ChronoSettingsRow(
+                    icon: Icons.auto_awesome,
+                    iconColor: MyColors.orangeDivider,
+                    label: 'AI Insights Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InsightsSettingsScreen()),
+                    ),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.description_outlined,
+                    iconColor: infoColor,
+                    label: 'Prompts',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => InstructionsPage()),
+                    ),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.smart_toy_outlined,
+                    iconColor: successColor,
+                    label: 'GPT Settings',
+                    onTap: () => _showApiKeyPopup(context),
+                  ),
+                ],
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CheckinTimeSettingsScreen()),
-                );
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'PROMPTS',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => InstructionsPage()));
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'GPT SETTINGS',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                _showApiKeyPopup(context);
-                // Navigator.push(
-                //     context, MaterialPageRoute(builder: (_) => AddRecord()));
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'SETTINGS',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
-              },
-            ),
 
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.wb_sunny_outlined,
-                color: MyColors.orangeDivider,
+              const SizedBox(height: 20),
+
+              // ── Check-ins ──
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  'CHECK-INS',
+                  style: TextStyle(
+                    color: textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                ),
               ),
-              title: const Text(
-                'MORNING CHECKIN',
-                style: TextStyle(color: Colors.white),
+              ChronoSettingsGroup(
+                children: [
+                  ChronoSettingsRow(
+                    icon: Icons.access_time,
+                    iconColor: MyColors.contactDivider,
+                    label: 'Check-in Time Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CheckinTimeSettingsScreen()),
+                    ),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.wb_sunny_outlined,
+                    iconColor: MyColors.orangeDivider,
+                    label: 'Morning Check-in',
+                    onTap: () {
+                      Navigator.pop(context);
+                      CheckinDialog.show(context, CheckinType.morning);
+                    },
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.nightlight_outlined,
+                    iconColor: MyColors.contactDivider,
+                    label: 'Evening Check-in',
+                    onTap: () {
+                      Navigator.pop(context);
+                      CheckinDialog.show(context, CheckinType.evening);
+                    },
+                  ),
+                ],
               ),
-              onTap: () {
-                Navigator.pop(context); // Close drawer first
-                CheckinDialog.show(context, CheckinType.morning);
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.nightlight_outlined,
-                color: MyColors.contactDivider,
+
+              const SizedBox(height: 20),
+
+              // ── General ──
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  'GENERAL',
+                  style: TextStyle(
+                    color: textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                ),
               ),
-              title: const Text(
-                'EVENING CHECKIN',
-                style: TextStyle(color: Colors.white),
+              ChronoSettingsGroup(
+                children: [
+                  ChronoSettingsRow(
+                    icon: Icons.settings_outlined,
+                    iconColor: textSecondary,
+                    label: 'Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => SettingsPage()),
+                    ),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.policy_outlined,
+                    iconColor: textSecondary,
+                    label: 'Privacy Policy',
+                    onTap: () => _launchUrl(),
+                  ),
+                ],
               ),
-              onTap: () {
-                Navigator.pop(context); // Close drawer first
-                CheckinDialog.show(context, CheckinType.evening);
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            ListTile(
-              title: const Text(
-                'PRIVACY POLICY',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                _launchUrl();
-                // Navigator.push(
-                //     context, MaterialPageRoute(builder: (_) => AddRecord()));
-              },
-            ),
-            Divider(
-              color: MyColors.drawalDivider,
-              height: 2,
-              thickness: 2,
-            ),
-            // ListTile(
-            //   title: const Text(
-            //     'Contact List',
-            //     style: TextStyle(color: Colors.white),
-            //   ),
-            //   onTap: () {
-            //     Navigator.push(context, MaterialPageRoute(builder: (_) => ContactList()));
-            //   },
-            // ),
-            // Divider(
-            //   color: MyColors.drawalDivider,
-            //   height: 2,
-            //   thickness: 2,
-            // ),
-          ],
+            ],
+          ),
         ),
       ),
     );

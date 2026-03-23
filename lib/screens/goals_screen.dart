@@ -3,6 +3,7 @@ import 'dart:async';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
 import '../widgets/goal_card.dart';
+import '../shared/chrono_ui.dart';
 import 'add_goal_screen.dart';
 import '../services/timer_service.dart';
 import '../services/daily_reset_service.dart';
@@ -258,53 +259,27 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildHeader() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: MyColors.forthyColor,
-            borderRadius: BorderRadius.circular(2),
+    return ChronoSheetHeader(
+      title: 'Goals',
+      titleIcon: Icons.flag_rounded,
+      itemCount: _activeGoals.length,
+      actions: [
+        IconButton(
+          icon: Icon(
+            _showArchived ? Icons.visibility : Icons.visibility_off,
+            color: _showArchived ? textPrimary : textMuted,
+            size: 20,
           ),
+          onPressed: () {
+            setState(() {
+              _showArchived = !_showArchived;
+            });
+          },
+          tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
         ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Goal Manager',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: white,
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _showArchived ? Icons.visibility : Icons.visibility_off,
-                      color: white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _showArchived = !_showArchived;
-                      });
-                    },
-                    tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: white),
-                    onPressed: _showAddGoalForm,
-                  ),
-                ],
-              ),
-            ],
-          ),
+        IconButton(
+          icon: const Icon(Icons.add, color: textPrimary),
+          onPressed: _showAddGoalForm,
         ),
       ],
     );
@@ -465,54 +440,12 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.track_changes_outlined,
-                size: 80,
-                color: MyColors.forthyColor,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'No Goals Yet',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: white,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Create your first goal to start tracking your progress and building better habits.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: MyColors.fivyColor,
-                    ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _showAddGoalForm,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Your First Goal'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return ChronoEmptyState(
+      icon: Icons.track_changes_outlined,
+      title: 'No Goals Yet',
+      subtitle: 'Create your first goal to start tracking your progress and building better habits.',
+      buttonLabel: 'Create Your First Goal',
+      onButton: _showAddGoalForm,
     );
   }
 }

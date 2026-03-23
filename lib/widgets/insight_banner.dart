@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/widget_service.dart';
+import 'package:chrono/colors.dart';
 
 class InsightBanner extends StatefulWidget {
   const InsightBanner({super.key});
@@ -120,20 +121,31 @@ class _InsightBannerState extends State<InsightBanner> {
     final title = _insight![DatabaseColumns.insightTitle] as String? ?? 'Chrono';
     final body = _insight![DatabaseColumns.insightBody] as String? ?? '';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: GestureDetector(
         onTap: _showFullInsight,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF2C2C2C),
-            borderRadius: BorderRadius.circular(10),
+            color: cardColor2,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.amber.withValues(alpha: 0.2),
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.tips_and_updates, color: Colors.amber, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.tips_and_updates, color: Colors.amber, size: 18),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +153,7 @@ class _InsightBannerState extends State<InsightBanner> {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -152,9 +164,9 @@ class _InsightBannerState extends State<InsightBanner> {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: textSecondary,
                         fontSize: 13,
-                        height: 1.2,
+                        height: 1.3,
                       ),
                     ),
                     if (body.length > 150)
@@ -174,7 +186,7 @@ class _InsightBannerState extends State<InsightBanner> {
               ),
               IconButton(
                 onPressed: _dismiss,
-                icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                icon: const Icon(Icons.close, color: textHint, size: 18),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
