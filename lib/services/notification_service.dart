@@ -22,7 +22,6 @@ import 'package:chrono/services/timer_service.dart' show backgroundNotificationA
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
-import 'package:chrono/features/checkin/data/repositories/checkin_time_settings_repository.dart';
 
 @pragma('vm:entry-point') // vm:entry-point should be on the callback itself
 class NotificationService {
@@ -688,107 +687,9 @@ class NotificationService {
 
   /// Schedule daily checkin notifications
   Future<void> scheduleCheckinNotifications() async {
-    if (!_isInitialized) {
-      await initialize();
-      if (!_isInitialized) return;
-    }
-
-    try {
-      final timeSettingsRepo = CheckinTimeSettingsRepository();
-      final morningTime = await timeSettingsRepo.loadMorningTime();
-      final eveningTime = await timeSettingsRepo.loadEveningTime();
-
-      await _scheduleCheckinNotification(
-        CheckinType.morning,
-        morningTime,
-        _morningCheckinNotificationId,
-      );
-
-      await _scheduleCheckinNotification(
-        CheckinType.evening,
-        eveningTime,
-        _eveningCheckinNotificationId,
-      );
-
-      debugPrint('✅ Scheduled checkin notifications: Morning ${morningTime.hour}:${morningTime.minute}, Evening ${eveningTime.hour}:${eveningTime.minute}');
-    } catch (e, stackTrace) {
-      debugPrint('❌ Error scheduling checkin notifications: $e');
-      debugPrint('Stack trace: $stackTrace');
-    }
+    // Notifications disabled by user request
+    return;
   }
-
-  /// Schedule a single checkin notification
-  Future<void> _scheduleCheckinNotification(
-    CheckinType checkinType,
-    TimeOfDay time,
-    int notificationId,
-  ) async {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledTime = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      time.hour,
-      time.minute,
-    );
-
-    // If the time has already passed today, schedule for tomorrow
-    if (scheduledTime.isBefore(now)) {
-      scheduledTime = scheduledTime.add(const Duration(days: 1));
-    }
-
-    final title = checkinType == CheckinType.morning
-        ? 'Утренний чекин'
-        : 'Вечерний чекин';
-    final body = checkinType == CheckinType.morning
-        ? 'Доброе утро! Время для утреннего чекина'
-        : 'Добрый вечер! Время для вечернего чекина';
-    final payload = 'checkin_${checkinType.name}';
-
-    try {
-      if (Platform.isIOS) {
-        // iOS: Use flutter_local_notifications zonedSchedule for exact timing
-        await _notifications.cancel(notificationId);
-
-        await _notifications.zonedSchedule(
-          notificationId,
-          title,
-          body,
-          scheduledTime,
-          const NotificationDetails(
-            iOS: DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: true,
-              presentSound: true,
-              interruptionLevel: InterruptionLevel.timeSensitive,
-            ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          payload: payload,
-        );
-
-        debugPrint('✅ iOS: Scheduled $title at $scheduledTime');
-      } else {
-        // Android: Use WorkManager for reliable background execution
-        await BackgroundTaskManager.scheduleCheckinNotification(
-          checkinType: checkinType.name,
-          notificationId: notificationId,
-          scheduledTime: scheduledTime.toLocal(),
-        );
-
-        debugPrint('✅ Android: Scheduled $title at $scheduledTime via WorkManager');
-      }
-
-      debugPrint('   Current time: $now');
-      debugPrint('   Time until notification: ${scheduledTime.difference(now).inMinutes} minutes');
-    } catch (e, stackTrace) {
-      debugPrint('❌ Error scheduling $title: $e');
-      debugPrint('Stack trace: $stackTrace');
-    }
-  }
-
-  /// Cancel all checkin notifications
   Future<void> cancelCheckinNotifications() async {
     await _notifications.cancel(_morningCheckinNotificationId);
     await _notifications.cancel(_eveningCheckinNotificationId);

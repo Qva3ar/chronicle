@@ -48,7 +48,7 @@ Future<void> _deferredInitialization() async {
     await TimerService.instance.initialize();
     AppLifecycleService.instance.initialize();
     await NotificationService().initialize();
-    await NotificationService().scheduleCheckinNotifications();
+    await NotificationService().cancelCheckinNotifications(); // Disabled by user request
     await BackgroundTaskManager.initialize();
     await BackgroundTaskManager.scheduleDailyReset();
     await DailyResetService.instance.runDailyResetIfNeeded();

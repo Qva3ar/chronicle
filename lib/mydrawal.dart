@@ -2,13 +2,10 @@ import 'package:chrono/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/instuction_page.dart';
 import 'package:chrono/shared/api-key-popup.dart';
-import 'package:chrono/features/checkin/data/models/checkin_type.dart';
-import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 import 'shared/chrono_ui.dart';
 import 'package:chrono/screens/settings/insights_settings_screen.dart';
-import 'package:chrono/features/checkin/presentation/screens/checkin_time_settings_screen.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
@@ -87,54 +84,7 @@ class MyDrawal extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
-
-              // ── Check-ins ──
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  'CHECK-INS',
-                  style: TextStyle(
-                    color: textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
-              ChronoSettingsGroup(
-                children: [
-                  ChronoSettingsRow(
-                    icon: Icons.access_time,
-                    iconColor: MyColors.contactDivider,
-                    label: 'Check-in Time Settings',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CheckinTimeSettingsScreen()),
-                    ),
-                  ),
-                  ChronoSettingsRow(
-                    icon: Icons.wb_sunny_outlined,
-                    iconColor: MyColors.orangeDivider,
-                    label: 'Morning Check-in',
-                    onTap: () {
-                      Navigator.pop(context);
-                      CheckinDialog.show(context, CheckinType.morning);
-                    },
-                  ),
-                  ChronoSettingsRow(
-                    icon: Icons.nightlight_outlined,
-                    iconColor: MyColors.contactDivider,
-                    label: 'Evening Check-in',
-                    onTap: () {
-                      Navigator.pop(context);
-                      CheckinDialog.show(context, CheckinType.evening);
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
+              // ── Check-ins ── hidden by user request
 
               // ── General ──
               Padding(
