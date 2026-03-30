@@ -23,6 +23,7 @@ import 'db_manager.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
+import 'package:chrono/screens/workspace_list_screen.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
@@ -830,21 +831,50 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           children: [
             Align(
               alignment: Alignment.centerRight,
-              child: FloatingActionButton(
-                backgroundColor: MyColors.secondaryColor,
-                heroTag: 'addButton',
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => CardDetailPage(
-                                title: "",
-                                text: "",
-                                recordId: null,
-                              ))).then((value) => loadRecords(refresh: true));
-                },
-                child: Icon(Icons.add, color: MyColors.fivyColor),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: surfaceElevated,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: IconButton(
+                      tooltip: 'Tags',
+                      icon: Icon(
+                        Icons.grid_view_rounded,
+                        color: _activeSheetId == 'tags' ? MyColors.orangeDivider : textSecondary,
+                        size: 26,
+                      ),
+                      onPressed: () {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        _showPersistentSheet(
+                          (context) => TagsManager(
+                            selectedTag: selectedChipIndex,
+                            onTagSelected: onTagSelected,
+                          ),
+                          id: 'tags',
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FloatingActionButton(
+                    backgroundColor: MyColors.secondaryColor,
+                    heroTag: 'addButton',
+                    onPressed: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => CardDetailPage(
+                                    title: "",
+                                    text: "",
+                                    recordId: null,
+                                  ))).then((value) => loadRecords(refresh: true));
+                    },
+                    child: Icon(Icons.add, color: MyColors.fivyColor),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
@@ -915,19 +945,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 _buildNavItem(
                   icon: Icon(
-                    Icons.grid_view_rounded,
-                    color: _activeSheetId == 'tags' ? MyColors.orangeDivider : textSecondary,
+                    Icons.workspaces_outlined,
+                    color: textSecondary,
                     size: 26,
                   ),
-                  label: 'Tags',
+                  label: 'Workspace',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-                    _showPersistentSheet(
-                      (context) => TagsManager(
-                        selectedTag: selectedChipIndex,
-                        onTagSelected: onTagSelected,
-                      ),
-                      id: 'tags',
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WorkspaceListScreen()),
                     );
                   },
                 ),

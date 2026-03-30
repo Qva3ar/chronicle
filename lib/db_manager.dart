@@ -8,6 +8,7 @@ import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/models/todo.model.dart';
 import 'package:chrono/models/todo_reminder.model.dart';
+import 'package:chrono/models/workspace_entry.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -16,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 46;
+  static const int databaseVersion = 47;
   static const int pageSize = 20;
 }
 
@@ -35,6 +36,8 @@ class DatabaseTables {
   static const String appSettings = 'app_settings';
   static const String todos = 'todos';
   static const String todoReminders = 'todo_reminders';
+  static const String workspace = 'workspace';
+  static const String workspaceRecord = 'workspace_record';
 }
 
 class DatabaseColumns {
@@ -139,6 +142,16 @@ class DatabaseColumns {
   static const String todoReminderType = 'reminder_type';
   static const String todoReminderCustomOffsetMinutes = 'custom_offset_minutes';
   static const String todoReminderScheduledAt = 'scheduled_at';
+
+  // Workspace columns
+  static const String workspaceName = 'name';
+  static const String workspaceDocumentMarkdown = 'document_markdown';
+  static const String workspaceUpdatedAt = 'updated_at';
+  static const String workspaceSplitTopRatio = 'split_top_ratio';
+
+  static const String workspaceRecordWorkspaceId = 'workspace_id';
+  static const String workspaceRecordRecordId = 'record_id';
+  static const String workspaceRecordSortOrder = 'sort_order';
 }
 
 /// A singleton class that manages the SQLite database operations
@@ -521,6 +534,28 @@ class DatabaseHelper {
           ${DatabaseColumns.todoReminderCustomOffsetMinutes} INTEGER,
           ${DatabaseColumns.todoReminderScheduledAt} INTEGER,
           FOREIGN KEY (${DatabaseColumns.todoReminderTodoId}) REFERENCES ${DatabaseTables.todos}(${DatabaseColumns.id}) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE ${DatabaseTables.workspace} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.workspaceName} TEXT NOT NULL,
+          ${DatabaseColumns.workspaceDocumentMarkdown} TEXT NOT NULL DEFAULT '',
+          ${DatabaseColumns.workspaceUpdatedAt} INTEGER NOT NULL,
+          ${DatabaseColumns.workspaceSplitTopRatio} REAL NOT NULL DEFAULT 0.55
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE ${DatabaseTables.workspaceRecord} (
+          ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DatabaseColumns.workspaceRecordWorkspaceId} INTEGER NOT NULL,
+          ${DatabaseColumns.workspaceRecordRecordId} INTEGER NOT NULL,
+          ${DatabaseColumns.workspaceRecordSortOrder} INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (${DatabaseColumns.workspaceRecordWorkspaceId}) REFERENCES ${DatabaseTables.workspace}(${DatabaseColumns.id}) ON DELETE CASCADE,
+          FOREIGN KEY (${DatabaseColumns.workspaceRecordRecordId}) REFERENCES ${DatabaseTables.record}(${DatabaseColumns.id}) ON DELETE CASCADE,
+          UNIQUE(${DatabaseColumns.workspaceRecordWorkspaceId}, ${DatabaseColumns.workspaceRecordRecordId})
         )
       ''');
 
@@ -1469,6 +1504,31 @@ class DatabaseHelper {
         log('Starting migration to v46: Swap record links between Chrono and Chrono App...');
         await _swapChronoAndChronoAppRecordLinks(db);
         log('Upgraded database to v46: Chrono ↔ Chrono App note links swapped.');
+      }
+
+      if (oldVersion < 47) {
+        log('Starting migration to v47: Workspace tables...');
+        await db.execute('''
+          CREATE TABLE ${DatabaseTables.workspace} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.workspaceName} TEXT NOT NULL,
+            ${DatabaseColumns.workspaceDocumentMarkdown} TEXT NOT NULL DEFAULT '',
+            ${DatabaseColumns.workspaceUpdatedAt} INTEGER NOT NULL,
+            ${DatabaseColumns.workspaceSplitTopRatio} REAL NOT NULL DEFAULT 0.55
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE ${DatabaseTables.workspaceRecord} (
+            ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+            ${DatabaseColumns.workspaceRecordWorkspaceId} INTEGER NOT NULL,
+            ${DatabaseColumns.workspaceRecordRecordId} INTEGER NOT NULL,
+            ${DatabaseColumns.workspaceRecordSortOrder} INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (${DatabaseColumns.workspaceRecordWorkspaceId}) REFERENCES ${DatabaseTables.workspace}(${DatabaseColumns.id}) ON DELETE CASCADE,
+            FOREIGN KEY (${DatabaseColumns.workspaceRecordRecordId}) REFERENCES ${DatabaseTables.record}(${DatabaseColumns.id}) ON DELETE CASCADE,
+            UNIQUE(${DatabaseColumns.workspaceRecordWorkspaceId}, ${DatabaseColumns.workspaceRecordRecordId})
+          )
+        ''');
+        log('Upgraded database to v47: workspace + workspace_record.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -3370,6 +3430,215 @@ status: day_ended
     }
 
     return records;
+  }
+
+  // --- Workspace ---
+
+  Future<int> insertWorkspace(WorkspaceEntry entry) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.insert(DatabaseTables.workspace, {
+      DatabaseColumns.workspaceName: entry.name,
+      DatabaseColumns.workspaceDocumentMarkdown: entry.documentMarkdown,
+      DatabaseColumns.workspaceUpdatedAt: now,
+      DatabaseColumns.workspaceSplitTopRatio: entry.splitTopRatio,
+    });
+  }
+
+  Future<void> updateWorkspace(WorkspaceEntry entry) async {
+    if (entry.id == null) return;
+    final db = await database;
+    await db.update(
+      DatabaseTables.workspace,
+      {
+        DatabaseColumns.workspaceName: entry.name,
+        DatabaseColumns.workspaceDocumentMarkdown: entry.documentMarkdown,
+        DatabaseColumns.workspaceUpdatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.workspaceSplitTopRatio: entry.splitTopRatio,
+      },
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [entry.id],
+    );
+  }
+
+  Future<void> deleteWorkspace(int workspaceId) async {
+    final db = await database;
+    await db.delete(
+      DatabaseTables.workspace,
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [workspaceId],
+    );
+  }
+
+  Future<WorkspaceEntry?> getWorkspaceById(int id) async {
+    final db = await database;
+    final rows = await db.query(
+      DatabaseTables.workspace,
+      where: '${DatabaseColumns.id} = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return WorkspaceEntry.fromMap(rows.first);
+  }
+
+  Future<List<WorkspaceEntry>> queryAllWorkspaces() async {
+    final db = await database;
+    final rows = await db.query(
+      DatabaseTables.workspace,
+      orderBy: '${DatabaseColumns.workspaceUpdatedAt} DESC',
+    );
+    return rows.map(WorkspaceEntry.fromMap).toList();
+  }
+
+  Future<List<Record>> getWorkspaceLinkedRecords(int workspaceId) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT r.*,
+        (SELECT GROUP_CONCAT(rt.tagId) FROM ${DatabaseTables.recordTag} rt WHERE rt.recordId = r.${DatabaseColumns.id}) AS tags
+      FROM ${DatabaseTables.record} r
+      INNER JOIN ${DatabaseTables.workspaceRecord} wr
+        ON wr.${DatabaseColumns.workspaceRecordRecordId} = r.${DatabaseColumns.id}
+      WHERE wr.${DatabaseColumns.workspaceRecordWorkspaceId} = ?
+      ORDER BY wr.${DatabaseColumns.workspaceRecordSortOrder} ASC, wr.${DatabaseColumns.id} ASC
+    ''', [workspaceId]);
+    return rows.map((data) => Record.fromMap(data)).toList();
+  }
+
+  Future<void> addRecordToWorkspace(int workspaceId, int recordId) async {
+    final db = await database;
+    final existing = await db.query(
+      DatabaseTables.workspaceRecord,
+      where:
+          '${DatabaseColumns.workspaceRecordWorkspaceId} = ? AND ${DatabaseColumns.workspaceRecordRecordId} = ?',
+      whereArgs: [workspaceId, recordId],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) return;
+
+    final maxRow = await db.rawQuery('''
+      SELECT MAX(${DatabaseColumns.workspaceRecordSortOrder}) AS m
+      FROM ${DatabaseTables.workspaceRecord}
+      WHERE ${DatabaseColumns.workspaceRecordWorkspaceId} = ?
+    ''', [workspaceId]);
+    final maxOrder = maxRow.first['m'];
+    final nextOrder = (maxOrder is int ? maxOrder : (maxOrder is num ? maxOrder.toInt() : 0)) + 1;
+
+    await db.insert(DatabaseTables.workspaceRecord, {
+      DatabaseColumns.workspaceRecordWorkspaceId: workspaceId,
+      DatabaseColumns.workspaceRecordRecordId: recordId,
+      DatabaseColumns.workspaceRecordSortOrder: nextOrder,
+    });
+  }
+
+  Future<void> removeRecordFromWorkspace(int workspaceId, int recordId) async {
+    final db = await database;
+    await db.delete(
+      DatabaseTables.workspaceRecord,
+      where:
+          '${DatabaseColumns.workspaceRecordWorkspaceId} = ? AND ${DatabaseColumns.workspaceRecordRecordId} = ?',
+      whereArgs: [workspaceId, recordId],
+    );
+  }
+
+  Future<void> setWorkspaceLinkedRecordOrder(int workspaceId, List<int> orderedRecordIds) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (var i = 0; i < orderedRecordIds.length; i++) {
+        await txn.update(
+          DatabaseTables.workspaceRecord,
+          {DatabaseColumns.workspaceRecordSortOrder: i},
+          where:
+              '${DatabaseColumns.workspaceRecordWorkspaceId} = ? AND ${DatabaseColumns.workspaceRecordRecordId} = ?',
+          whereArgs: [workspaceId, orderedRecordIds[i]],
+        );
+      }
+    });
+  }
+
+  Future<int> getWorkspaceLinkedRecordCount(int workspaceId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM ${DatabaseTables.workspaceRecord} WHERE ${DatabaseColumns.workspaceRecordWorkspaceId} = ?',
+      [workspaceId],
+    );
+    return (result.first['c'] as int?) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAllWorkspacesForExport() async {
+    final db = await database;
+    final workspaces = await queryAllWorkspaces();
+    final List<Map<String, dynamic>> out = [];
+    for (final w in workspaces) {
+      if (w.id == null) continue;
+      final linked = await db.query(
+        DatabaseTables.workspaceRecord,
+        columns: [DatabaseColumns.workspaceRecordRecordId],
+        where: '${DatabaseColumns.workspaceRecordWorkspaceId} = ?',
+        whereArgs: [w.id],
+        orderBy: '${DatabaseColumns.workspaceRecordSortOrder} ASC',
+      );
+      final ids = linked
+          .map((m) => m[DatabaseColumns.workspaceRecordRecordId] as int)
+          .toList();
+      out.add({
+        'name': w.name,
+        'document_markdown': w.documentMarkdown,
+        'updated_at': w.updatedAt,
+        'split_top_ratio': w.splitTopRatio,
+        'linked_record_ids': ids,
+      });
+    }
+    return out;
+  }
+
+  Future<void> importWorkspacesFromBackup(List<dynamic> rawList) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(DatabaseTables.workspaceRecord);
+      await txn.delete(DatabaseTables.workspace);
+      for (final raw in rawList) {
+        if (raw is! Map) continue;
+        final m = Map<String, dynamic>.from(raw);
+        final name = m['name']?.toString() ?? 'Workspace';
+        final doc = m['document_markdown']?.toString() ?? '';
+        final updatedAt = m['updated_at'] is int
+            ? m['updated_at'] as int
+            : int.tryParse('${m['updated_at']}') ?? DateTime.now().millisecondsSinceEpoch;
+        final ratio = m['split_top_ratio'] is num
+            ? (m['split_top_ratio'] as num).toDouble()
+            : double.tryParse('${m['split_top_ratio']}') ?? 0.55;
+
+        final wid = await txn.insert(DatabaseTables.workspace, {
+          DatabaseColumns.workspaceName: name,
+          DatabaseColumns.workspaceDocumentMarkdown: doc,
+          DatabaseColumns.workspaceUpdatedAt: updatedAt,
+          DatabaseColumns.workspaceSplitTopRatio: ratio.clamp(0.2, 0.85),
+        });
+
+        final links = m['linked_record_ids'];
+        if (links is List) {
+          var order = 0;
+          for (final idRaw in links) {
+            final rid = idRaw is int ? idRaw : int.tryParse('$idRaw');
+            if (rid == null) continue;
+            final exists = await txn.query(
+              DatabaseTables.record,
+              columns: [DatabaseColumns.id],
+              where: '${DatabaseColumns.id} = ?',
+              whereArgs: [rid],
+              limit: 1,
+            );
+            if (exists.isEmpty) continue;
+            await txn.insert(DatabaseTables.workspaceRecord, {
+              DatabaseColumns.workspaceRecordWorkspaceId: wid,
+              DatabaseColumns.workspaceRecordRecordId: rid,
+              DatabaseColumns.workspaceRecordSortOrder: order++,
+            });
+          }
+        }
+      }
+    });
   }
 
   /// Get insights for home screen widget

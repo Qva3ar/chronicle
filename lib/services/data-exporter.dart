@@ -13,6 +13,7 @@ class DataExporter {
     bool includeGoals = false,
     bool includeTodos = true,
     bool includeInstructions = true,
+    bool includeWorkspaces = true,
   }) async {
     Map<String, dynamic> exportData = {};
 
@@ -21,6 +22,12 @@ class DataExporter {
       List<Map<String, dynamic>> tags = await _dbHelper.queryAllRows();
       exportData['notes'] = notes;
       exportData['tags'] = tags;
+      if (includeWorkspaces) {
+        final workspaces = await _dbHelper.fetchAllWorkspacesForExport();
+        if (workspaces.isNotEmpty) {
+          exportData['workspaces'] = workspaces;
+        }
+      }
     }
 
     if (includeRoutines) {

@@ -350,6 +350,16 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
           if (importData.containsKey('notes')) {
             importedItems += (importData['notes'] as List).length;
           }
+          if (importData.containsKey('workspaces')) {
+            final ws = importData['workspaces'];
+            if (ws is List && ws.isNotEmpty) {
+              setState(() {
+                _statusMessage = "Importing workspaces...";
+              });
+              await DatabaseHelper.instance.importWorkspacesFromBackup(ws);
+              importedItems += ws.length;
+            }
+          }
           dataController.importSuccess();
         }
 
@@ -382,6 +392,8 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
 
     await db.transaction((txn) async {
       // Delete in correct order (respecting foreign key constraints)
+      await txn.delete(DatabaseTables.workspaceRecord);
+      await txn.delete(DatabaseTables.workspace);
       await txn.delete(DatabaseTables.recordTag);
       await txn.delete(DatabaseTables.record);
       await txn.delete(DatabaseTables.category);

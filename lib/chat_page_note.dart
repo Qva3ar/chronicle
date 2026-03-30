@@ -15,15 +15,19 @@ import 'package:chrono/shared/instructions.dart';
 import 'models/chat-message.dart';
 
 class ChatPageNote extends StatefulWidget {
-  final MessageService messageService; // Add this field
+  final MessageService messageService;
 
   const ChatPageNote({
     required this.messageService,
     this.noteText,
+    this.initialDraftText,
+    this.onDraftChanged,
     Key? key,
   }) : super(key: key);
 
   final String? noteText;
+  final String? initialDraftText;
+  final ValueChanged<String>? onDraftChanged;
 
   @override
   State<ChatPageNote> createState() => _ChatPageNoteState();
@@ -37,7 +41,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
   var includeNoteText = true;
   late StreamSubscription<OpenAIStreamChatCompletionModel> stream;
 
-  final TextEditingController _textController = TextEditingController();
+  late final TextEditingController _textController;
   GPTService gptService = GPTService();
   DatabaseHelper dbHelper = DatabaseHelper.instance;
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
@@ -45,14 +49,22 @@ class _ChatPageNoteState extends State<ChatPageNote> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+    _textController = TextEditingController(text: widget.initialDraftText ?? '');
     if (widget.messageService.getLast20Messages().isNotEmpty) {
       _messages.addAll(widget.messageService.getLast20Messages());
     } else {
       _messages.add(ChatMessage('Hello, how can I help?', false, false,
           isMockMessage: true));
     }
+  }
+
+  @override
+  void dispose() {
+    // Persist draft text back to parent
+    widget.onDraftChanged?.call(_textController.text);
+    _textController.dispose();
+    super.dispose();
   }
 
   @override
@@ -113,7 +125,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           onSubmitted: _onSubmitted,
           onStop: _onStop,
           awaitingResponse: _awaitingResponse,
-          initialText: _textController.text,
+          controller: _textController,
         ),
       ],
     );
@@ -155,7 +167,8 @@ class _ChatPageNoteState extends State<ChatPageNote> {
       _awaitingResponse = true;
     });
     widget.messageService.addMessage(userMessage);
-    _textController.clear(); // Очистка текстового поля
+    _textController.clear();
+    widget.onDraftChanged?.call('');
 
     String accumulator = '';
     try {

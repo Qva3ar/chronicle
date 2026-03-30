@@ -7,10 +7,11 @@ class MessageComposer extends StatelessWidget {
     required this.awaitingResponse,
     super.key,
     this.initialText = '',
-  }) : _messageController = TextEditingController(text: initialText)
-          ..selection = TextSelection.collapsed(offset: initialText.length);
+    TextEditingController? controller,
+  }) : _messageController = controller ??
+           (TextEditingController(text: initialText)
+             ..selection = TextSelection.collapsed(offset: initialText.length));
 
-  // final TextEditingController _messageController = TextEditingController();
   final TextEditingController _messageController;
   final void Function(String) onSubmitted;
   final void Function() onStop;
