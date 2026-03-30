@@ -1,0 +1,334 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:chrono/colors.dart';
+import 'package:chrono/models/workspace_entry.dart';
+import 'package:chrono/screens/workspace_editor_screen.dart';
+import 'package:chrono/services/workspace_service.dart';
+import 'package:chrono/shared/chrono_ui.dart';
+
+/// Bottom-sheet version of the workspace list.
+/// Accepts a [sheetScrollController] from a [DraggableScrollableSheet]
+/// so it can be dismissed by swiping down.
+class WorkspaceListSheet extends StatefulWidget {
+  final ScrollController? sheetScrollController;
+
+  const WorkspaceListSheet({Key? key, this.sheetScrollController}) : super(key: key);
+
+  @override
+  State<WorkspaceListSheet> createState() => _WorkspaceListSheetState();
+}
+
+class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
+  final _service = WorkspaceService.instance;
+  List<WorkspaceEntry> _items = [];
+  Map<int, int> _linkedCounts = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final list = await _service.listWorkspaces();
+    final counts = <int, int>{};
+    for (final w in list) {
+      if (w.id != null) {
+        counts[w.id!] = await _service.linkedRecordCount(w.id!);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _items = list;
+        _linkedCounts = counts;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _createNew() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController(text: 'Workspace');
+        return AlertDialog(
+          backgroundColor: cardColor,
+          title: const Text('New workspace', style: TextStyle(color: textPrimary)),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            style: const TextStyle(color: textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Name',
+              hintStyle: const TextStyle(color: textHint),
+              filled: true,
+              fillColor: cardColor2,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: textMuted)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, c.text.trim()),
+              child: const Text('Create', style: TextStyle(color: MyColors.orangeDivider)),
+            ),
+          ],
+        );
+      },
+    );
+    if (name == null || name.isEmpty) return;
+    final id = await _service.createWorkspace(name);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => WorkspaceEditorScreen(workspaceId: id)),
+    );
+    _load();
+  }
+
+  Future<void> _confirmDelete(WorkspaceEntry w) async {
+    if (w.id == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text('Delete workspace?', style: TextStyle(color: textPrimary)),
+        content: Text(
+          'This removes "${w.name}" and its note links. Notes themselves are not deleted.',
+          style: TextStyle(color: textMuted.withValues(alpha: 0.9)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _service.deleteWorkspace(w.id!);
+    _load();
+  }
+
+  String _formatDate(int millis) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(millis);
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return DateFormat('dd MMM yyyy').format(dt);
+  }
+
+  String _previewText(String markdown) {
+    final cleaned = markdown
+        .replaceAll(RegExp(r'#{1,6}\s*'), '')
+        .replaceAll(RegExp(r'[*_~`>]'), '')
+        .replaceAll(RegExp(r'\n+'), ' ')
+        .trim();
+    if (cleaned.length <= 80) return cleaned;
+    return '${cleaned.substring(0, 80)}…';
+  }
+
+  Widget _buildHeader() {
+    return ChronoSheetHeader(
+      title: 'Workspaces',
+      titleIcon: Icons.workspaces_outlined,
+      itemCount: _items.length,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add, color: textPrimary),
+          onPressed: _createNew,
+          tooltip: 'New workspace',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkspaceCard(WorkspaceEntry w) {
+    final count = _linkedCounts[w.id] ?? 0;
+    final preview = _previewText(w.documentMarkdown);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Material(
+        color: cardColor2,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () async {
+            if (w.id == null) return;
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WorkspaceEditorScreen(workspaceId: w.id!),
+              ),
+            );
+            _load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        w.name,
+                        style: const TextStyle(
+                          color: textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: textMuted, size: 20),
+                      onPressed: () => _confirmDelete(w),
+                      tooltip: 'Delete',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                if (preview.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    preview,
+                    style: const TextStyle(color: textMuted, fontSize: 13, height: 1.3),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.access_time_rounded, size: 14, color: textHint),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(w.updatedAt),
+                      style: const TextStyle(color: textHint, fontSize: 12),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.link_rounded, size: 14, color: textHint),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$count note${count != 1 ? 's' : ''}',
+                      style: const TextStyle(color: textHint, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return ChronoEmptyState(
+      icon: Icons.workspaces_outlined,
+      title: 'No Workspaces Yet',
+      subtitle:
+          'Tap + to create your first workspace.\nLink notes, write documents, and use AI to find related content.',
+      buttonLabel: 'Create Workspace',
+      onButton: _createNew,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sheetCtrl = widget.sheetScrollController;
+
+    if (sheetCtrl != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          color: cardColor,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _loading
+                    ? ListView(
+                        controller: sheetCtrl,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(
+                            height: 280,
+                            child: Center(
+                              child: CircularProgressIndicator(color: MyColors.orangeDivider),
+                            ),
+                          ),
+                        ],
+                      )
+                    : _items.isEmpty
+                        ? ListView(
+                            controller: sheetCtrl,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height: MediaQuery.sizeOf(context).height * 0.35,
+                                child: _buildEmptyState(),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            controller: sheetCtrl,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: _items.length,
+                            itemBuilder: (context, i) => _buildWorkspaceCard(_items[i]),
+                          ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Fallback (non-sheet mode)
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: const BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: MyColors.orangeDivider),
+                  )
+                : _items.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _items.length,
+                        itemBuilder: (context, i) => _buildWorkspaceCard(_items[i]),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}

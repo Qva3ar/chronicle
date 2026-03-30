@@ -23,7 +23,7 @@ import 'db_manager.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
-import 'package:chrono/screens/workspace_list_screen.dart';
+import 'package:chrono/screens/workspace_list_sheet.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
@@ -740,6 +740,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (label == 'Routines' && _activeSheetId == 'routines') isActive = true;
     if (label == 'Todo' && _activeSheetId == 'todos') isActive = true;
     if (label == 'Tags' && _activeSheetId == 'tags') isActive = true;
+    if (label == 'Workspace' && _activeSheetId == 'workspaces') isActive = true;
 
     return InkWell(
       onTap: onTap,
@@ -847,12 +848,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                       onPressed: () {
                         FocusManager.instance.primaryFocus?.unfocus();
-                        _showPersistentSheet(
-                          (context) => TagsManager(
+                        _showDraggablePersistentSheet(
+                          id: 'tags',
+                          builder: (context, scrollController) => TagsManager(
                             selectedTag: selectedChipIndex,
                             onTagSelected: onTagSelected,
+                            sheetScrollController: scrollController,
                           ),
-                          id: 'tags',
                         );
                       },
                     ),
@@ -946,15 +948,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _buildNavItem(
                   icon: Icon(
                     Icons.workspaces_outlined,
-                    color: textSecondary,
+                    color: _activeSheetId == 'workspaces' ? MyColors.orangeDivider : textSecondary,
                     size: 26,
                   ),
                   label: 'Workspace',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkspaceListScreen()),
+                    _showDraggablePersistentSheet(
+                      id: 'workspaces',
+                      builder: (context, scrollController) => WorkspaceListSheet(
+                        sheetScrollController: scrollController,
+                      ),
                     );
                   },
                 ),
