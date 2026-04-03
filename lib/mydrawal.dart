@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 import 'shared/chrono_ui.dart';
 import 'package:chrono/screens/settings/insights_settings_screen.dart';
+import 'package:chrono/screens/paywall_screen.dart';
+import 'package:chrono/services/subscription_service.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
@@ -42,6 +44,73 @@ class MyDrawal extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             children: [
+              // ── Subscription ──
+              ValueListenableBuilder<bool>(
+                valueListenable: SubscriptionService.instance.hasSubscription,
+                builder: (context, isPremium, _) {
+                  return GestureDetector(
+                    onTap: isPremium
+                        ? null
+                        : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                            ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isPremium
+                              ? [Color(0xFF2A2210), Color(0xFF1E1A0E)]
+                              : [Color(0xFF2A2210), Color(0xFF1A1A1A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: MyColors.orangeDivider.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            color: MyColors.orangeDivider,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isPremium ? 'Chrono Premium' : 'Попробовать Premium',
+                                  style: const TextStyle(
+                                    color: MyColors.orangeDivider,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  isPremium ? 'Активна' : '3 дня бесплатно',
+                                  style: TextStyle(
+                                    color: textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isPremium)
+                            const Icon(Icons.chevron_right, color: MyColors.orangeDivider, size: 20),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
               // ── AI & Prompts ──
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),

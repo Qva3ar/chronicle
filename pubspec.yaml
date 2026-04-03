@@ -18,7 +18,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 1.0.10+11
 
 environment:
-  sdk: ">=2.17.0 <3.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -62,6 +62,7 @@ dependencies:
   home_widget: ^0.6.0
   extended_text_field: ^16.0.2
   fl_chart: ^1.1.1
+  adapty_flutter: ^3.6.1
 
 dev_dependencies:
   flutter_launcher_icons: "^0.13.1"

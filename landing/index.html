@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chrono — Твоё время, твои цели</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #050508;
+      --surface: #0d0d14;
+      --surface2: #13131e;
+      --border: rgba(255,255,255,0.07);
+      --text: #f0f0f8;
+      --muted: #8888aa;
+      --accent: #7b5ff5;
+      --accent2: #a78bfa;
+      --accent3: #c4b5fd;
+      --gold: #f5c842;
+      --teal: #2dd4bf;
+      --pink: #f472b6;
+      --radius: 20px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 60px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      background: rgba(5,5,8,0.7);
+      transition: padding 0.3s;
+    }
+    .nav-logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #a78bfa, #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), #9b72f7);
+      color: #fff;
+      border: none;
+      padding: 10px 26px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+    }
+    .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(123,95,245,0.4); }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 140px 24px 80px;
+      overflow: hidden;
+    }
+
+    .hero-glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+    .glow-1 {
+      width: 700px; height: 700px;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      background: radial-gradient(circle, rgba(123,95,245,0.25) 0%, transparent 70%);
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+    .glow-2 {
+      width: 400px; height: 400px;
+      bottom: 0; right: -100px;
+      background: radial-gradient(circle, rgba(45,212,191,0.15) 0%, transparent 70%);
+      animation: pulseGlow 8s ease-in-out infinite reverse;
+    }
+    .glow-3 {
+      width: 300px; height: 300px;
+      bottom: 100px; left: -50px;
+      background: radial-gradient(circle, rgba(244,114,182,0.1) 0%, transparent 70%);
+      animation: pulseGlow 10s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+      50% { opacity: 0.6; transform: translateX(-50%) scale(1.1); }
+    }
+    .glow-2, .glow-3 { animation-name: pulseGlow2; }
+    @keyframes pulseGlow2 {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.15); }
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(123,95,245,0.15);
+      border: 1px solid rgba(123,95,245,0.3);
+      border-radius: 50px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent3);
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s ease both;
+    }
+    .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 96px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -3px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.8s 0.1s ease both;
+    }
+    .hero h1 .line1 { display: block; color: var(--text); }
+    .hero h1 .line2 {
+      display: block;
+      background: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 40%, #f472b6 80%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-size: 200% auto;
+      animation: shimmer 4s linear infinite, fadeUp 0.8s 0.2s ease both;
+    }
+    @keyframes shimmer { to { background-position: 200% center; } }
+
+    .hero-sub {
+      max-width: 620px;
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--muted);
+      font-weight: 400;
+      margin-bottom: 48px;
+      animation: fadeUp 0.8s 0.3s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp 0.8s 0.4s ease both;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--accent) 0%, #9b72f7 100%);
+      color: #fff;
+      padding: 16px 36px;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 30px rgba(123,95,245,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(123,95,245,0.5); }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 16px 32px;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.15); }
+
+    /* ── HERO MOCKUP ── */
+    .hero-mockup {
+      margin-top: 80px;
+      width: 100%;
+      max-width: 900px;
+      animation: fadeUp 0.8s 0.5s ease both;
+      position: relative;
+    }
+    .mockup-frame {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(123,95,245,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .mockup-topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+    .mockup-content {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 16px;
+      min-height: 360px;
+    }
+    .mock-sidebar {
+      border-right: 1px solid var(--border);
+      padding-right: 16px;
+    }
+    .mock-sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      transition: background 0.2s;
+    }
+    .mock-sidebar-item.active {
+      background: rgba(123,95,245,0.15);
+      color: var(--accent3);
+    }
+    .mock-icon { font-size: 16px; }
+    .mock-main { padding-left: 8px; }
+    .mock-header {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+    .mock-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .mock-card-title { font-weight: 600; margin-bottom: 4px; }
+    .mock-card-meta { color: var(--muted); font-size: 11px; display: flex; gap: 8px; }
+    .tag-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .tag-purple { background: rgba(123,95,245,0.2); color: var(--accent3); }
+    .tag-teal { background: rgba(45,212,191,0.2); color: var(--teal); }
+    .tag-pink { background: rgba(244,114,182,0.2); color: var(--pink); }
+    .tag-gold { background: rgba(245,200,66,0.2); color: var(--gold); }
+
+    .mock-ai-bar {
+      margin-top: 12px;
+      background: rgba(123,95,245,0.1);
+      border: 1px solid rgba(123,95,245,0.2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--accent3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      padding: 60px 60px;
+      display: flex;
+      gap: 0;
+      justify-content: center;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .stat {
+      flex: 1;
+      min-width: 160px;
+      text-align: center;
+      padding: 20px 40px;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      background: linear-gradient(135deg, var(--accent2), var(--teal));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── SECTION COMMON ── */
+    section { position: relative; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 16px;
+    }
+    .section-label::before {
+      content: '';
+      width: 20px; height: 2px;
+      background: var(--accent);
+    }
+    .section-title {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 540px;
+    }
+
+    /* ── FEATURES GRID ── */
+    .features-section { padding: 120px 0; }
+    .features-intro { margin-bottom: 80px; }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(123,95,245,0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-card.big {
+      grid-column: span 2;
+    }
+
+    .feature-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 24px;
+      flex-shrink: 0;
+    }
+    .icon-purple { background: rgba(123,95,245,0.15); }
+    .icon-teal   { background: rgba(45,212,191,0.15); }
+    .icon-pink   { background: rgba(244,114,182,0.15); }
+    .icon-gold   { background: rgba(245,200,66,0.15); }
+    .icon-blue   { background: rgba(96,165,250,0.15); }
+    .icon-green  { background: rgba(74,222,128,0.15); }
+
+    .feature-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .feature-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .feature-highlight {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Big feature visual */
+    .big-feature-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+    .big-feature-visual {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .goal-bar { margin-bottom: 12px; }
+    .goal-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .goal-bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .goal-bar-fill { height: 100%; border-radius: 3px; }
+
+    /* ── WHO SECTION ── */
+    .who-section { padding: 120px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .who-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      margin-top: 64px;
+    }
+    .who-card {
+      padding: 32px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .who-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+    .who-emoji { font-size: 36px; margin-bottom: 16px; }
+    .who-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .who-desc { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+    /* ── HOW IT WORKS ── */
+    .how-section { padding: 120px 0; }
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 72px; }
+    .step {
+      display: grid;
+      grid-template-columns: 80px 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+      padding: 48px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      font-size: 72px;
+      font-weight: 900;
+      letter-spacing: -4px;
+      background: linear-gradient(135deg, rgba(123,95,245,0.3), rgba(45,212,191,0.3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .step-info { }
+    .step-title { font-size: 24px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.5px; }
+    .step-desc { color: var(--muted); font-size: 15px; line-height: 1.7; }
+    .step-visual {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── AI SECTION ── */
+    .ai-section { padding: 120px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .ai-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+    .ai-chat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .chat-msg {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 13px;
+      margin-bottom: 10px;
+      max-width: 80%;
+      line-height: 1.6;
+    }
+    .chat-user {
+      background: linear-gradient(135deg, var(--accent), #9b72f7);
+      color: #fff;
+      margin-left: auto;
+      border-radius: 16px 16px 4px 16px;
+    }
+    .chat-ai {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 16px 16px 16px 4px;
+    }
+    .chat-ai-label {
+      font-size: 10px;
+      color: var(--accent2);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .chat-typing {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: fit-content;
+      margin-bottom: 10px;
+    }
+    .typing-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted);
+      animation: typingBounce 1.4s ease-in-out infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingBounce {
+      0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-8px); opacity: 1; }
+    }
+
+    /* ── PRODUCTIVITY SECTION ── */
+    .prod-section { padding: 120px 0; }
+    .prod-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+      margin-top: 72px;
+    }
+    .prod-list { list-style: none; }
+    .prod-list li {
+      display: flex;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .prod-list li:last-child { border-bottom: none; }
+    .prod-num {
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      background: rgba(123,95,245,0.15);
+      color: var(--accent2);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .prod-text strong { display: block; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .prod-text span { font-size: 14px; color: var(--muted); }
+
+    .prod-visual {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+    }
+    .prod-chart-title { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    .prod-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 120px;
+      margin-bottom: 12px;
+    }
+    .prod-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .prod-bar {
+      width: 100%;
+      border-radius: 6px 6px 0 0;
+      background: linear-gradient(to top, var(--accent), var(--accent2));
+      animation: growUp 1s ease both;
+    }
+    @keyframes growUp { from { height: 0 !important; } }
+    .prod-bar-label { font-size: 10px; color: var(--muted); }
+
+    .prod-insight {
+      background: rgba(123,95,245,0.1);
+      border: 1px solid rgba(123,95,245,0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--accent3);
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    /* ── TESTIMONIALS ── */
+    .reviews-section { padding: 120px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .reviews-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 64px;
+    }
+    .review-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: transform 0.3s;
+    }
+    .review-card:hover { transform: translateY(-4px); }
+    .review-stars { color: var(--gold); font-size: 14px; margin-bottom: 16px; letter-spacing: 2px; }
+    .review-text { font-size: 15px; color: var(--text); line-height: 1.7; margin-bottom: 24px; }
+    .review-author { display: flex; align-items: center; gap: 12px; }
+    .review-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      background: rgba(123,95,245,0.2);
+    }
+    .review-name { font-weight: 600; font-size: 14px; }
+    .review-role { font-size: 12px; color: var(--muted); }
+
+    /* ── CTA ── */
+    .cta-section {
+      padding: 160px 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-glow {
+      position: absolute;
+      width: 800px; height: 800px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(123,95,245,0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 {
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 900;
+      letter-spacing: -3px;
+      margin-bottom: 24px;
+    }
+    .cta-section h2 span {
+      background: linear-gradient(135deg, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .cta-section p { font-size: 18px; color: var(--muted); margin-bottom: 48px; }
+    .cta-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+    .store-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 24px;
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .store-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    .store-icon { font-size: 28px; }
+    .store-label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+    .store-name { font-size: 15px; font-weight: 700; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 48px 60px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-logo {
+      font-size: 18px; font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa, #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .footer-copy { font-size: 13px; color: var(--muted); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px; }
+      .stats-bar { padding: 40px 24px; }
+      .stat { padding: 16px 20px; border-right: none; border-bottom: 1px solid var(--border); }
+      .stat:last-child { border-bottom: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .feature-card.big { grid-column: span 1; }
+      .big-feature-inner { grid-template-columns: 1fr; }
+      .ai-inner { grid-template-columns: 1fr; }
+      .prod-grid { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 60px 1fr; }
+      .step-visual { display: none; }
+      footer { padding: 32px 24px; flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ──────────────────── NAV ──────────────────── -->
+<nav>
+  <div class="nav-logo">Chrono</div>
+  <a href="#cta" class="nav-cta">Скачать бесплатно</a>
+</nav>
+
+<!-- ──────────────────── HERO ──────────────────── -->
+<section class="hero">
+  <div class="hero-glow glow-1"></div>
+  <div class="hero-glow glow-2"></div>
+  <div class="hero-glow glow-3"></div>
+
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    AI-ассистент внутри приложения
+  </div>
+
+  <h1>
+    <span class="line1">Управляй временем.</span>
+    <span class="line2">Достигай большего.</span>
+  </h1>
+
+  <p class="hero-sub">
+    Chrono — это не просто заметки. Это система, которая объединяет мысли, цели, привычки и AI в одном пространстве — и превращает твои намерения в результаты.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#cta" class="btn-primary">
+      ⚡ Начать бесплатно
+    </a>
+    <a href="#features" class="btn-secondary">
+      Узнать больше →
+    </a>
+  </div>
+
+  <div class="hero-mockup">
+    <div class="mockup-frame">
+      <div class="mockup-topbar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="mockup-content">
+        <div class="mock-sidebar">
+          <div class="mock-sidebar-item active">
+            <span class="mock-icon">📝</span> Записи
+          </div>
+          <div class="mock-sidebar-item">
+            <span class="mock-icon">🎯</span> Цели
+          </div>
+          <div class="mock-sidebar-item">
+            <span class="mock-icon">🔄</span> Рутины
+          </div>
+          <div class="mock-sidebar-item">
+            <span class="mock-icon">💬</span> AI Чат
+          </div>
+          <div class="mock-sidebar-item">
+            <span class="mock-icon">📊</span> Продуктивность
+          </div>
+          <div class="mock-sidebar-item">
+            <span class="mock-icon">🗂️</span> Пространства
+          </div>
+          <br/>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Теги</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span class="tag-pill tag-purple">Работа</span>
+            <span class="tag-pill tag-teal">Здоровье</span>
+            <span class="tag-pill tag-pink">Личное</span>
+            <span class="tag-pill tag-gold">Идеи</span>
+          </div>
+        </div>
+        <div class="mock-main">
+          <div class="mock-header">Сегодня, 3 апреля</div>
+          <div class="mock-card">
+            <div class="mock-card-title">Новая стратегия продукта Q2</div>
+            <div class="mock-card-meta">
+              <span>09:14</span>
+              <span class="tag-pill tag-purple">Работа</span>
+              <span class="tag-pill tag-gold">Идеи</span>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-card-title">Пробежка 5км — личный рекорд!</div>
+            <div class="mock-card-meta">
+              <span>07:32</span>
+              <span class="tag-pill tag-teal">Здоровье</span>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-card-title">Прочитать главы 4-6 «Атомных привычек»</div>
+            <div class="mock-card-meta">
+              <span>Вчера</span>
+              <span class="tag-pill tag-pink">Личное</span>
+            </div>
+          </div>
+          <div class="mock-ai-bar">
+            <div class="ai-pulse"></div>
+            AI: «Ты на 23% продуктивнее этой недели. Ключевой паттерн — утренние записи»
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── STATS ──────────────────── -->
+<div class="stats-bar">
+  <div class="stat reveal">
+    <div class="stat-num">3×</div>
+    <div class="stat-label">больше выполненных целей</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-num">∞</div>
+    <div class="stat-label">заметок, целей, привычек</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-num">AI</div>
+    <div class="stat-label">анализирует твои паттерны</div>
+  </div>
+  <div class="stat reveal">
+    <div class="stat-num">24/7</div>
+    <div class="stat-label">отслеживание прогресса</div>
+  </div>
+</div>
+
+<!-- ──────────────────── FEATURES ──────────────────── -->
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="features-intro reveal">
+      <div class="section-label">Возможности</div>
+      <h2 class="section-title">Всё, что нужно<br/>для роста — в одном месте</h2>
+      <p class="section-sub">Никаких разрозненных приложений. Chrono — единое пространство для мыслей, планов и результатов.</p>
+    </div>
+
+    <div class="features-grid">
+
+      <!-- Smart Notes -->
+      <div class="feature-card reveal">
+        <div class="feature-icon icon-purple">📝</div>
+        <div class="feature-title">Умные записи</div>
+        <div class="feature-desc">
+          Фиксируй мысли мгновенно. Каждая запись автоматически группируется по дате, тегам и контексту. Поиск находит нужное за секунды.
+        </div>
+        <div class="feature-highlight">
+          <span class="chip">Теги и фильтры</span>
+          <span class="chip">Группировка по датам</span>
+          <span class="chip">Быстрый поиск</span>
+        </div>
+      </div>
+
+      <!-- Goals -->
+      <div class="feature-card reveal" style="transition-delay:0.1s">
+        <div class="feature-icon icon-gold">🎯</div>
+        <div class="feature-title">Цели с таймером</div>
+        <div class="feature-desc">
+          Трекай время на каждую цель прямо в приложении. Видь сколько часов ты вложил в то, что важно. Цели сбрасываются каждый день — чтобы ты двигался вперёд.
+        </div>
+        <div class="feature-highlight">
+          <span class="chip">Таймер сессий</span>
+          <span class="chip">История прогресса</span>
+          <span class="chip">Ежедневный сброс</span>
+        </div>
+      </div>
+
+      <!-- Big: Goals visual -->
+      <div class="feature-card big reveal" style="transition-delay:0.15s">
+        <div class="big-feature-inner">
+          <div>
+            <div class="feature-icon icon-teal">🔄</div>
+            <div class="feature-title">Рутины и привычки</div>
+            <div class="feature-desc">
+              Создавай ежедневные ритуалы, которые накапливают результат. Chrono следит за стриками и напоминает о задачах в нужное время — без давления, но с ответственностью.
+            </div>
+            <div class="feature-highlight">
+              <span class="chip">Стрики</span>
+              <span class="chip">Уведомления</span>
+              <span class="chip">Календарь привычек</span>
+              <span class="chip">Ежедневный сброс</span>
+            </div>
+          </div>
+          <div class="big-feature-visual">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Сегодня</div>
+            <div class="goal-bar">
+              <div class="goal-bar-label"><span>🏃 Пробежка</span><span style="color:var(--teal)">✓ 7 дней подряд</span></div>
+              <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--teal),#5eead4)"></div></div>
+            </div>
+            <div class="goal-bar">
+              <div class="goal-bar-label"><span>📚 Чтение</span><span style="color:var(--accent2)">✓ 14 дней подряд</span></div>
+              <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div>
+            </div>
+            <div class="goal-bar">
+              <div class="goal-bar-label"><span>🧘 Медитация</span><span style="color:var(--pink)">3 дня подряд</span></div>
+              <div class="goal-bar-track"><div class="goal-bar-fill" style="width:43%;background:linear-gradient(90deg,var(--pink),#fb7cc0)"></div></div>
+            </div>
+            <div class="goal-bar">
+              <div class="goal-bar-label"><span>💧 Вода</span><span style="color:var(--gold)">5 дней подряд</span></div>
+              <div class="goal-bar-track"><div class="goal-bar-fill" style="width:71%;background:linear-gradient(90deg,var(--gold),#fde68a)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workspaces -->
+      <div class="feature-card reveal" style="transition-delay:0.2s">
+        <div class="feature-icon icon-pink">🗂️</div>
+        <div class="feature-title">Пространства</div>
+        <div class="feature-desc">
+          Организуй мысли по проектам и контекстам. Каждое пространство — отдельное рабочее поле с заметками, поиском и AI-помощником.
+        </div>
+        <div class="feature-highlight">
+          <span class="chip">Проекты</span>
+          <span class="chip">AI-поиск по заметкам</span>
+          <span class="chip">Черновики чатов</span>
+        </div>
+      </div>
+
+      <!-- Productivity -->
+      <div class="feature-card reveal" style="transition-delay:0.25s">
+        <div class="feature-icon icon-blue">📊</div>
+        <div class="feature-title">Индекс продуктивности</div>
+        <div class="feature-desc">
+          Chrono считает твою продуктивность ежедневно — по выполненным целям, привычкам и записям. Видь динамику в графиках и понимай, что реально работает.
+        </div>
+        <div class="feature-highlight">
+          <span class="chip">Графики</span>
+          <span class="chip">Ежедневные баллы</span>
+          <span class="chip">Тренды</span>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="feature-card reveal" style="transition-delay:0.3s">
+        <div class="feature-icon icon-green">🏷️</div>
+        <div class="feature-title">Теги и контекст</div>
+        <div class="feature-desc">
+          Создавай цветные теги и мгновенно фильтруй всё — заметки, цели, привычки. Видь только то, что нужно прямо сейчас.
+        </div>
+        <div class="feature-highlight">
+          <span class="chip">Цветные теги</span>
+          <span class="chip">Мультифильтр</span>
+          <span class="chip">Умная группировка</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── AI SECTION ──────────────────── -->
+<section class="ai-section">
+  <div class="container">
+    <div class="ai-inner">
+      <div class="reveal">
+        <div class="section-label">AI-интеграция</div>
+        <h2 class="section-title">Твой личный<br/>AI-ментор</h2>
+        <p style="color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:32px;">
+          Chrono подключается к GPT-4, чтобы анализировать твои записи, находить паттерны и давать персональные инсайты. Задавай вопросы — получай ответы основанные на <em>твоих</em> данных.
+        </p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:14px;">
+          <li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;">
+            <span style="color:var(--teal);font-size:18px;margin-top:1px;">✓</span>
+            <span><strong>Обработка заметок</strong> — AI связывает записи с целями и выдаёт краткое</span>
+          </li>
+          <li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;">
+            <span style="color:var(--teal);font-size:18px;margin-top:1px;">✓</span>
+            <span><strong>Ежедневные инсайты</strong> — что шло хорошо, где потерял фокус</span>
+          </li>
+          <li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;">
+            <span style="color:var(--teal);font-size:18px;margin-top:1px;">✓</span>
+            <span><strong>Поиск по пространству</strong> — AI находит нужную запись по смыслу</span>
+          </li>
+          <li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;">
+            <span style="color:var(--teal);font-size:18px;margin-top:1px;">✓</span>
+            <span><strong>Чат в контексте</strong> — задавай вопросы о своих данных напрямую</span>
+          </li>
+        </ul>
+      </div>
+      <div class="reveal" style="transition-delay:0.2s">
+        <div class="ai-chat">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+            <div class="ai-pulse"></div>
+            AI-чат · Chrono Intelligence
+          </div>
+          <div class="chat-msg chat-user">
+            Какие у меня паттерны продуктивности за последние 2 недели?
+          </div>
+          <div style="margin-bottom:10px;">
+            <div class="chat-typing">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+            </div>
+          </div>
+          <div class="chat-msg chat-ai">
+            <div class="chat-ai-label">Chrono AI</div>
+            📈 Твоя продуктивность выше на <strong style="color:var(--teal)">34%</strong> в дни, когда ты делаешь запись до 9 утра.<br/><br/>
+            🎯 Цель «Спорт» выполнена <strong style="color:var(--accent2)">11 из 14 дней</strong> — лучший показатель за месяц.<br/><br/>
+            ⚠️ Пятницы — твой самый слабый день. Попробуй уменьшить число задач.
+          </div>
+          <div class="chat-msg chat-user">
+            Что мне улучшить в рутине?
+          </div>
+          <div class="chat-msg chat-ai">
+            <div class="chat-ai-label">Chrono AI</div>
+            На основе твоих записей: добавь 10-минутный вечерний review — это коррелирует с +40% выполнением целей на следующий день у таких же пользователей.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── WHO ──────────────────── -->
+<section class="who-section" id="who">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Для кого</div>
+      <h2 class="section-title">Chrono создан<br/>для амбициозных</h2>
+      <p class="section-sub">Для тех, кто хочет не просто записывать — а расти.</p>
+    </div>
+    <div class="who-grid">
+      <div class="who-card reveal">
+        <div class="who-emoji">🚀</div>
+        <div class="who-title">Предприниматели</div>
+        <div class="who-desc">Ведёшь несколько проектов? Chrono собирает мысли, идеи и задачи в единую систему — чтобы ничего не терялось и всё двигалось.</div>
+      </div>
+      <div class="who-card reveal" style="transition-delay:0.1s">
+        <div class="who-emoji">💻</div>
+        <div class="who-title">Разработчики и дизайнеры</div>
+        <div class="who-desc">Фиксируй архитектурные решения, идеи для фич, результаты ретро — и находи их потом за секунды с AI-поиском.</div>
+      </div>
+      <div class="who-card reveal" style="transition-delay:0.2s">
+        <div class="who-emoji">📚</div>
+        <div class="who-title">Студенты и учёные</div>
+        <div class="who-desc">Трекай учёбу, строй привычки, фиксируй инсайты из книг. Chrono помогает превратить знания в систему.</div>
+      </div>
+      <div class="who-card reveal" style="transition-delay:0.3s">
+        <div class="who-emoji">🧘</div>
+        <div class="who-title">Те, кто работает над собой</div>
+        <div class="who-desc">Рефлексия, дневник, цели по здоровью и саморазвитию — всё в одном месте с AI, который помогает видеть прогресс.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── HOW IT BOOSTS ──────────────────── -->
+<section class="prod-section">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Продуктивность</div>
+      <h2 class="section-title">Почему Chrono<br/>меняет всё</h2>
+    </div>
+    <div class="prod-grid">
+      <ul class="prod-list">
+        <li class="reveal">
+          <div class="prod-num">01</div>
+          <div class="prod-text">
+            <strong>Один источник правды</strong>
+            <span>Больше не нужно переключаться между Notion, Bear, Todoist и таймером. Всё — в одном месте.</span>
+          </div>
+        </li>
+        <li class="reveal" style="transition-delay:0.1s">
+          <div class="prod-num">02</div>
+          <div class="prod-text">
+            <strong>Замер вместо предположений</strong>
+            <span>Chrono показывает, сколько времени ты реально тратишь на цели — и где твоя энергия уходит впустую.</span>
+          </div>
+        </li>
+        <li class="reveal" style="transition-delay:0.2s">
+          <div class="prod-num">03</div>
+          <div class="prod-text">
+            <strong>Привычки, которые держатся</strong>
+            <span>Стрики и ежедневный трекинг создают ответственность перед собой. Не перед приложением — перед собой.</span>
+          </div>
+        </li>
+        <li class="reveal" style="transition-delay:0.3s">
+          <div class="prod-num">04</div>
+          <div class="prod-text">
+            <strong>AI как зеркало</strong>
+            <span>Когда AI говорит тебе, что ты продуктивен по утрам — ты начинаешь защищать утренние часы. Данные меняют поведение.</span>
+          </div>
+        </li>
+        <li class="reveal" style="transition-delay:0.4s">
+          <div class="prod-num">05</div>
+          <div class="prod-text">
+            <strong>Накопительный эффект</strong>
+            <span>Каждая запись, каждая выполненная рутина — это кирпичик. Chrono делает результат видимым и мотивирует продолжать.</span>
+          </div>
+        </li>
+      </ul>
+
+      <div class="prod-visual reveal" style="transition-delay:0.2s">
+        <div class="prod-chart-title">📊 Твой индекс продуктивности</div>
+        <div class="prod-bars">
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:45px;opacity:0.5;"></div>
+            <div class="prod-bar-label">Пн</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:70px;opacity:0.6;"></div>
+            <div class="prod-bar-label">Вт</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:90px;"></div>
+            <div class="prod-bar-label">Ср</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:60px;opacity:0.7;"></div>
+            <div class="prod-bar-label">Чт</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:30px;opacity:0.4;"></div>
+            <div class="prod-bar-label">Пт</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:85px;"></div>
+            <div class="prod-bar-label">Сб</div>
+          </div>
+          <div class="prod-bar-wrap">
+            <div class="prod-bar" style="height:110px;"></div>
+            <div class="prod-bar-label">Вс</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2);border-radius:12px;padding:14px;">
+            <div style="font-size:24px;font-weight:800;color:var(--teal);">87</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">баллов сегодня</div>
+          </div>
+          <div style="background:rgba(123,95,245,0.1);border:1px solid rgba(123,95,245,0.2);border-radius:12px;padding:14px;">
+            <div style="font-size:24px;font-weight:800;color:var(--accent2);">+23%</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">vs прошлая неделя</div>
+          </div>
+        </div>
+
+        <div class="prod-insight">
+          <span>✨</span>
+          <span>Ты наиболее продуктивен по утрам. Защити время с 7 до 10 утра для ключевых задач.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── HOW IT WORKS ──────────────────── -->
+<section class="how-section" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Как это работает</div>
+      <h2 class="section-title">Три шага<br/>к системе</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num reveal">01</div>
+        <div class="step-info reveal" style="transition-delay:0.1s">
+          <div class="step-title">Фиксируй всё, что важно</div>
+          <div class="step-desc">Мысль, идея, инсайт из книги, результат встречи — записывай мгновенно. Chrono добавляет время, дату и предлагает теги автоматически.</div>
+        </div>
+        <div class="step-visual reveal" style="transition-delay:0.2s">
+          <div style="margin-bottom:8px;color:var(--text);font-weight:600;">Новая запись</div>
+          <div style="background:rgba(123,95,245,0.1);border:1px solid rgba(123,95,245,0.2);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);">
+            «Идея: добавить онбординг через историю пользователя...»
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px;">
+            <span class="tag-pill tag-purple">Работа</span>
+            <span class="tag-pill tag-gold">Идеи</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num reveal">02</div>
+        <div class="step-info reveal" style="transition-delay:0.1s">
+          <div class="step-title">Ставь цели и трекай время</div>
+          <div class="step-desc">Создавай цели с таймером, добавляй рутины. Chrono ежедневно отслеживает прогресс и строит индекс продуктивности.</div>
+        </div>
+        <div class="step-visual reveal" style="transition-delay:0.2s">
+          <div style="margin-bottom:12px;color:var(--text);font-weight:600;">🎯 Написать главу книги</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;font-weight:800;color:var(--accent2);">1:24</div>
+            <div style="font-size:12px;color:var(--muted);">часа сегодня</div>
+          </div>
+          <div class="goal-bar" style="margin-top:12px;">
+            <div class="goal-bar-track"><div class="goal-bar-fill" style="width:70%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">70% от дневной цели</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num reveal">03</div>
+        <div class="step-info reveal" style="transition-delay:0.1s">
+          <div class="step-title">Получай инсайты от AI</div>
+          <div class="step-desc">AI анализирует твои данные, находит закономерности и даёт конкретные рекомендации — что усилить, что изменить, что убрать.</div>
+        </div>
+        <div class="step-visual reveal" style="transition-delay:0.2s">
+          <div class="chat-ai-label" style="margin-bottom:8px;">Chrono AI Insight</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6;">
+            «В дни, когда ты делаешь записи утром, твой индекс выше на <strong style="color:var(--teal);">31%</strong>. Попробуй сделать это привычкой.»
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── REVIEWS ──────────────────── -->
+<section class="reviews-section">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0;">
+      <div class="section-label" style="justify-content:center;">Отзывы</div>
+      <h2 class="section-title">Говорят пользователи</h2>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card reveal">
+        <div class="review-stars">★★★★★</div>
+        <div class="review-text">«Chrono — первое приложение, которое я использую каждый день без усилий. AI-инсайты реально меняют то, как я планирую день.»</div>
+        <div class="review-author">
+          <div class="review-avatar">👨‍💻</div>
+          <div>
+            <div class="review-name">Артём К.</div>
+            <div class="review-role">Продуктовый менеджер</div>
+          </div>
+        </div>
+      </div>
+      <div class="review-card reveal" style="transition-delay:0.1s">
+        <div class="review-stars">★★★★★</div>
+        <div class="review-text">«Наконец-то я понял, куда уходит моё время. Графики продуктивности открыли глаза — оказалось, пятницы я сливаю полностью.»</div>
+        <div class="review-author">
+          <div class="review-avatar">🧑‍🎨</div>
+          <div>
+            <div class="review-name">Дима Ф.</div>
+            <div class="review-role">Дизайнер</div>
+          </div>
+        </div>
+      </div>
+      <div class="review-card reveal" style="transition-delay:0.2s">
+        <div class="review-stars">★★★★★</div>
+        <div class="review-text">«Рутины со стриками — это магия. Я не пропустил ни одной тренировки за 3 недели. Раньше максимум был 5 дней.»</div>
+        <div class="review-author">
+          <div class="review-avatar">🏃‍♀️</div>
+          <div>
+            <div class="review-name">Алина М.</div>
+            <div class="review-role">Предприниматель</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── CTA ──────────────────── -->
+<section class="cta-section" id="cta">
+  <div class="cta-glow"></div>
+  <div class="container" style="position:relative;z-index:1;">
+    <div class="reveal">
+      <h2>Начни строить систему<br/><span>прямо сейчас</span></h2>
+      <p>Скачай Chrono бесплатно. Первые 7 дней — полный доступ ко всем функциям.</p>
+      <div class="cta-actions">
+        <a href="#" class="store-btn">
+          <div class="store-icon">🍎</div>
+          <div>
+            <div class="store-label">Скачать в</div>
+            <div class="store-name">App Store</div>
+          </div>
+        </a>
+        <a href="#" class="store-btn">
+          <div class="store-icon">▶️</div>
+          <div>
+            <div class="store-label">Доступно в</div>
+            <div class="store-name">Google Play</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────── FOOTER ──────────────────── -->
+<footer>
+  <div class="footer-logo">Chrono</div>
+  <div class="footer-copy">© 2026 Chrono. Сделано с намерением расти.</div>
+</footer>
+
+<script>
+  // Intersection Observer for scroll reveals
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  reveals.forEach(el => observer.observe(el));
+
+  // Animated counters for stats
+  function animateCounter(el, target, suffix = '') {
+    let current = 0;
+    const step = target / 60;
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(timer); }
+      el.textContent = Math.floor(current) + suffix;
+    }, 16);
+  }
+
+  // Smooth nav shrink on scroll
+  const nav = document.querySelector('nav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 60) {
+      nav.style.padding = '12px 60px';
+    } else {
+      nav.style.padding = '20px 60px';
+    }
+  });
+
+  // Parallax glow on mouse move
+  document.addEventListener('mousemove', (e) => {
+    const glow = document.querySelector('.glow-1');
+    if (!glow) return;
+    const x = (e.clientX / window.innerWidth - 0.5) * 30;
+    const y = (e.clientY / window.innerHeight - 0.5) * 30;
+    glow.style.transform = `translateX(calc(-50% + ${x}px)) translateY(${y}px)`;
+  });
+</script>
+</body>
+</html>

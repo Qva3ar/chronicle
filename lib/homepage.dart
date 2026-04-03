@@ -487,7 +487,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// shrinks and dismisses the sheet; list stays scrollable when not at the top.
   void _showDraggablePersistentSheet({
     required String id,
-    required Widget Function(BuildContext context, ScrollController scrollController) builder,
+    required Widget Function(BuildContext context, ScrollController scrollController, DraggableScrollableController dragController) builder,
   }) {
     if (_activeSheetId == id) {
       _closePersistentBottomSheet();
@@ -523,7 +523,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         initialChildSize: 0.5,
         minChildSize: 0.0,
         maxChildSize: 0.92,
-        builder: (context, scrollController) => builder(context, scrollController),
+        builder: (context, scrollController) => builder(context, scrollController, dragController),
       ),
       backgroundColor: Colors.transparent,
     );
@@ -850,10 +850,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         FocusManager.instance.primaryFocus?.unfocus();
                         _showDraggablePersistentSheet(
                           id: 'tags',
-                          builder: (context, scrollController) => TagsManager(
+                          builder: (context, scrollController, dragController) => TagsManager(
                             selectedTag: selectedChipIndex,
                             onTagSelected: onTagSelected,
                             sheetScrollController: scrollController,
+                            sheetDragController: dragController,
                           ),
                         );
                       },
@@ -908,7 +909,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'goals',
-                      builder: (context, scrollController) =>
+                      builder: (context, scrollController, _) =>
                           GoalsScreen(sheetScrollController: scrollController),
                     );
                   },
@@ -924,7 +925,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'routines',
-                      builder: (context, scrollController) =>
+                      builder: (context, scrollController, _) =>
                           RoutineManagerScreen(sheetScrollController: scrollController),
                     );
                   },
@@ -940,7 +941,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'todos',
-                      builder: (context, scrollController) =>
+                      builder: (context, scrollController, _) =>
                           TodoListScreen(sheetScrollController: scrollController),
                     );
                   },
@@ -956,7 +957,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
                       id: 'workspaces',
-                      builder: (context, scrollController) => WorkspaceListSheet(
+                      builder: (context, scrollController, _) => WorkspaceListSheet(
                         sheetScrollController: scrollController,
                       ),
                     );

@@ -13,6 +13,7 @@ import 'package:chrono/services/unified_widget_handler.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/background/task_dispatcher.dart';
+import 'package:chrono/services/subscription_service.dart';
 
 // Global navigator key for navigation from notifications
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -44,6 +45,7 @@ void main() async {
 /// Background initialization - does not block app launch
 Future<void> _deferredInitialization() async {
   try {
+    await SubscriptionService.instance.initialize();
     await GPTNoteBindService().loadModel();
     await TimerService.instance.initialize();
     AppLifecycleService.instance.initialize();
