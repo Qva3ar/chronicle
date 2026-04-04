@@ -1,6 +1,8 @@
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/onboarding/onboarding_screen.dart';
 import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
@@ -25,11 +27,17 @@ void main() async {
     // CRITICAL: Only DB is required before first frame - HomePage needs it
     await DatabaseHelper.instance.database;
 
+    // Check onboarding flag
+    final prefs = await SharedPreferences.getInstance();
+    // TODO: remove this line after testing onboarding
+    await prefs.remove('onboarding_done');
+    final onboardingDone = prefs.getBool('onboarding_done') ?? false;
+
     // Register widget callback (sync, must be done before any widget tap)
     HomeWidget.registerInteractivityCallback(unifiedWidgetCallback);
 
     // Show app immediately - no splash screen delay
-    runApp(const MyApp());
+    runApp(MyApp(showOnboarding: !onboardingDone));
 
     // Deferred init: runs in background after first frame
     // Heavy services (notifications, WorkManager, etc.) don't block app launch
@@ -68,7 +76,8 @@ Future<void> _deferredInitialization() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final bool showOnboarding;
+  const MyApp({Key? key, this.showOnboarding = false}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +183,7 @@ class MyApp extends StatelessWidget {
           hintStyle: TextStyle(color: MyColors.trecondaryColor),
         ),
       ),
-      home: HomePage(),
+      home: showOnboarding ? const OnboardingScreen() : HomePage(),
     );
   }
 }

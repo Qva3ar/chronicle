@@ -33,7 +33,6 @@ import 'package:chrono/widgets/productivity_banner.dart';
 import 'package:chrono/screens/productivity_screen.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
-import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/services/productivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,7 +90,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _initializeApp() async {
     // Load filter settings first, then load records
     await _loadFilterSettings();
-    await _maybeShowOnboarding();
+    // Onboarding is now handled in main.dart before HomePage loads
 
     // Check for widget deep link launch
     await _handleWidgetLaunch();
@@ -135,27 +134,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _maybeShowOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    final done = prefs.getBool('onboarding_done') ?? false;
-    if (done) return;
-    final db = await DatabaseHelper.instance.database;
-    final settings = await db.query(DatabaseTables.appSettings, limit: 1);
-    final hasPrimary =
-        settings.isNotEmpty && settings.first[DatabaseColumns.settingPrimaryGoalId] != null;
-    if (hasPrimary) {
-      await prefs.setBool('onboarding_done', true);
-      return;
-    }
-    if (!mounted) return;
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const PrimaryGoalScreen()),
-    );
-    if (result == true) {
-      // refresh anything if needed
-    }
-  }
 
   void _setupListeners() {
     _scrollController.addListener(_onScroll);
