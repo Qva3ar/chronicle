@@ -10,6 +10,7 @@ class Record {
   RecordType recordType;
   int? goalId;
   int? routineId;
+  int? todoId;
   bool isLocked;
 
   Record({
@@ -21,6 +22,7 @@ class Record {
     this.recordType = RecordType.regular,
     this.goalId,
     this.routineId,
+    this.todoId,
     this.isLocked = false,
   });
 
@@ -35,6 +37,7 @@ class Record {
       DatabaseColumns.recordType: recordType.toDbValue(),
       DatabaseColumns.recordGoalId: goalId,
       DatabaseColumns.recordRoutineId: routineId,
+      DatabaseColumns.recordTodoId: todoId,
       DatabaseColumns.recordIsLocked: isLocked ? 1 : 0,
     };
   }
@@ -61,6 +64,7 @@ class Record {
       recordType: recordTypeFromDbValue(map[DatabaseColumns.recordType] ?? 'regular'),
       goalId: map[DatabaseColumns.recordGoalId],
       routineId: map[DatabaseColumns.recordRoutineId],
+      todoId: map[DatabaseColumns.recordTodoId],
       isLocked: (map[DatabaseColumns.recordIsLocked] ?? 0) == 1,
     );
   }

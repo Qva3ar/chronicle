@@ -17,6 +17,9 @@ enum RecordType {
 
   /// Daily productivity score record
   productivity,
+
+  /// Todo completion record
+  todo,
 }
 
 /// Extension methods for RecordType enum
@@ -36,6 +39,8 @@ extension RecordTypeExtension on RecordType {
         return 'evening_checkin';
       case RecordType.productivity:
         return 'productivity';
+      case RecordType.todo:
+        return 'todo';
     }
   }
 
@@ -54,6 +59,8 @@ extension RecordTypeExtension on RecordType {
         return 'Вечерний чекин';
       case RecordType.productivity:
         return 'Продуктивность';
+      case RecordType.todo:
+        return 'Todo';
     }
   }
 }
@@ -73,6 +80,8 @@ RecordType recordTypeFromDbValue(String value) {
       return RecordType.eveningCheckin;
     case 'productivity':
       return RecordType.productivity;
+    case 'todo':
+      return RecordType.todo;
     default:
       return RecordType.regular; // Default fallback
   }

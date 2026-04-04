@@ -9,8 +9,7 @@ import 'package:chrono/colors.dart';
 import 'package:chrono/shared/chrono_ui.dart';
 
 class TodoListScreen extends StatefulWidget {
-  final int? highlightTodoId; // To highlight a specific todo when opened from notification
-  /// When set (e.g. inside [DraggableScrollableSheet]), list scroll is linked to sheet drag.
+  final int? highlightTodoId;
   final ScrollController? sheetScrollController;
 
   const TodoListScreen({super.key, this.highlightTodoId, this.sheetScrollController});
@@ -51,63 +50,75 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
-  // ── Build the flat list with simple sections ────────────────────────────
   List<Widget> _buildGroupedTodos() {
     final List<Widget> widgets = [];
 
-    // Split active todos into three groups
-    final overdue = <Todo>[];
-    final scheduled = <Todo>[];
+    final tomorrow = <Todo>[];
+    final deadline = <Todo>[];
     final noDate = <Todo>[];
+    final overdue = <Todo>[];
 
     for (final todo in _activeTodos) {
       if (todo.isOverdue) {
         overdue.add(todo);
-      } else if (todo.hasTargetTime) {
-        scheduled.add(todo);
+      } else if (todo.todoType == TodoType.tomorrow) {
+        tomorrow.add(todo);
+      } else if (todo.todoType == TodoType.deadline) {
+        deadline.add(todo);
       } else {
         noDate.add(todo);
       }
     }
 
-    // Sort scheduled by target date (soonest first)
-    scheduled.sort((a, b) => a.targetDateTime!.compareTo(b.targetDateTime!));
+    // Sort deadline by target date (soonest first)
+    deadline.sort((a, b) {
+      if (a.targetDateTime == null) return 1;
+      if (b.targetDateTime == null) return -1;
+      return a.targetDateTime!.compareTo(b.targetDateTime!);
+    });
 
-    // ── Overdue ──
-    if (overdue.isNotEmpty) {
+    // Sort overdue by target date (most recent first)
+    overdue.sort((a, b) {
+      if (a.targetDateTime == null) return 1;
+      if (b.targetDateTime == null) return -1;
+      return b.targetDateTime!.compareTo(a.targetDateTime!);
+    });
+
+    // Tomorrow section
+    if (tomorrow.isNotEmpty) {
       widgets.add(
         ChronoSectionHeader(
-          icon: Icons.warning_amber_rounded,
-          iconColor: MyColors.remove,
-          label: 'OVERDUE',
-          count: overdue.length,
-          countColor: MyColors.remove,
+          icon: Icons.wb_sunny_outlined,
+          iconColor: MyColors.orangeDivider,
+          label: 'TOMORROW',
+          count: tomorrow.length,
+          countColor: MyColors.orangeDivider,
         ),
       );
-      for (final todo in overdue) {
+      for (final todo in tomorrow) {
         widgets.add(_buildTodoItem(todo));
       }
       widgets.add(const SizedBox(height: 8));
     }
 
-    // ── Scheduled (has date) ──
-    if (scheduled.isNotEmpty) {
+    // Deadline section
+    if (deadline.isNotEmpty) {
       widgets.add(
         ChronoSectionHeader(
-          icon: Icons.schedule_outlined,
+          icon: Icons.flag_outlined,
           iconColor: infoColor,
-          label: 'SCHEDULED',
-          count: scheduled.length,
+          label: 'DEADLINE',
+          count: deadline.length,
           countColor: infoColor,
         ),
       );
-      for (final todo in scheduled) {
+      for (final todo in deadline) {
         widgets.add(_buildTodoItem(todo));
       }
       widgets.add(const SizedBox(height: 8));
     }
 
-    // ── No date ──
+    // No Date section
     if (noDate.isNotEmpty) {
       widgets.add(
         ChronoSectionHeader(
@@ -121,6 +132,23 @@ class _TodoListScreenState extends State<TodoListScreen> {
       for (final todo in noDate) {
         widgets.add(_buildTodoItem(todo));
       }
+      widgets.add(const SizedBox(height: 8));
+    }
+
+    // Overdue section (at the bottom)
+    if (overdue.isNotEmpty) {
+      widgets.add(
+        ChronoSectionHeader(
+          icon: Icons.warning_amber_rounded,
+          iconColor: MyColors.remove,
+          label: 'OVERDUE',
+          count: overdue.length,
+          countColor: MyColors.remove,
+        ),
+      );
+      for (final todo in overdue) {
+        widgets.add(_buildTodoItem(todo));
+      }
     }
 
     return widgets;
@@ -129,21 +157,20 @@ class _TodoListScreenState extends State<TodoListScreen> {
   Future<void> _toggleTodoCompletion(Todo todo) async {
     await _todoService.toggleTodoCompletion(todo);
 
-    // If completing, cancel notifications
-    if (!todo.isDone) {
-      final reminders = await _todoService.getTodoReminders(todo.id!);
-      await _notificationService.cancelTodoNotifications(todo.id!, reminders);
+    // Cancel reminders if completing
+    if (!todo.isDone && todo.dailyReminderEnabled) {
+      await _notificationService.cancelTodoReminders(todo.id!);
     }
 
     await _loadTodos();
   }
 
   Future<void> _deleteTodo(Todo todo) async {
-    // Cancel notifications first
-    final reminders = await _todoService.getTodoReminders(todo.id!);
-    await _notificationService.cancelTodoNotifications(todo.id!, reminders);
+    // Cancel reminders
+    if (todo.dailyReminderEnabled) {
+      await _notificationService.cancelTodoReminders(todo.id!);
+    }
 
-    // Delete todo
     await _todoService.deleteTodo(todo.id!);
     await _loadTodos();
   }
@@ -161,12 +188,63 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
+  void _showInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Todo Types',
+          style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              icon: Icons.wb_sunny_outlined,
+              color: MyColors.orangeDivider,
+              title: 'Tomorrow',
+              description: 'Tasks you plan to do tomorrow. Moves to overdue if not completed.',
+            ),
+            SizedBox(height: 12),
+            _InfoRow(
+              icon: Icons.flag_outlined,
+              color: infoColor,
+              title: 'Deadline',
+              description: 'Tasks with a specific due date. Enable daily reminders to get notified every day.',
+            ),
+            SizedBox(height: 12),
+            _InfoRow(
+              icon: Icons.inbox_outlined,
+              color: textMuted,
+              title: 'No Date',
+              description: 'Backlog tasks without a specific timeframe.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it', style: TextStyle(color: MyColors.orangeDivider)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return ChronoSheetHeader(
       title: 'Todo',
       titleIcon: Icons.checklist_rounded,
       itemCount: _activeTodos.length,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.info_outline, color: textMuted, size: 20),
+          onPressed: _showInfoDialog,
+          tooltip: 'About todo types',
+        ),
         IconButton(
           icon: Icon(
             _showCompleted ? Icons.visibility : Icons.visibility_off,
@@ -283,8 +361,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
   Color _todoIndicatorColor(Todo todo) {
     if (todo.isDone) return successColor;
     if (todo.isOverdue) return MyColors.remove;
-    if (todo.hasTargetTime) return infoColor;
-    return textMuted;
+    switch (todo.todoType) {
+      case TodoType.tomorrow:
+        return MyColors.orangeDivider;
+      case TodoType.deadline:
+        return infoColor;
+      case TodoType.noDate:
+        return textMuted;
+    }
   }
 
   Widget _buildTodoItem(Todo todo) {
@@ -313,7 +397,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
             : todo.isDone
                 ? successColor.withValues(alpha: 0.2)
                 : cardBorder.withValues(alpha: 0.3),
-        onTap: () => _showTodoForm(todo),
+        onTap: () => _toggleTodoCompletion(todo),
+        onLongPress: () => _showTodoForm(todo),
         child: Row(
           children: [
             // Checkbox
@@ -332,44 +417,28 @@ class _TodoListScreenState extends State<TodoListScreen> {
             ),
             const SizedBox(width: 12),
 
-            // Title + subtitle
+            // Title + date
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          todo.title,
-                          style: TextStyle(
-                            color: todo.isDone ? textMuted : textPrimary,
-                            decoration: todo.isDone ? TextDecoration.lineThrough : null,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (todo.description != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      todo.description!,
-                      style: TextStyle(
-                        color: todo.isDone ? textHint : textMuted,
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    todo.title,
+                    style: TextStyle(
+                      color: todo.isDone ? textMuted : textPrimary,
+                      decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ],
-                  if (todo.hasTargetTime) ...[
+                  ),
+                  if (todo.formattedTargetDate.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(
-                          Icons.access_time,
+                          todo.todoType == TodoType.deadline
+                              ? Icons.flag_outlined
+                              : Icons.wb_sunny_outlined,
                           size: 13,
                           color: todo.isOverdue ? MyColors.remove : textMuted,
                         ),
@@ -382,6 +451,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
                             fontWeight: todo.isOverdue ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
+                        if (todo.dailyReminderEnabled) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.notifications_active_outlined,
+                            size: 12,
+                            color: textMuted.withValues(alpha: 0.7),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -399,6 +476,52 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Small helper widget for the info dialog.
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+
+  const _InfoRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: const TextStyle(color: textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

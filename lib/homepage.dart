@@ -243,6 +243,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         searchText: searchController.text,
         showGoalRecords: currentFilterSettings?.showGoalRecords,
         showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+        showTodoRecords: currentFilterSettings?.showTodoRecords,
       );
 
       setState(() {
@@ -761,7 +762,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       resizeToAvoidBottomInset: false,
       backgroundColor: cardColor,
       drawer: const MyDrawal(),
-      floatingActionButtonAnimator: _NoFabAnimation(),
+      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
       floatingActionButtonLocation: _CenterFloatAboveContent(
         bottomMargin: 12,
         keyboardHeight: MediaQuery.of(context).viewInsets.bottom,
@@ -1020,7 +1021,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                     if (currentFilterSettings != null &&
                                         (!currentFilterSettings!.showGoalRecords ||
-                                            !currentFilterSettings!.showRoutineRecords))
+                                            !currentFilterSettings!.showRoutineRecords ||
+                                            !currentFilterSettings!.showTodoRecords))
                                       Positioned(
                                         top: 4,
                                         right: 4,
@@ -1268,6 +1270,23 @@ class _FilterDialogState extends State<FilterDialog> {
               });
             },
           ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text(
+              'Show records from Todos',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              'Include records created from completed todos',
+              style: TextStyle(color: Colors.white60),
+            ),
+            value: settings.showTodoRecords,
+            onChanged: (value) {
+              setState(() {
+                settings = settings.copyWith(showTodoRecords: value);
+              });
+            },
+          ),
         ],
       ),
       actions: [
@@ -1312,22 +1331,5 @@ class _CenterFloatAboveContent extends FloatingActionButtonLocation {
     }
 
     return Offset(x, normalY);
-  }
-}
-
-class _NoFabAnimation extends FloatingActionButtonAnimator {
-  @override
-  Offset getOffset({required Offset begin, required Offset end, required double progress}) {
-    return end;
-  }
-
-  @override
-  Animation<double> getScaleAnimation({required Animation<double> parent}) {
-    return const AlwaysStoppedAnimation<double>(1.0);
-  }
-
-  @override
-  Animation<double> getRotationAnimation({required Animation<double> parent}) {
-    return const AlwaysStoppedAnimation<double>(0.0);
   }
 }

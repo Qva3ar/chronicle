@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:chrono/models/todo.model.dart';
-import 'package:chrono/models/todo_reminder.model.dart';
 import 'package:chrono/services/todo_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/db_manager.dart';
@@ -19,13 +18,16 @@ class TodoEditScreen extends StatefulWidget {
 class _TodoEditScreenState extends State<TodoEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
   late TodoService _todoService;
   late TodoNotificationService _notificationService;
 
-  DateTime? _selectedDateTime;
-  final Set<TodoReminderType> _selectedReminders = {};
-  int? _customOffsetMinutes;
+  TodoType _selectedType = TodoType.tomorrow;
+  DateTime? _deadlineDate;
+  bool _reminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
+  bool _repeatEnabled = false;
+  int _periodMinutes = 60;
+  int _intervalMinutes = 30;
 
   bool get _isEditing => widget.existingTodo != null;
 
@@ -36,40 +38,41 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     _notificationService = TodoNotificationService();
 
     _titleController = TextEditingController(text: widget.existingTodo?.title ?? '');
-    _descriptionController = TextEditingController(text: widget.existingTodo?.description ?? '');
-    _selectedDateTime = widget.existingTodo?.targetDateTime;
 
-    // Load existing reminders if editing
     if (_isEditing) {
-      _loadExistingReminders();
-    }
-  }
-
-  Future<void> _loadExistingReminders() async {
-    final reminders = await _todoService.getTodoReminders(widget.existingTodo!.id!);
-    setState(() {
-      for (final reminder in reminders) {
-        _selectedReminders.add(reminder.reminderType);
-        if (reminder.reminderType == TodoReminderType.custom) {
-          _customOffsetMinutes = reminder.customOffsetMinutes;
+      final todo = widget.existingTodo!;
+      _selectedType = todo.todoType;
+      _deadlineDate = todo.targetDateTime;
+      _reminderEnabled = todo.dailyReminderEnabled;
+      if (todo.dailyReminderTime != null) {
+        final parts = todo.dailyReminderTime!.split(':');
+        if (parts.length == 2) {
+          _reminderTime = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 9,
+            minute: int.tryParse(parts[1]) ?? 0,
+          );
         }
       }
-    });
+      if (todo.reminderPeriodMinutes != null && todo.reminderIntervalMinutes != null) {
+        _repeatEnabled = true;
+        _periodMinutes = todo.reminderPeriodMinutes!;
+        _intervalMinutes = todo.reminderIntervalMinutes!;
+      }
+    }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDateTime() async {
+  Future<void> _pickDeadlineDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDateTime ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: _deadlineDate ?? DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
@@ -81,170 +84,118 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
       ),
     );
 
-    if (date == null || !mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: _selectedDateTime != null
-          ? TimeOfDay.fromDateTime(_selectedDateTime!)
-          : TimeOfDay.now(),
-      builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MyColors.orangeDivider,
-            surface: Color(0xFF2D2E33),
-          ),
-        ),
-        child: child!,
-      ),
-    );
-
-    if (time == null) return;
-
-    setState(() {
-      _selectedDateTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
-  }
-
-  Future<void> _showCustomOffsetDialog() async {
-    int? hours;
-    int? minutes;
-
-    if (_customOffsetMinutes != null) {
-      hours = _customOffsetMinutes! ~/ 60;
-      minutes = _customOffsetMinutes! % 60;
-    }
-
-    final hoursController = TextEditingController(text: hours?.toString() ?? '');
-    final minutesController = TextEditingController(text: minutes?.toString() ?? '');
-
-    if (!mounted) return;
-
-    final result = await showDialog<Map<String, int>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: cardColor,
-        title: const Text('Custom Reminder', style: TextStyle(color: textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: hoursController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Hours before',
-                labelStyle: const TextStyle(color: textMuted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: cardBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: minutesController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Minutes before',
-                labelStyle: const TextStyle(color: textMuted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: cardBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
-          ),
-          TextButton(
-            onPressed: () {
-              final h = int.tryParse(hoursController.text) ?? 0;
-              final m = int.tryParse(minutesController.text) ?? 0;
-              Navigator.pop(context, {'hours': h, 'minutes': m});
-            },
-            child: const Text('OK', style: TextStyle(color: MyColors.orangeDivider)),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
+    if (date != null) {
       setState(() {
-        _customOffsetMinutes = (result['hours']! * 60) + result['minutes']!;
-        if (_customOffsetMinutes! > 0) {
-          _selectedReminders.add(TodoReminderType.custom);
-        }
+        _deadlineDate = date;
       });
     }
   }
 
+  Future<void> _pickReminderTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _reminderTime,
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MyColors.orangeDivider,
+            surface: Color(0xFF2D2E33),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (time != null) {
+      setState(() {
+        _reminderTime = time;
+      });
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDate(DateTime date) {
+    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  int get _previewNotificationCount {
+    if (!_repeatEnabled || _intervalMinutes <= 0) return 1;
+    return (_periodMinutes ~/ _intervalMinutes) + 1;
+  }
+
   Future<void> _saveTodo() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Validate deadline date for deadline type
+    if (_selectedType == TodoType.deadline && _deadlineDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a deadline date')),
+      );
       return;
     }
 
     try {
+      final title = _titleController.text.trim();
+      final reminderTimeStr = _formatTimeOfDay(_reminderTime);
+      final hasReminder = _selectedType != TodoType.noDate && _reminderEnabled;
+
       if (_isEditing) {
-        // Update existing todo
-        final updatedTodo = widget.existingTodo!.copyWith(
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
-          targetDateTime: _selectedDateTime,
-          clearTargetDateTime: _selectedDateTime == null,
-          clearDescription: _descriptionController.text.trim().isEmpty,
+        final old = widget.existingTodo!;
+
+        DateTime? targetDateTime;
+        if (_selectedType == TodoType.tomorrow) {
+          final tomorrow = DateTime.now().add(const Duration(days: 1));
+          targetDateTime = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 23, 59);
+        } else if (_selectedType == TodoType.deadline) {
+          targetDateTime = _deadlineDate;
+        }
+
+        final updatedTodo = old.copyWith(
+          title: title,
+          todoType: _selectedType,
+          targetDateTime: targetDateTime,
+          clearTargetDateTime: _selectedType == TodoType.noDate,
+          dailyReminderEnabled: hasReminder,
+          dailyReminderTime: hasReminder ? reminderTimeStr : null,
+          clearDailyReminderTime: !hasReminder,
+          reminderPeriodMinutes: hasReminder && _repeatEnabled ? _periodMinutes : null,
+          reminderIntervalMinutes: hasReminder && _repeatEnabled ? _intervalMinutes : null,
+          clearReminderPeriod: !(hasReminder && _repeatEnabled),
         );
 
-        await _todoService.updateTodo(
-          updatedTodo,
-          reminderTypes: _selectedDateTime != null ? _selectedReminders.toList() : [],
-          customReminderOffsetMinutes: _customOffsetMinutes,
-        );
+        await _todoService.updateTodo(updatedTodo);
 
-        // Schedule new reminders
-        if (_selectedDateTime != null && _selectedReminders.isNotEmpty) {
-          final reminders = await _todoService.getTodoReminders(updatedTodo.id!);
-          await _notificationService.scheduleAllRemindersForTodo(
-            todo: updatedTodo,
-            reminders: reminders,
-          );
+        // Handle notifications
+        await _notificationService.initialize();
+        await _notificationService.cancelTodoReminders(old.id!);
+        if (updatedTodo.dailyReminderEnabled) {
+          await _notificationService.scheduleTodoReminders(updatedTodo);
         }
       } else {
-        // Create new todo
         final todoId = await _todoService.createTodo(
-          _titleController.text.trim(),
-          description: _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
-          targetDateTime: _selectedDateTime,
-          reminderTypes: _selectedDateTime != null ? _selectedReminders.toList() : null,
-          customReminderOffsetMinutes: _customOffsetMinutes,
+          title,
+          todoType: _selectedType,
+          targetDateTime: _selectedType == TodoType.deadline ? _deadlineDate : null,
+          dailyReminderEnabled: hasReminder,
+          dailyReminderTime: hasReminder ? reminderTimeStr : null,
+          reminderPeriodMinutes: hasReminder && _repeatEnabled ? _periodMinutes : null,
+          reminderIntervalMinutes: hasReminder && _repeatEnabled ? _intervalMinutes : null,
         );
 
-        // Schedule reminders
-        if (_selectedDateTime != null && _selectedReminders.isNotEmpty) {
+        // Schedule notifications if enabled
+        if (hasReminder) {
           final todo = await _todoService.getTodo(todoId);
-          final reminders = await _todoService.getTodoReminders(todoId);
           if (todo != null) {
-            await _notificationService.scheduleAllRemindersForTodo(
-              todo: todo,
-              reminders: reminders,
-            );
+            await _notificationService.initialize();
+            await _notificationService.scheduleTodoReminders(todo);
           }
         }
       }
@@ -261,44 +212,16 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     }
   }
 
-  // ── Quick-date helpers ──────────────────────────────────────────────────
-
-  void _setQuickDate(DateTime date) {
-    setState(() {
-      _selectedDateTime = date;
-    });
-  }
-
-  DateTime _today9am() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, 9, 0);
-  }
-
-  DateTime _tomorrow9am() {
-    final t = DateTime.now().add(const Duration(days: 1));
-    return DateTime(t.year, t.month, t.day, 9, 0);
-  }
-
-  DateTime _nextWeek9am() {
-    // Next Monday
-    final now = DateTime.now();
-    final daysUntilMonday = (DateTime.monday - now.weekday + 7) % 7;
-    final monday = now.add(Duration(days: daysUntilMonday == 0 ? 7 : daysUntilMonday));
-    return DateTime(monday.year, monday.month, monday.day, 9, 0);
-  }
-
-  // ── UI ──────────────────────────────────────────────────────────────────
-
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: textMuted),
       border: OutlineInputBorder(
-        borderSide: BorderSide(color: cardBorder),
+        borderSide: const BorderSide(color: cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: cardBorder),
+        borderSide: const BorderSide(color: cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       focusedBorder: OutlineInputBorder(
@@ -343,7 +266,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // ── Title ──
+            // Title
             TextFormField(
               controller: _titleController,
               style: const TextStyle(color: textPrimary, fontSize: 16),
@@ -354,98 +277,40 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                 }
                 return null;
               },
-              textInputAction: TextInputAction.next,
-            ),
-
-            const SizedBox(height: 14),
-
-            // ── Description ──
-            TextFormField(
-              controller: _descriptionController,
-              style: const TextStyle(color: textPrimary),
-              maxLines: 3,
-              decoration: _inputDecoration('Description (optional)'),
+              textInputAction: TextInputAction.done,
             ),
 
             const SizedBox(height: 20),
 
-            // ── Date & Time section ──
+            // Type selector
             ChronoSettingsGroup(
-              title: 'Date & Time',
+              title: 'Type',
               children: [
-                // Quick-set date chips
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _quickChip(
-                        label: 'Today',
-                        icon: Icons.today,
-                        isActive: _isMatchingDate(_today9am()),
-                        onTap: () => _setQuickDate(_today9am()),
-                      ),
-                      _quickChip(
-                        label: 'Tomorrow',
-                        icon: Icons.event,
-                        isActive: _isMatchingDate(_tomorrow9am()),
-                        onTap: () => _setQuickDate(_tomorrow9am()),
-                      ),
-                      _quickChip(
-                        label: 'Next week',
-                        icon: Icons.date_range,
-                        isActive: _isMatchingDate(_nextWeek9am()),
-                        onTap: () => _setQuickDate(_nextWeek9am()),
-                      ),
-                      _quickChip(
-                        label: 'No date',
-                        icon: Icons.block,
-                        isActive: _selectedDateTime == null,
-                        onTap: () {
-                          setState(() {
-                            _selectedDateTime = null;
-                            _selectedReminders.clear();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Current date display + custom picker
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                   child: Row(
                     children: [
-                      Icon(
-                        _selectedDateTime != null ? Icons.event_available : Icons.event_busy,
-                        size: 18,
-                        color: _selectedDateTime != null ? infoColor : textHint,
+                      Expanded(
+                        child: _typeChip(
+                          label: 'Tomorrow',
+                          icon: Icons.wb_sunny_outlined,
+                          type: TodoType.tomorrow,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _selectedDateTime == null
-                              ? 'No specific date set'
-                              : _formatDateTime(_selectedDateTime!),
-                          style: TextStyle(
-                            color: _selectedDateTime != null ? textPrimary : textHint,
-                            fontSize: 14,
-                          ),
+                        child: _typeChip(
+                          label: 'Deadline',
+                          icon: Icons.flag_outlined,
+                          type: TodoType.deadline,
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _pickDateTime,
-                        icon: const Icon(Icons.edit_calendar, size: 16),
-                        label: const Text('Custom'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: MyColors.orangeDivider,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: MyColors.orangeDivider.withValues(alpha: 0.3)),
-                          ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _typeChip(
+                          label: 'No date',
+                          icon: Icons.inbox_outlined,
+                          type: TodoType.noDate,
                         ),
                       ),
                     ],
@@ -454,38 +319,219 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
               ],
             ),
 
-            // ── Reminders section ──
-            if (_selectedDateTime != null) ...[
+            // Deadline date picker (only for deadline type)
+            if (_selectedType == TodoType.deadline) ...[
               const SizedBox(height: 16),
               ChronoSettingsGroup(
-                title: 'Reminders',
+                title: 'Deadline Date',
                 children: [
-                  _reminderRow(
-                    label: '1 hour before',
-                    icon: Icons.alarm,
-                    type: TodoReminderType.oneHourBefore,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _deadlineDate != null ? Icons.event_available : Icons.event_busy,
+                          size: 18,
+                          color: _deadlineDate != null ? infoColor : textHint,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _deadlineDate == null
+                                ? 'Select a deadline date'
+                                : _formatDate(_deadlineDate!),
+                            style: TextStyle(
+                              color: _deadlineDate != null ? textPrimary : textHint,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _pickDeadlineDate,
+                          icon: const Icon(Icons.edit_calendar, size: 16),
+                          label: const Text('Pick date'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: MyColors.orangeDivider,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: MyColors.orangeDivider.withValues(alpha: 0.3)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  _reminderRow(
-                    label: 'Morning of the day (8:00)',
-                    icon: Icons.wb_sunny_outlined,
-                    type: TodoReminderType.morningOfDay,
-                  ),
-                  _reminderRow(
-                    label: '1 day before',
-                    icon: Icons.hourglass_top,
-                    type: TodoReminderType.oneDayBefore,
-                  ),
-                  _customReminderRow(),
                 ],
               ),
             ],
 
-            const SizedBox(height: 80), // space for button
+            // Notification section (for tomorrow and deadline)
+            if (_selectedType != TodoType.noDate) ...[
+              const SizedBox(height: 16),
+              ChronoSettingsGroup(
+                title: 'Notification',
+                children: [
+                  // Enable toggle
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 8, 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_active_outlined,
+                          size: 18,
+                          color: _reminderEnabled ? MyColors.orangeDivider : textMuted,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _selectedType == TodoType.tomorrow
+                                ? 'Remind me tomorrow'
+                                : 'Remind me every day',
+                            style: const TextStyle(color: textPrimary, fontSize: 14),
+                          ),
+                        ),
+                        Switch(
+                          value: _reminderEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              _reminderEnabled = value;
+                              if (!value) _repeatEnabled = false;
+                            });
+                          },
+                          activeTrackColor: MyColors.orangeDivider,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (_reminderEnabled) ...[
+                    // Time picker
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 18, color: textMuted),
+                          const SizedBox(width: 10),
+                          Text(
+                            'At ${_formatTimeOfDay(_reminderTime)}',
+                            style: const TextStyle(color: textSecondary, fontSize: 14),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: _pickReminderTime,
+                            style: TextButton.styleFrom(
+                              foregroundColor: MyColors.orangeDivider,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                    color: MyColors.orangeDivider.withValues(alpha: 0.3)),
+                              ),
+                            ),
+                            child: const Text('Change'),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Repeat toggle (only for tomorrow type)
+                    if (_selectedType == TodoType.tomorrow) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 8, 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.repeat,
+                              size: 18,
+                              color: _repeatEnabled ? MyColors.orangeDivider : textMuted,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Repeat notifications',
+                                style: TextStyle(color: textPrimary, fontSize: 14),
+                              ),
+                            ),
+                            Switch(
+                              value: _repeatEnabled,
+                              onChanged: (value) {
+                                setState(() {
+                                  _repeatEnabled = value;
+                                });
+                              },
+                              activeTrackColor: MyColors.orangeDivider,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      if (_repeatEnabled) ...[
+                        // Period picker
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(42, 0, 14, 6),
+                          child: Row(
+                            children: [
+                              const Text('Period: ', style: TextStyle(color: textSecondary, fontSize: 13)),
+                              _minuteChip(30, _periodMinutes, (v) => setState(() => _periodMinutes = v)),
+                              const SizedBox(width: 6),
+                              _minuteChip(60, _periodMinutes, (v) => setState(() => _periodMinutes = v)),
+                              const SizedBox(width: 6),
+                              _minuteChip(120, _periodMinutes, (v) => setState(() => _periodMinutes = v)),
+                            ],
+                          ),
+                        ),
+
+                        // Interval picker
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(42, 0, 14, 6),
+                          child: Row(
+                            children: [
+                              const Text('Every: ', style: TextStyle(color: textSecondary, fontSize: 13)),
+                              _minuteChip(10, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
+                              const SizedBox(width: 6),
+                              _minuteChip(15, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
+                              const SizedBox(width: 6),
+                              _minuteChip(30, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
+                              const SizedBox(width: 6),
+                              _minuteChip(60, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
+                            ],
+                          ),
+                        ),
+
+                        // Preview
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(42, 2, 14, 12),
+                          child: Text(
+                            '$_previewNotificationCount notification${_previewNotificationCount > 1 ? 's' : ''}: '
+                            'starting ${_formatMinutes(_periodMinutes)} before, every ${_formatMinutes(_intervalMinutes)}',
+                            style: const TextStyle(color: textMuted, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
+
+                  if (!_reminderEnabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(42, 0, 14, 12),
+                      child: Text(
+                        _selectedType == TodoType.tomorrow
+                            ? 'Get a notification on the day'
+                            : 'Get a notification every day until the deadline',
+                        style: const TextStyle(color: textMuted, fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 80),
           ],
         ),
       ),
 
-      // ── Sticky save button at bottom ──
+      // Save button
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -512,25 +558,65 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     );
   }
 
-  // ── Quick-date chip ────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────
 
-  bool _isMatchingDate(DateTime target) {
-    if (_selectedDateTime == null) return false;
-    final s = _selectedDateTime!;
-    return s.year == target.year && s.month == target.month && s.day == target.day;
+  String _formatMinutes(int minutes) {
+    if (minutes >= 60) {
+      final h = minutes ~/ 60;
+      final m = minutes % 60;
+      if (m == 0) return '${h}h';
+      return '${h}h ${m}m';
+    }
+    return '${minutes}m';
   }
 
-  Widget _quickChip({
+  Widget _minuteChip(int value, int selected, ValueChanged<int> onTap) {
+    final isActive = selected == value;
+    return GestureDetector(
+      onTap: () => onTap(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor2,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder,
+          ),
+        ),
+        child: Text(
+          _formatMinutes(value),
+          style: TextStyle(
+            color: isActive ? MyColors.orangeDivider : textSecondary,
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _typeChip({
     required String label,
     required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
+    required TodoType type,
   }) {
+    final isActive = _selectedType == type;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        setState(() {
+          _selectedType = type;
+          if (type == TodoType.noDate) {
+            _reminderEnabled = false;
+            _repeatEnabled = false;
+          } else if (type == TodoType.deadline) {
+            _repeatEnabled = false;
+          }
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor2,
           borderRadius: BorderRadius.circular(10),
@@ -538,16 +624,15 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
             color: isActive ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Column(
           children: [
-            Icon(icon, size: 16, color: isActive ? MyColors.orangeDivider : textMuted),
-            const SizedBox(width: 6),
+            Icon(icon, size: 20, color: isActive ? MyColors.orangeDivider : textMuted),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: isActive ? MyColors.orangeDivider : textSecondary,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
@@ -555,149 +640,5 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
         ),
       ),
     );
-  }
-
-  // ── Reminder row ──────────────────────────────────────────────────────
-
-  Widget _reminderRow({
-    required String label,
-    required IconData icon,
-    required TodoReminderType type,
-  }) {
-    final isSelected = _selectedReminders.contains(type);
-    return InkWell(
-      onTap: () {
-        setState(() {
-          if (isSelected) {
-            _selectedReminders.remove(type);
-          } else {
-            _selectedReminders.add(type);
-          }
-        });
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: isSelected ? successColor : textMuted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? textPrimary : textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: isSelected ? successColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isSelected ? successColor : textMuted,
-                  width: 1.5,
-                ),
-              ),
-              child: isSelected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _customReminderRow() {
-    final isSelected = _selectedReminders.contains(TodoReminderType.custom);
-    final hasValue = _customOffsetMinutes != null && _customOffsetMinutes! > 0;
-
-    return InkWell(
-      onTap: () {
-        if (isSelected) {
-          setState(() {
-            _selectedReminders.remove(TodoReminderType.custom);
-            _customOffsetMinutes = null;
-          });
-        } else {
-          _showCustomOffsetDialog();
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Icon(Icons.tune, size: 18, color: isSelected ? successColor : textMuted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Custom',
-                    style: TextStyle(
-                      color: isSelected ? textPrimary : textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (hasValue)
-                    Text(
-                      '${_customOffsetMinutes! ~/ 60}h ${_customOffsetMinutes! % 60}m before',
-                      style: const TextStyle(color: textMuted, fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
-            if (!isSelected)
-              const Icon(Icons.add, size: 18, color: textMuted),
-            if (isSelected) ...[
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 16, color: textMuted),
-                onPressed: _showCustomOffsetDialog,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: successColor,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.check, size: 14, color: Colors.white),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final targetDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
-
-    String dateStr;
-    if (targetDay == today) {
-      dateStr = 'Today';
-    } else if (targetDay == tomorrow) {
-      dateStr = 'Tomorrow';
-    } else {
-      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      dateStr = '${weekdays[dateTime.weekday - 1]}, ${dateTime.day} ${months[dateTime.month - 1]}';
-    }
-
-    final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    return '$dateStr at $timeStr';
   }
 }

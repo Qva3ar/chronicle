@@ -1,80 +1,106 @@
 import '../db_manager.dart';
 
+enum TodoType {
+  tomorrow('tomorrow'),
+  deadline('deadline'),
+  noDate('no_date');
+
+  final String value;
+  const TodoType(this.value);
+
+  static TodoType fromString(String value) {
+    return TodoType.values.firstWhere(
+      (t) => t.value == value,
+      orElse: () => TodoType.noDate,
+    );
+  }
+}
+
 @pragma('vm:entry-point')
 class Todo {
   final int? id;
   final String title;
-  final String? description;
   final bool isDone;
   final DateTime? targetDateTime;
   final DateTime createdAt;
   final DateTime? completedAt;
+  final TodoType todoType;
+  final bool dailyReminderEnabled;
+  final String? dailyReminderTime; // "HH:mm" format
+  final int? reminderPeriodMinutes; // repeat: total period before reminder time
+  final int? reminderIntervalMinutes; // repeat: interval between notifications
 
   Todo({
     this.id,
     required this.title,
-    this.description,
     this.isDone = false,
     this.targetDateTime,
     required this.createdAt,
     this.completedAt,
+    this.todoType = TodoType.noDate,
+    this.dailyReminderEnabled = false,
+    this.dailyReminderTime,
+    this.reminderPeriodMinutes,
+    this.reminderIntervalMinutes,
   });
 
-  // Check if todo has a target time
-  bool get hasTargetTime => targetDateTime != null;
+  /// Number of repeat notifications based on period and interval.
+  /// E.g. period=60, interval=30 → notifications at time-60, time-30, time → 3 total.
+  int get repeatNotificationCount {
+    if (reminderPeriodMinutes == null ||
+        reminderIntervalMinutes == null ||
+        reminderPeriodMinutes! <= 0 ||
+        reminderIntervalMinutes! <= 0) {
+      return 1; // just the main notification
+    }
+    return (reminderPeriodMinutes! ~/ reminderIntervalMinutes!) + 1;
+  }
 
-  // Check if todo is overdue
   bool get isOverdue {
-    if (!hasTargetTime || isDone) return false;
-    return DateTime.now().isAfter(targetDateTime!);
-  }
-
-  // Time period category for grouping
-  TodoTimePeriod get timePeriod {
-    if (!hasTargetTime) return TodoTimePeriod.someday;
-
+    if (isDone) return false;
+    if (todoType == TodoType.noDate) return false;
+    if (targetDateTime == null) return false;
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final nextWeek = today.add(const Duration(days: 7));
-    final targetDay = DateTime(targetDateTime!.year, targetDateTime!.month, targetDateTime!.day);
-
-    if (targetDay == today) {
-      return TodoTimePeriod.today;
-    } else if (targetDay == tomorrow) {
-      return TodoTimePeriod.tomorrow;
-    } else if (targetDay.isAfter(today) && targetDay.isBefore(nextWeek)) {
-      return TodoTimePeriod.thisWeek;
-    } else {
-      return TodoTimePeriod.later;
-    }
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final targetDay = DateTime(
+      targetDateTime!.year,
+      targetDateTime!.month,
+      targetDateTime!.day,
+    );
+    return todayStart.isAfter(targetDay);
   }
 
-  // Formatted date strings
   String get formattedTargetDate {
-    if (!hasTargetTime) return '';
-
-    final now = DateTime.now();
-    final target = targetDateTime!;
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final targetDay = DateTime(target.year, target.month, target.day);
-
-    if (targetDay == today) {
-      return 'Today at ${target.hour.toString().padLeft(2, '0')}:${target.minute.toString().padLeft(2, '0')}';
-    } else if (targetDay == tomorrow) {
-      return 'Tomorrow at ${target.hour.toString().padLeft(2, '0')}:${target.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${target.day}/${target.month}/${target.year} at ${target.hour.toString().padLeft(2, '0')}:${target.minute.toString().padLeft(2, '0')}';
+    if (todoType == TodoType.tomorrow) {
+      if (isOverdue) {
+        final t = targetDateTime!;
+        return '${t.day}/${t.month}/${t.year}';
+      }
+      return 'Tomorrow';
     }
+    if (todoType == TodoType.deadline && targetDateTime != null) {
+      final t = targetDateTime!;
+      final months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${t.day} ${months[t.month - 1]} ${t.year}';
+    }
+    return '';
   }
 
-  // Convert from database map
   factory Todo.fromMap(Map<String, dynamic> map) {
+    // Infer todoType from data if not present (backward compat with old exports)
+    String typeStr = map[DatabaseColumns.todoType] ?? 'no_date';
+    if (typeStr == 'no_date' &&
+        map[DatabaseColumns.todoTargetDateTime] != null &&
+        map[DatabaseColumns.todoType] == null) {
+      typeStr = 'deadline';
+    }
+
     return Todo(
       id: map[DatabaseColumns.id],
       title: map[DatabaseColumns.todoTitle] ?? '',
-      description: map[DatabaseColumns.todoDescription],
       isDone: (map[DatabaseColumns.todoIsDone] ?? 0) == 1,
       targetDateTime: map[DatabaseColumns.todoTargetDateTime] != null
           ? DateTime.fromMillisecondsSinceEpoch(
@@ -86,51 +112,76 @@ class Todo {
           ? DateTime.fromMillisecondsSinceEpoch(
               map[DatabaseColumns.todoCompletedAt])
           : null,
+      todoType: TodoType.fromString(typeStr),
+      dailyReminderEnabled:
+          (map[DatabaseColumns.todoDailyReminderEnabled] ?? 0) == 1,
+      dailyReminderTime: map[DatabaseColumns.todoDailyReminderTime],
+      reminderPeriodMinutes: map[DatabaseColumns.todoReminderPeriodMinutes],
+      reminderIntervalMinutes: map[DatabaseColumns.todoReminderIntervalMinutes],
     );
   }
 
-  // Convert to database map
   Map<String, dynamic> toMap() {
     return {
       if (id != null) DatabaseColumns.id: id,
       DatabaseColumns.todoTitle: title,
-      DatabaseColumns.todoDescription: description,
       DatabaseColumns.todoIsDone: isDone ? 1 : 0,
       DatabaseColumns.todoTargetDateTime:
           targetDateTime?.millisecondsSinceEpoch,
       DatabaseColumns.todoCreatedAt: createdAt.millisecondsSinceEpoch,
       DatabaseColumns.todoCompletedAt: completedAt?.millisecondsSinceEpoch,
+      DatabaseColumns.todoType: todoType.value,
+      DatabaseColumns.todoDailyReminderEnabled: dailyReminderEnabled ? 1 : 0,
+      DatabaseColumns.todoDailyReminderTime: dailyReminderTime,
+      DatabaseColumns.todoReminderPeriodMinutes: reminderPeriodMinutes,
+      DatabaseColumns.todoReminderIntervalMinutes: reminderIntervalMinutes,
     };
   }
 
-  // Copy with changes
   Todo copyWith({
     int? id,
     String? title,
-    String? description,
     bool? isDone,
     DateTime? targetDateTime,
     DateTime? createdAt,
     DateTime? completedAt,
+    TodoType? todoType,
+    bool? dailyReminderEnabled,
+    String? dailyReminderTime,
+    int? reminderPeriodMinutes,
+    int? reminderIntervalMinutes,
     bool clearTargetDateTime = false,
-    bool clearDescription = false,
     bool clearCompletedAt = false,
+    bool clearDailyReminderTime = false,
+    bool clearReminderPeriod = false,
   }) {
     return Todo(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: clearDescription ? null : (description ?? this.description),
       isDone: isDone ?? this.isDone,
       targetDateTime:
           clearTargetDateTime ? null : (targetDateTime ?? this.targetDateTime),
       createdAt: createdAt ?? this.createdAt,
-      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      completedAt:
+          clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      todoType: todoType ?? this.todoType,
+      dailyReminderEnabled:
+          dailyReminderEnabled ?? this.dailyReminderEnabled,
+      dailyReminderTime: clearDailyReminderTime
+          ? null
+          : (dailyReminderTime ?? this.dailyReminderTime),
+      reminderPeriodMinutes: clearReminderPeriod
+          ? null
+          : (reminderPeriodMinutes ?? this.reminderPeriodMinutes),
+      reminderIntervalMinutes: clearReminderPeriod
+          ? null
+          : (reminderIntervalMinutes ?? this.reminderIntervalMinutes),
     );
   }
 
   @override
   String toString() {
-    return 'Todo(id: $id, title: $title, isDone: $isDone, targetDateTime: $targetDateTime)';
+    return 'Todo(id: $id, title: $title, type: ${todoType.value}, isDone: $isDone, targetDateTime: $targetDateTime)';
   }
 
   @override
@@ -145,44 +196,5 @@ class Todo {
   @override
   int get hashCode {
     return id.hashCode ^ title.hashCode ^ isDone.hashCode;
-  }
-}
-
-// Time period categories for organizing todos
-enum TodoTimePeriod {
-  today,
-  tomorrow,
-  thisWeek,
-  later,
-  someday;
-
-  String get displayName {
-    switch (this) {
-      case TodoTimePeriod.today:
-        return 'Today';
-      case TodoTimePeriod.tomorrow:
-        return 'Tomorrow';
-      case TodoTimePeriod.thisWeek:
-        return 'This Week';
-      case TodoTimePeriod.later:
-        return 'Later';
-      case TodoTimePeriod.someday:
-        return 'Someday';
-    }
-  }
-
-  String get emoji {
-    switch (this) {
-      case TodoTimePeriod.today:
-        return '🔥';
-      case TodoTimePeriod.tomorrow:
-        return '📅';
-      case TodoTimePeriod.thisWeek:
-        return '📆';
-      case TodoTimePeriod.later:
-        return '🗓️';
-      case TodoTimePeriod.someday:
-        return '💭';
-    }
   }
 }

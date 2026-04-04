@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 47;
+  static const int databaseVersion = 49;
   static const int pageSize = 20;
 }
 
@@ -57,6 +57,7 @@ class DatabaseColumns {
   static const String recordGoalId = 'goal_id';
   static const String recordRoutineId = 'routine_id';
   static const String recordIsLocked = 'is_locked';
+  static const String recordTodoId = 'todo_id';
 
   // Instructions table columns
   static const String instructionText = 'text';
@@ -136,6 +137,11 @@ class DatabaseColumns {
   static const String todoTargetDateTime = 'target_datetime';
   static const String todoCreatedAt = 'created_at';
   static const String todoCompletedAt = 'completed_at';
+  static const String todoType = 'todo_type';
+  static const String todoDailyReminderEnabled = 'daily_reminder_enabled';
+  static const String todoDailyReminderTime = 'daily_reminder_time';
+  static const String todoReminderPeriodMinutes = 'reminder_period_minutes';
+  static const String todoReminderIntervalMinutes = 'reminder_interval_minutes';
 
   // Todo reminders columns
   static const String todoReminderTodoId = 'todo_id';
@@ -359,6 +365,7 @@ class DatabaseHelper {
           ${DatabaseColumns.recordType} TEXT DEFAULT 'regular',
           ${DatabaseColumns.recordGoalId} INTEGER,
           ${DatabaseColumns.recordRoutineId} INTEGER,
+          ${DatabaseColumns.recordTodoId} INTEGER,
           ${DatabaseColumns.recordIsLocked} INTEGER NOT NULL DEFAULT 0
         )
       ''');
@@ -521,7 +528,12 @@ class DatabaseHelper {
           ${DatabaseColumns.todoIsDone} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.todoTargetDateTime} INTEGER,
           ${DatabaseColumns.todoCreatedAt} INTEGER NOT NULL,
-          ${DatabaseColumns.todoCompletedAt} INTEGER
+          ${DatabaseColumns.todoCompletedAt} INTEGER,
+          ${DatabaseColumns.todoType} TEXT NOT NULL DEFAULT 'no_date',
+          ${DatabaseColumns.todoDailyReminderEnabled} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.todoDailyReminderTime} TEXT,
+          ${DatabaseColumns.todoReminderPeriodMinutes} INTEGER,
+          ${DatabaseColumns.todoReminderIntervalMinutes} INTEGER
         )
       ''');
 
@@ -1530,6 +1542,92 @@ class DatabaseHelper {
         ''');
         log('Upgraded database to v47: workspace + workspace_record.');
       }
+
+      if (oldVersion < 48) {
+        log('Starting migration to v48: Todo types redesign...');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.todos}
+          ADD COLUMN ${DatabaseColumns.todoType} TEXT NOT NULL DEFAULT 'no_date'
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.todos}
+          ADD COLUMN ${DatabaseColumns.todoDailyReminderEnabled} INTEGER NOT NULL DEFAULT 0
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.todos}
+          ADD COLUMN ${DatabaseColumns.todoDailyReminderTime} TEXT
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.todos}
+          ADD COLUMN ${DatabaseColumns.todoReminderPeriodMinutes} INTEGER
+        ''');
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.todos}
+          ADD COLUMN ${DatabaseColumns.todoReminderIntervalMinutes} INTEGER
+        ''');
+        // Add todo_id column to record table for todo completion records
+        await db.execute('''
+          ALTER TABLE ${DatabaseTables.record}
+          ADD COLUMN ${DatabaseColumns.recordTodoId} INTEGER
+        ''');
+        // Migrate existing data: todos with target date become deadline, others stay no_date
+        await db.execute('''
+          UPDATE ${DatabaseTables.todos}
+          SET ${DatabaseColumns.todoType} = 'deadline'
+          WHERE ${DatabaseColumns.todoTargetDateTime} IS NOT NULL
+        ''');
+        log('Upgraded database to v48: Todo types + daily reminders.');
+      }
+
+      if (oldVersion < 49) {
+        log('Starting migration to v49: Ensure todo reminder columns exist...');
+        // Safely add columns that may be missing if v48 migration ran from earlier code
+        final cols = await db.rawQuery('PRAGMA table_info(${DatabaseTables.todos})');
+        final colNames = cols.map((c) => c['name'] as String).toSet();
+
+        if (!colNames.contains(DatabaseColumns.todoReminderPeriodMinutes)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.todos}
+            ADD COLUMN ${DatabaseColumns.todoReminderPeriodMinutes} INTEGER
+          ''');
+        }
+        if (!colNames.contains(DatabaseColumns.todoReminderIntervalMinutes)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.todos}
+            ADD COLUMN ${DatabaseColumns.todoReminderIntervalMinutes} INTEGER
+          ''');
+        }
+        if (!colNames.contains(DatabaseColumns.todoType)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.todos}
+            ADD COLUMN ${DatabaseColumns.todoType} TEXT NOT NULL DEFAULT 'no_date'
+          ''');
+        }
+        if (!colNames.contains(DatabaseColumns.todoDailyReminderEnabled)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.todos}
+            ADD COLUMN ${DatabaseColumns.todoDailyReminderEnabled} INTEGER NOT NULL DEFAULT 0
+          ''');
+        }
+        if (!colNames.contains(DatabaseColumns.todoDailyReminderTime)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.todos}
+            ADD COLUMN ${DatabaseColumns.todoDailyReminderTime} TEXT
+          ''');
+        }
+
+        // Ensure record table has todo_id column
+        final recordCols = await db.rawQuery('PRAGMA table_info(${DatabaseTables.record})');
+        final recordColNames = recordCols.map((c) => c['name'] as String).toSet();
+        if (!recordColNames.contains(DatabaseColumns.recordTodoId)) {
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.record}
+            ADD COLUMN ${DatabaseColumns.recordTodoId} INTEGER
+          ''');
+        }
+
+        log('Upgraded database to v49: Ensured all todo columns exist.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1970,6 +2068,7 @@ class DatabaseHelper {
     String? searchText,
     bool? showGoalRecords,
     bool? showRoutineRecords,
+    bool? showTodoRecords,
   }) async {
     try {
       final Database db = await instance.database;
@@ -1977,18 +2076,15 @@ class DatabaseHelper {
 
       // Build type filter conditions
       List<String> typeFilters = [];
-      if (showGoalRecords == false && showRoutineRecords == false) {
-        // If both are false, show only regular records (no goal_id and no routine_id)
+      if (showGoalRecords == false) {
         typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordGoalId} IS NULL");
-        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordRoutineId} IS NULL");
-      } else if (showGoalRecords == false) {
-        // Hide goal records
-        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordGoalId} IS NULL");
-      } else if (showRoutineRecords == false) {
-        // Hide routine records
+      }
+      if (showRoutineRecords == false) {
         typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordRoutineId} IS NULL");
       }
-      // If both are true or null, show all records (no additional filtering)
+      if (showTodoRecords == false) {
+        typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordTodoId} IS NULL");
+      }
 
       String query;
       if (tagId != null) {
@@ -2157,6 +2253,38 @@ class DatabaseHelper {
       );
     } catch (e) {
       log('Error deleting routine records for today: $e');
+      rethrow;
+    }
+  }
+
+  /// Create a todo completion record
+  Future<int> insertTodoCompletionRecord(int todoId, String todoTitle) async {
+    try {
+      final Database db = await instance.database;
+      return await db.insert(DatabaseTables.record, {
+        DatabaseColumns.recordTitle: todoTitle,
+        DatabaseColumns.recordText: 'Completed todo: $todoTitle',
+        DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordType: 'todo',
+        DatabaseColumns.recordTodoId: todoId,
+      });
+    } catch (e) {
+      log('Error inserting todo completion record: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete todo completion record (when user unchecks todo)
+  Future<void> deleteTodoCompletionRecord(int todoId) async {
+    try {
+      final Database db = await instance.database;
+      await db.delete(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordTodoId} = ? AND ${DatabaseColumns.recordType} = ?',
+        whereArgs: [todoId, 'todo'],
+      );
+    } catch (e) {
+      log('Error deleting todo completion record: $e');
       rethrow;
     }
   }
@@ -3320,6 +3448,22 @@ status: day_ended
       );
     } catch (e) {
       log('Error deleting todo: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Todo>> getTodosWithActiveReminders() async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        DatabaseTables.todos,
+        where:
+            '${DatabaseColumns.todoDailyReminderEnabled} = ? AND ${DatabaseColumns.todoIsDone} = ?',
+        whereArgs: [1, 0],
+      );
+      return maps.map((map) => Todo.fromMap(map)).toList();
+    } catch (e) {
+      log('Error getting todos with active reminders: $e');
       rethrow;
     }
   }

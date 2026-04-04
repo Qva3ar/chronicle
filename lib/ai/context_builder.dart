@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/record.dart';
+import 'package:chrono/models/todo.model.dart';
 
 class InsightsSettings {
   final bool insightEnabled;
@@ -287,10 +288,8 @@ class ContextBuilder {
           todoText += " (Due ${dt.day}/${dt.month})";
         }
       }
-      if (todo.description != null && todo.description!.isNotEmpty) {
-        String desc = todo.description!.replaceAll('\n', ' ');
-        if (desc.length > 50) desc = desc.substring(0, 50) + "...";
-        todoText += ": $desc";
+      if (todo.todoType != TodoType.noDate) {
+        todoText += " [${todo.todoType.value}]";
       }
       todosList.add(todoText);
     }

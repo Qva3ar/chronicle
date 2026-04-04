@@ -810,40 +810,55 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                     children: [
                       const Text('Days of Week', style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: List.generate(7, (i) {
-                          final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                          final isSelected = _daysOfWeek[i];
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _daysOfWeek[i] = !isSelected;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor3,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder.withValues(alpha: 0.5),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          const gap = 4.0;
+                          const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                          final raw = (constraints.maxWidth - 6 * gap) / 7;
+                          final diameter = raw.clamp(32.0, 44.0);
+                          final fontSize = (diameter * 0.38).clamp(12.0, 15.0);
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(7, (i) {
+                              final isSelected = _daysOfWeek[i];
+                              return Padding(
+                                padding: EdgeInsets.only(left: i == 0 ? 0 : gap),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _daysOfWeek[i] = !isSelected;
+                                      });
+                                    },
+                                    customBorder: const CircleBorder(),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      width: diameter,
+                                      height: diameter,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.15) : cardColor3,
+                                        border: Border.all(
+                                          color: isSelected ? MyColors.orangeDivider.withValues(alpha: 0.5) : cardBorder.withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        dayLetters[i],
+                                        style: TextStyle(
+                                          color: isSelected ? MyColors.orangeDivider : textMuted,
+                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                          fontSize: fontSize,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                dayNames[i],
-                                style: TextStyle(
-                                  color: isSelected ? MyColors.orangeDivider : textMuted,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
+                              );
+                            }),
                           );
-                        }),
+                        },
                       ),
                     ],
                   ),

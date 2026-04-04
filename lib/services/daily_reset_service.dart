@@ -1,6 +1,7 @@
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -155,6 +156,16 @@ class DailyResetService {
     final notificationService = NotificationService();
     await notificationService.checkAndRescheduleRoutines(fromBackgroundTask: true);
     print('[DailyResetService] ✅ Routine notifications rescheduled');
+
+    // Reschedule todo reminders (deadline daily + tomorrow)
+    try {
+      final todoNotificationService = TodoNotificationService();
+      await todoNotificationService.initialize();
+      await todoNotificationService.rescheduleAllReminders();
+      print('[DailyResetService] ✅ Todo reminders rescheduled');
+    } catch (e) {
+      print('[DailyResetService] ⚠️ Todo reminder rescheduling failed (non-critical): $e');
+    }
 
     // Run optional summarization rollup
     try {
