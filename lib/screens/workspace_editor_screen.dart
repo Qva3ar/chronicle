@@ -34,10 +34,15 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
   final _messageService = MessageService();
   final _markdownController = TextEditingController();
   final _scrollMarkdown = ScrollController();
+  final _markdownFocus = FocusNode();
 
   WorkspaceEntry? _entry;
   List<Record> _linked = [];
   bool _loading = true;
+
+  // Undo/redo stacks
+  List<String> _undoStack = [];
+  List<String> _redoStack = [];
   bool _showLinkedPanel = false;
   bool _previewMarkdown = false;
   bool _includeLinkedInChat = false;
@@ -69,6 +74,7 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
       _linked = linked;
       _splitRatio = e.splitTopRatio;
       _markdownController.text = e.documentMarkdown;
+      _undoStack = [e.documentMarkdown];
       _loading = false;
     });
   }
@@ -77,20 +83,60 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
   void dispose() {
     _markdownController.dispose();
     _scrollMarkdown.dispose();
+    _markdownFocus.dispose();
     super.dispose();
   }
 
   // ── Persistence ──
 
+  bool _isUndoRedoAction = false;
+
   void _onBodyChanged(String text) {
     final e = _entry;
     if (e == null) return;
+
+    if (!_isUndoRedoAction) {
+      if (text != (_undoStack.isEmpty ? '' : _undoStack.last)) {
+        _undoStack.add(text);
+        _redoStack.clear();
+      }
+    }
+
     final updated = e.copyWith(
       documentMarkdown: text,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
     setState(() => _entry = updated);
     _service.schedulePersist(updated);
+  }
+
+  void _undo() {
+    if (_undoStack.length <= 1) return;
+    _isUndoRedoAction = true;
+    setState(() {
+      _redoStack.add(_undoStack.removeLast());
+      _markdownController.text = _undoStack.last;
+      _markdownController.selection = TextSelection.collapsed(
+        offset: _markdownController.text.length,
+      );
+    });
+    _onBodyChanged(_markdownController.text);
+    _isUndoRedoAction = false;
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _isUndoRedoAction = true;
+    setState(() {
+      final restored = _redoStack.removeLast();
+      _undoStack.add(restored);
+      _markdownController.text = restored;
+      _markdownController.selection = TextSelection.collapsed(
+        offset: _markdownController.text.length,
+      );
+    });
+    _onBodyChanged(_markdownController.text);
+    _isUndoRedoAction = false;
   }
 
   Future<void> _persistRatio() async {
@@ -256,6 +302,15 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
+            _iconFmtBtn(
+              Icons.undo,
+              _undoStack.length > 1 ? _undo : null,
+            ),
+            _iconFmtBtn(
+              Icons.redo,
+              _redoStack.isNotEmpty ? _redo : null,
+            ),
+            const SizedBox(width: 4),
             _fmtBtn('H1', () => _insertAtCursor('# ')),
             _fmtBtn('H2', () => _insertAtCursor('## ')),
             _fmtBtn('H3', () => _insertAtCursor('### ')),
@@ -322,6 +377,29 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
     );
   }
 
+  Widget _iconFmtBtn(IconData icon, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Material(
+        color: cardColor2,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Icon(
+              icon,
+              size: 18,
+              color: enabled ? textSecondary : textHint,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Document editor / preview ──
 
   Widget _docEditor() {
@@ -340,23 +418,36 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         ),
       );
     }
-    return TextField(
-      controller: _markdownController,
-      scrollController: _scrollMarkdown,
-      maxLines: null,
-      expands: true,
-      textAlignVertical: TextAlignVertical.top,
-      textCapitalization: TextCapitalization.sentences,
-      style: const TextStyle(color: textPrimary, fontSize: 14, height: 1.6),
-      cursorColor: MyColors.orangeDivider,
-      cursorWidth: 2,
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        hintText: 'Write in Markdown…',
-        hintStyle: TextStyle(color: textHint),
-        contentPadding: EdgeInsets.all(16),
+    return GestureDetector(
+      onTap: () {
+        // Tapping empty area below text should place cursor at end
+        _markdownController.selection = TextSelection.collapsed(
+          offset: _markdownController.text.length,
+        );
+        FocusScope.of(context).requestFocus(_markdownFocus);
+      },
+      child: Container(
+        color: Colors.transparent,
+        child: SingleChildScrollView(
+          controller: _scrollMarkdown,
+          child: TextField(
+            controller: _markdownController,
+            focusNode: _markdownFocus,
+            maxLines: null,
+            textCapitalization: TextCapitalization.sentences,
+            style: const TextStyle(color: textPrimary, fontSize: 14, height: 1.6),
+            cursorColor: MyColors.orangeDivider,
+            cursorWidth: 2,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              hintText: 'Write in Markdown…',
+              hintStyle: TextStyle(color: textHint),
+              contentPadding: EdgeInsets.all(16),
+            ),
+            onChanged: _onBodyChanged,
+          ),
+        ),
       ),
-      onChanged: _onBodyChanged,
     );
   }
 

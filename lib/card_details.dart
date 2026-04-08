@@ -16,6 +16,9 @@ import 'package:chrono/helpers/link_text_span_builder.dart';
 import 'package:extended_text_field/extended_text_field.dart';
 import 'package:chrono/screens/tag_form_screen.dart';
 import 'package:chrono/models/tag.dart';
+import 'package:chrono/services/workspace_service.dart';
+import 'package:chrono/models/workspace_entry.dart';
+import 'package:chrono/shared/chrono_ui.dart';
 
 class CardDetailPage extends StatefulWidget {
   final String title;
@@ -236,6 +239,8 @@ class _CardDetailPageState extends State<CardDetailPage> {
 
   showTagsModal() {
     final tagSearchController = TextEditingController();
+    final searchFocusNode = FocusNode();
+    final dragController = DraggableScrollableController();
     final modalSelected = Set<int>.from(selectedTags ?? []);
 
     showModalBottomSheet(
@@ -243,43 +248,94 @@ class _CardDetailPageState extends State<CardDetailPage> {
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setModalState) {
-              final query = tagSearchController.text.toLowerCase();
-              final filteredTags = query.isEmpty
-                  ? allRecordTags
-                  : allRecordTags
-                      .where((tag) => tag.name.toLowerCase().contains(query))
-                      .toList();
+          return DraggableScrollableSheet(
+            controller: dragController,
+            expand: false,
+            initialChildSize: 0.5,
+            minChildSize: 0.0,
+            maxChildSize: 0.92,
+            snap: true,
+            snapSizes: const [0.5],
+            builder: (context, scrollController) {
+              return StatefulBuilder(
+                builder: (context, setModalState) {
+                  final query = tagSearchController.text.toLowerCase();
+                  final isSearching = query.isNotEmpty;
+                  final filteredTags = isSearching
+                      ? allRecordTags
+                          .where((tag) => tag.name.toLowerCase().contains(query))
+                          .toList()
+                      : <Tag>[];
 
-              return Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.6,
-                  ),
-                  width: MediaQuery.of(context).size.width,
-                  child: Card(
-                    color: MyColors.primaryColor,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
+                  const resultsPanelMaxHeight = 130.0;
+                  final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+                  // Expand sheet when search is focused
+                  searchFocusNode.addListener(() {
+                    if (searchFocusNode.hasFocus && dragController.isAttached) {
+                      dragController.animateTo(
+                        0.92,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  });
+
+                  Widget buildTagChips(List<Tag> tags) {
+                    return Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: tags.map((tag) {
+                        final isSelected = modalSelected.contains(tag.id);
+                        final tagColor = parseTagColor(tag.color);
+                        return FilterChip(
+                          label: Text(
+                            tag.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                          selected: isSelected,
+                          selectedColor: tagColor,
+                          backgroundColor: tagColor.withAlpha(150),
+                          checkmarkColor: Colors.white,
+                          side: isSelected
+                              ? BorderSide(color: Colors.white, width: 1.5)
+                              : BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          onSelected: (selected) {
+                            setModalState(() {
+                              if (selected) {
+                                modalSelected.add(tag.id);
+                              } else {
+                                modalSelected.remove(tag.id);
+                              }
+                            });
+                            selectedTags = modalSelected.toList();
+                            setTagIds();
+                            searchFocusNode.unfocus();
+                          },
+                        );
+                      }).toList(),
+                    );
+                  }
+
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    child: Container(
+                      color: cardColor,
+                      padding: EdgeInsets.only(bottom: keyboardHeight),
                       child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "All tags",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                          // Header
+                          ChronoSheetHeader(
+                            title: 'Tags',
+                            titleIcon: Icons.grid_view_rounded,
+                            itemCount: allRecordTags.length,
+                            actions: [
                               IconButton(
-                                icon: const Icon(Icons.add, color: Colors.white, size: 24),
+                                icon: const Icon(Icons.add, color: textPrimary),
                                 onPressed: () {
                                   Navigator.pop(context);
                                   navigateToTagForm();
@@ -288,91 +344,91 @@ class _CardDetailPageState extends State<CardDetailPage> {
                               ),
                             ],
                           ),
-                          Flexible(
-                            child: SingleChildScrollView(
-                              child: filteredTags.isEmpty
-                                  ? Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: Center(
-                                        child: Text(
-                                          'No tags found',
-                                          style: TextStyle(color: Colors.white38),
+                          // All tags + floating search results
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                ListView(
+                                  controller: scrollController,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: EdgeInsets.fromLTRB(
+                                    16, 0, 16,
+                                    isSearching ? resultsPanelMaxHeight + 8 : 16,
+                                  ),
+                                  children: [
+                                    buildTagChips(allRecordTags),
+                                  ],
+                                ),
+                                if (isSearching)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      constraints: const BoxConstraints(maxHeight: resultsPanelMaxHeight),
+                                      decoration: BoxDecoration(
+                                        color: cardColor,
+                                        border: Border(
+                                          top: BorderSide(color: Colors.white.withOpacity(0.08)),
                                         ),
                                       ),
-                                    )
-                                  : Wrap(
-                                      spacing: 8.0,
-                                      runSpacing: 8.0,
-                                      children: filteredTags.map((tag) {
-                                        final isSelected = modalSelected.contains(tag.id);
-                                        final tagColor = parseTagColor(tag.color);
-                                        return FilterChip(
-                                          label: Text(
-                                            tag.name,
-                                            style: const TextStyle(color: Colors.white, fontSize: 16),
-                                          ),
-                                          selected: isSelected,
-                                          selectedColor: tagColor,
-                                          backgroundColor: tagColor.withAlpha(150),
-                                          checkmarkColor: Colors.white,
-                                          side: isSelected
-                                              ? BorderSide(color: Colors.white, width: 1.5)
-                                              : BorderSide.none,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          padding: const EdgeInsets.all(10),
-                                          onSelected: (selected) {
-                                            setModalState(() {
-                                              if (selected) {
-                                                modalSelected.add(tag.id);
-                                              } else {
-                                                modalSelected.remove(tag.id);
-                                              }
-                                            });
-                                            selectedTags = modalSelected.toList();
-                                            setTagIds();
-                                          },
-                                        );
-                                      }).toList(),
+                                      child: filteredTags.isEmpty
+                                          ? Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                              child: Text(
+                                                'No tags found',
+                                                style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 14),
+                                              ),
+                                            )
+                                          : SingleChildScrollView(
+                                              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                                              child: buildTagChips(filteredTags),
+                                            ),
                                     ),
+                                  ),
+                              ],
                             ),
                           ),
+                          // Search field pinned at bottom
+                          const SizedBox(height: 8),
                           Padding(
-                            padding: const EdgeInsets.only(top: 12, bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
                             child: TextField(
                               controller: tagSearchController,
+                              focusNode: searchFocusNode,
                               autofocus: false,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
                                 hintText: 'Search tags...',
-                                hintStyle: TextStyle(color: Colors.white38),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                prefixIcon: const Icon(Icons.search, color: Colors.white),
                                 suffixIcon: tagSearchController.text.isNotEmpty
                                     ? IconButton(
-                                        icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                                        icon: Icon(Icons.close, color: Colors.white.withOpacity(0.7), size: 18),
                                         onPressed: () {
                                           tagSearchController.clear();
                                           setModalState(() {});
                                         },
                                       )
                                     : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 filled: true,
-                                fillColor: MyColors.secondaryColor,
+                                fillColor: Colors.white.withOpacity(0.1),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide.none,
                                 ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                isDense: true,
                               ),
                               onChanged: (_) => setModalState(() {}),
                             ),
                           ),
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               );
             },
           );
@@ -507,6 +563,33 @@ class _CardDetailPageState extends State<CardDetailPage> {
     );
   }
 
+  Future<void> _showAddToWorkspaceSheet() async {
+    final recordId = recordService.getCurrentRecordId();
+    if (recordId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Save the note first')),
+      );
+      return;
+    }
+
+    final ws = WorkspaceService.instance;
+    final workspaces = await ws.listWorkspaces();
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: MyColors.primaryColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _AddToWorkspaceSheet(
+        workspaces: workspaces,
+        recordId: recordId,
+      ),
+    );
+  }
+
   Widget getBody() {
     return Column(children: [
       Expanded(
@@ -607,6 +690,11 @@ class _CardDetailPageState extends State<CardDetailPage> {
                 label: Text('Tags'),
               ),
               ElevatedButton.icon(
+                onPressed: _showAddToWorkspaceSheet,
+                icon: Icon(Icons.workspaces_outlined, size: 24.0),
+                label: Text('Space'),
+              ),
+              ElevatedButton.icon(
                 icon: SvgPicture.asset(
                   'assets/icons/chat.svg',
                   width: 30,
@@ -629,6 +717,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
     ]);
   }
 
+  // Not used currently
   Widget getFooter() {
     var size = MediaQuery.of(context).size;
     return Container(
@@ -665,6 +754,220 @@ class _CardDetailPageState extends State<CardDetailPage> {
             )
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ───���──────────────────────────────────────────────────────────────────────────
+// Add to Workspace sheet
+// ─────��─────────────────────────────────────────────────────��──────────────────
+
+class _AddToWorkspaceSheet extends StatefulWidget {
+  const _AddToWorkspaceSheet({
+    required this.workspaces,
+    required this.recordId,
+  });
+  final List<WorkspaceEntry> workspaces;
+  final int recordId;
+
+  @override
+  State<_AddToWorkspaceSheet> createState() => _AddToWorkspaceSheetState();
+}
+
+class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
+  final _ws = WorkspaceService.instance;
+  late List<WorkspaceEntry> _workspaces;
+
+  @override
+  void initState() {
+    super.initState();
+    _workspaces = List.from(widget.workspaces);
+  }
+
+  Future<void> _createAndAdd() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController(text: 'Workspace');
+        return AlertDialog(
+          backgroundColor: MyColors.primaryColor,
+          title: const Text('New workspace', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Name',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+              filled: true,
+              fillColor: MyColors.secondaryColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: TextStyle(color: Colors.white.withValues(alpha: 0.5)) is Widget
+                  ? const Text('Cancel')
+                  : Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, c.text.trim()),
+              child: const Text('Create & Add', style: TextStyle(color: MyColors.fivyColor)),
+            ),
+          ],
+        );
+      },
+    );
+    if (name == null || name.isEmpty) return;
+    final id = await _ws.createWorkspace(name);
+    await _ws.addRecord(id, widget.recordId);
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added to "$name"'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _addToWorkspace(WorkspaceEntry w) async {
+    if (w.id == null) return;
+    await _ws.addRecord(w.id!, widget.recordId);
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added to "${w.name}"'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 12, 12),
+            child: Row(
+              children: [
+                const Icon(Icons.workspaces_outlined, color: Colors.white70, size: 22),
+                const SizedBox(width: 10),
+                const Text(
+                  'Add to Workspace',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _createAndAdd,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('New'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: MyColors.fivyColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Workspace list
+          if (_workspaces.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(Icons.workspaces_outlined, size: 40, color: Colors.white.withValues(alpha: 0.2)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No workspaces yet',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 15),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap "New" to create one',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                  ),
+                ],
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                itemCount: _workspaces.length,
+                itemBuilder: (ctx, i) {
+                  final w = _workspaces[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Material(
+                      color: MyColors.secondaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _addToWorkspace(w),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Icon(Icons.folder_outlined, color: Colors.white70, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  w.name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Icon(Icons.add_circle_outline, color: MyColors.fivyColor, size: 22),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
       ),
     );
   }

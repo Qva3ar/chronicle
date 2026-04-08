@@ -111,6 +111,8 @@ class RecordService {
     _isLockedSubject.add(false);
   }
 
+  int? getCurrentRecordId() => _currentRecordId;
+
   void setCurrentRecordId(int? recordId) {
     if (recordId != null) {
       _currentRecordId = recordId;
