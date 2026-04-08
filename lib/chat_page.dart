@@ -16,11 +16,13 @@ import 'package:chrono/services/messages.service.dart';
 import 'package:chrono/shared/instructions-block.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/shared/tag_selection_dialog.dart';
+import 'package:chrono/shared/api-key-popup.dart';
 
 import 'package:chrono/helpers/api-key-options.dart';
 import 'db_manager.dart';
 import 'models/chat-message.dart';
 import 'package:chrono/ai/ai_client.dart';
+import 'package:chrono/ai/context_builder.dart';
 import 'dart:convert';
 
 class ChatPage extends StatefulWidget {
@@ -42,7 +44,7 @@ class _ChatPageState extends State<ChatPage> {
   List<int> selectedTagIds = []; // Store selected tag IDs for AI context
   final TextEditingController _textController = TextEditingController();
   final dbHelper = DatabaseHelper.instance;
-  late StreamSubscription<OpenAIStreamChatCompletionModel> stream;
+  late StreamSubscription<String> stream;
 
   double tokenCount = 0;
   bool isTokenCounting = false;
@@ -290,10 +292,9 @@ class _ChatPageState extends State<ChatPage> {
 
           final completer = Completer<void>();
 
-          stream = gptService.completionStream(_messages, chunkSystemMessages).listen((event) {
-            final content = event.choices.first.delta.content;
-            if (content != null && content.isNotEmpty) {
-              accumulator += content[0].text ?? '';
+          stream = gptService.completionStream(_messages, chunkSystemMessages).listen((textChunk) {
+            if (textChunk.isNotEmpty) {
+              accumulator += textChunk;
             }
 
             _messages.first.content = accumulator;
@@ -348,17 +349,185 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _showModelSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardColor,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final geminiModels = apiKeyOptions.where((opt) => opt.value.isNotEmpty && opt.provider == 'gemini').toList();
+        final openAiModels = apiKeyOptions.where((opt) => opt.value.isNotEmpty && opt.provider != 'gemini').toList();
+
+        Widget buildSection(String title, IconData groupIcon, List<ApiKeyOption> models) {
+          if (models.isEmpty) return const SizedBox();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+                child: Row(
+                  children: [
+                    Icon(groupIcon, size: 16, color: MyColors.orangeDivider),
+                    const SizedBox(width: 8),
+                    Text(
+                      title.toUpperCase(),
+                      style: const TextStyle(
+                        color: textPrimary, 
+                        fontSize: 12, 
+                        fontWeight: FontWeight.bold, 
+                        letterSpacing: 1.2
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ...models.map((option) {
+                final isSelected = gptNoteBindService.getModel == option.value;
+                final isGemini = option.provider == 'gemini';
+                
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0.0),
+                  onTap: () {
+                    gptNoteBindService.setModel(option.value);
+                    setState(() {}); 
+                    Navigator.pop(context);
+                    getUserNotes(); // Recalculate price if context is selected
+                  },
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? MyColors.orangeDivider.withAlpha(50) : surfaceElevated,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isGemini ? Icons.auto_awesome : Icons.psychology, 
+                      color: isSelected ? MyColors.orangeDivider : textMuted,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    option.label, 
+                    style: TextStyle(
+                      color: isSelected ? MyColors.orangeDivider : textPrimary,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    )
+                  ),
+                  subtitle: option.speedLabel != null 
+                    ? Text(option.speedLabel!, style: const TextStyle(color: textMuted, fontSize: 12)) 
+                    : null,
+                  trailing: isSelected 
+                    ? const Icon(Icons.check_circle, color: MyColors.orangeDivider, size: 20) 
+                    : null,
+                );
+              }).toList(),
+            ],
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Text(
+                    "Select AI Model",
+                    style: TextStyle(color: textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        buildSection("Google Gemini", Icons.auto_awesome, geminiModels),
+                        buildSection("OpenAI", Icons.psychology, openAiModels),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(color: cardBorder, height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tileColor: surfaceElevated,
+                    onTap: () {
+                      Navigator.pop(context);
+                      showDialog(context: context, builder: (_) => ApiKeyPopup()).then((_) {
+                        setState(() {});
+                        getUserNotes(); // Refresh token cost if rate changed
+                      });
+                    },
+                    leading: const Icon(Icons.key, color: textPrimary),
+                    title: const Text("API Keys Settings", style: TextStyle(color: textPrimary)),
+                    trailing: const Icon(Icons.chevron_right, color: textMuted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentModelOption = apiKeyOptions.firstWhere(
+      (e) => e.value == gptNoteBindService.getModel, 
+      orElse: () => apiKeyOptions.first
+    );
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('AI Coach', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: GestureDetector(
+          onTap: _showModelSelector,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('AI Coach', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  Row(
+                    children: [
+                      Text(
+                        gptNoteBindService.getModel.isNotEmpty 
+                            ? currentModelOption.label 
+                            : 'Select Model', 
+                        style: const TextStyle(fontSize: 12, color: MyColors.orangeDivider)
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.keyboard_arrow_down, size: 14, color: MyColors.orangeDivider),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
         backgroundColor: bgColor,
         foregroundColor: textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: textPrimary),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune, size: 22, color: textMuted),
+            padding: const EdgeInsets.only(right: 8),
+            onPressed: _showModelSelector,
+          )
+        ],
       ),
       body: Column(
         mainAxisSize: MainAxisSize.min,
@@ -663,14 +832,11 @@ class _ChatPageState extends State<ChatPage> {
       //_messages as string
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = gptService.completionStream(_messages, _systemMessages).listen((event) {
-        final content = event.choices.first.delta.content;
-        //print(content);
-        if (content != null && content.isNotEmpty) {
-          accumulator += content[0].text ?? '';
+      stream = gptService.completionStream(_messages, _systemMessages).listen((textChunk) {
+        if (textChunk.isNotEmpty) {
+          accumulator += textChunk;
         }
 
-        if (event.choices.first.finishReason == 'stop') {}
         _messages.first.content = accumulator;
         setState(() {});
       }, onError: (err) async {
@@ -755,6 +921,12 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _extractAndStoreInterest(String text) async {
     try {
+      final settings = await ContextBuilder.instance.loadSettings();
+      if (!settings.insightEnabled) {
+        print('[Interests] Skip: AI insights are disabled in settings.');
+        return;
+      }
+
       final trimmed = text.trim();
       if (trimmed.isEmpty) {
         print('[Interests] Skip empty chat message');

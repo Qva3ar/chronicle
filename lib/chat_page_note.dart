@@ -39,7 +39,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
   ];
   var _awaitingResponse = false;
   var includeNoteText = true;
-  late StreamSubscription<OpenAIStreamChatCompletionModel> stream;
+  late StreamSubscription<String> stream;
 
   late final TextEditingController _textController;
   GPTService gptService = GPTService();
@@ -178,22 +178,18 @@ class _ChatPageNoteState extends State<ChatPageNote> {
       }
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = await gptService
+      stream = gptService
           .completionStream(_messages, _systemMessages)
-          .listen((event) {
-        final content = event.choices.first.delta.content;
-        // //print(content);
-        accumulator += content![0].text ?? '';
+          .listen((textChunk) {
+        accumulator += textChunk;
 
-        if (event.choices.first.finishReason == 'stop') {
-          widget.messageService
-              .addMessage(ChatMessage(accumulator, false, false));
-        }
         setState(() {
           _messages.first.content = accumulator; // Вставка в начало списка
           _awaitingResponse = false;
         });
       }, onDone: () {
+        widget.messageService
+            .addMessage(ChatMessage(accumulator, false, false));
         setState(() {
           _awaitingResponse = false;
         });

@@ -298,17 +298,26 @@ class _TagsManagerState extends State<TagsManager> {
         // constraints.maxHeight here is the *current* sheet display height
         // (= fraction × scaffoldBodyHeight), not the max possible height.
         // Recover the actual scaffold body height by dividing by the current fraction.
-        // Then compute the true keyboard overlap with the sheet:
-        //   overlap = keyboardHeight - (screenHeight - scaffoldBodyHeight - statusBarHeight)
-        final screenHeight = MediaQuery.of(context).size.height;
-        final statusBarHeight = MediaQuery.of(context).viewPadding.top;
+        // Then compute the true keyboard overlap with the sheet.
+        final mediaQuery = MediaQuery.of(context);
+        final screenHeight = mediaQuery.size.height;
+        final topPadding = mediaQuery.viewPadding.top;
         final ctrl = widget.sheetDragController;
         final fraction = (ctrl != null && ctrl.isAttached && ctrl.size > 0.01) ? ctrl.size : null;
         final scaffoldBodyHeight = fraction != null
             ? constraints.maxHeight / fraction
             : constraints.maxHeight;
-        final effectiveBottomPadding = (keyboardHeight - screenHeight + scaffoldBodyHeight + statusBarHeight)
-            .clamp(0.0, keyboardHeight);
+        // The Scaffold body occupies only part of the screen (after AppBar, bottomNav,
+        // safe areas). The gap below the body =
+        //   screenHeight - topPadding - kToolbarHeight - scaffoldBodyHeight.
+        // The keyboard must exceed this gap to actually overlap the sheet.
+        final gapBelowBody = screenHeight - topPadding - kToolbarHeight - scaffoldBodyHeight;
+        // Extra offset to clear the keyboard's autocomplete suggestion bar,
+        // which is NOT included in viewInsets.bottom.
+        const kSuggestionBarHeight = 44.0;
+        final rawPadding = keyboardHeight - gapBelowBody
+            + (keyboardHeight > 0 ? kSuggestionBarHeight : 0);
+        final effectiveBottomPadding = rawPadding.clamp(0.0, keyboardHeight + kSuggestionBarHeight);
 
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
