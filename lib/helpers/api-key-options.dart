@@ -11,6 +11,7 @@ class ApiKeyOption {
   final int? tpm; // Tokens per minute
   final int? rpm; // Requests per minute
   final int? tpd; // Tokens per day
+  final String provider; // openai or gemini
 
   /// Краткая метка относительно других моделей в этом списке (TTFT / ожидание до стрима).
   final String? speedLabel;
@@ -23,6 +24,7 @@ class ApiKeyOption {
     this.rpm,
     this.tpd,
     this.speedLabel,
+    this.provider = 'openai',
   });
 
   /// Подпись для UI (выпадающий список и т.п.).
@@ -32,6 +34,35 @@ class ApiKeyOption {
 
 final List<ApiKeyOption> apiKeyOptions = [
   ApiKeyOption(label: '', value: '', price: 0),
+  // Gemini options
+  ApiKeyOption(
+    label: 'Gemini 2.5 Pro',
+    value: 'gemini-2.5-pro',
+    price: 0,
+    provider: 'gemini',
+    speedLabel: 'самый мощный',
+  ),
+  ApiKeyOption(
+    label: 'Gemini 2.5 Flash',
+    value: 'gemini-2.5-flash',
+    price: 0,
+    provider: 'gemini',
+    speedLabel: 'очень быстрый',
+  ),
+  ApiKeyOption(
+    label: 'Gemini 1.5 Pro',
+    value: 'gemini-1.5-pro',
+    price: 0,
+    provider: 'gemini',
+    speedLabel: 'мощный',
+  ),
+  ApiKeyOption(
+    label: 'Gemini 1.5 Flash',
+    value: 'gemini-1.5-flash',
+    price: 0,
+    provider: 'gemini',
+    speedLabel: 'быстрый',
+  ),
   // Latest recommended models (v5)
   ApiKeyOption(
     label: 'GPT-5',

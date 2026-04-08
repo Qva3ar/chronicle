@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:dart_openai/dart_openai.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
+import 'package:chrono/helpers/api-key-options.dart';
 
 class AiClient {
   AiClient._();
@@ -37,10 +39,13 @@ class AiClient {
       print('AiClient: ❌ API key or model not configured!');
       print('AiClient: API key provided: ${_bind.isKeyProvided()}');
       print('AiClient: Model: ${_bind.getModel}');
-      throw Exception('OpenAI API key or model not configured. Please set them in app settings.');
+      throw Exception('API key or model not configured. Please set them in app settings.');
     }
 
-    print('AiClient: ✅ Configuration OK - Key: ${_bind.isKeyProvided()}, Model: ${_bind.getModel}');
+    final selectedOption = apiKeyOptions.firstWhere((item) => item.value == _bind.getModel, orElse: () => apiKeyOptions.first);
+    final isGemini = selectedOption.provider == 'gemini';
+
+    print('AiClient: ✅ Configuration OK - Key configured: ${_bind.isKeyProvided()}, Model: ${_bind.getModel}, Provider: ${selectedOption.provider}');
     await _throttle();
 
     int attempt = 0;
@@ -48,51 +53,80 @@ class AiClient {
 
     while (true) {
       try {
-        print('AiClient: 🔄 Attempt ${attempt + 1}/$_maxRetries - Calling OpenAI API...');
+        print('AiClient: 🔄 Attempt ${attempt + 1}/$_maxRetries - Calling API...');
+        
+        String content = '';
 
-        final messages = [
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.system,
-            content: [
-              OpenAIChatCompletionChoiceMessageContentItemModel(
-                type: 'text',
-                text: systemPrompt,
-              )
-            ],
-          ),
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.user,
-            content: [
-              OpenAIChatCompletionChoiceMessageContentItemModel(
-                type: 'text',
-                text: userPrompt,
-              )
-            ],
-          ),
-        ];
+        if (isGemini) {
+          final model = GenerativeModel(
+            model: _bind.getModel,
+            apiKey: _bind.getGeminiKey,
+            systemInstruction: Content.system(systemPrompt),
+            generationConfig: GenerationConfig(
+              temperature: temperature,
+              responseMimeType: 'application/json',
+            ),
+          );
 
-        final OpenAIChatCompletionModel response = temperature == null
-            ? await OpenAI.instance.chat.create(
-                model: _bind.getModel,
-                messages: messages,
-              ).timeout(const Duration(seconds: 120))
-            : await OpenAI.instance.chat.create(
-                model: _bind.getModel,
-                temperature: temperature,
-                messages: messages,
-              ).timeout(const Duration(seconds: 120));
+          final response = await model.generateContent([
+            Content.text(userPrompt),
+          ]).timeout(const Duration(seconds: 120));
 
-        final String content = response.choices.first.message.content?.first.text ?? '';
+          content = response.text ?? '';
+        } else {
+          final messages = [
+            OpenAIChatCompletionChoiceMessageModel(
+              role: OpenAIChatMessageRole.system,
+              content: [
+                OpenAIChatCompletionChoiceMessageContentItemModel(
+                  type: 'text',
+                  text: systemPrompt,
+                )
+              ],
+            ),
+            OpenAIChatCompletionChoiceMessageModel(
+              role: OpenAIChatMessageRole.user,
+              content: [
+                OpenAIChatCompletionChoiceMessageContentItemModel(
+                  type: 'text',
+                  text: userPrompt,
+                )
+              ],
+            ),
+          ];
+
+          final OpenAIChatCompletionModel response = temperature == null
+              ? await OpenAI.instance.chat.create(
+                  model: _bind.getModel,
+                  messages: messages,
+                ).timeout(const Duration(seconds: 120))
+              : await OpenAI.instance.chat.create(
+                  model: _bind.getModel,
+                  temperature: temperature,
+                  messages: messages,
+                ).timeout(const Duration(seconds: 120));
+
+          content = response.choices.first.message.content?.first.text ?? '';
+        }
+
         print('AiClient: ✅ API call successful! Response length: ${content.length} chars');
         _markRequest();
         return content.trim();
       } catch (e) {
         print('AiClient: ❌ API call attempt ${attempt + 1} failed: $e');
         attempt += 1;
-        if (attempt >= _maxRetries) {
-          print('AiClient: ❌ All retry attempts exhausted. Final error: $e');
+        
+        final errorString = e.toString().toLowerCase();
+        final isFatalError = errorString.contains('quota') || 
+                             errorString.contains('429') || 
+                             errorString.contains('rate limit') ||
+                             errorString.contains('api key');
+
+        if (isFatalError || attempt >= _maxRetries) {
+          print('AiClient: ❌ Stopping retries. Final error: $e');
           rethrow;
         }
+        
         // Exponential backoff with jitter
         final jitterMs = Random().nextInt(250);
         final delayDuration = backoff + Duration(milliseconds: jitterMs);

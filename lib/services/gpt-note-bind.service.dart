@@ -1,7 +1,8 @@
 import 'package:dart_openai/dart_openai.dart';
 import 'package:chrono/models/chat-context-message.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import RxDart
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:chrono/helpers/api-key-options.dart';
 
 class GPTNoteBindService {
   // Private constructor
@@ -16,6 +17,7 @@ class GPTNoteBindService {
   }
 
   String key = '';
+  String geminiKey = '';
   String model = '';
 
   //getter setter for key
@@ -23,11 +25,23 @@ class GPTNoteBindService {
   setKey(String key) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     OpenAI.apiKey = key;
-    await prefs.setString('key', key); // Save the model to SharedPreferences
+    await prefs.setString('key', key); // Save the key to SharedPreferences
     this.key = key;
   }
 
+  //getter setter for geminiKey
+  String get getGeminiKey => geminiKey;
+  setGeminiKey(String key) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('gemini_key', key); // Save the gemini_key to SharedPreferences
+    this.geminiKey = key;
+  }
+
   bool isKeyProvided() {
+    final selectedOption = apiKeyOptions.firstWhere((item) => item.value == model, orElse: () => apiKeyOptions.first);
+    if (selectedOption.provider == 'gemini') {
+      return geminiKey.isNotEmpty;
+    }
     return key.isNotEmpty;
   }
 
@@ -45,7 +59,9 @@ class GPTNoteBindService {
     this.model =
         prefs.getString('model') ?? ''; // Load the model from SharedPreferences
     this.key =
-        prefs.getString('key') ?? ''; // Load the model from SharedPreferences
+        prefs.getString('key') ?? ''; // Load the key
+    this.geminiKey =
+        prefs.getString('gemini_key') ?? ''; // Load the gemini_key
     OpenAI.apiKey = this.key;
   }
 

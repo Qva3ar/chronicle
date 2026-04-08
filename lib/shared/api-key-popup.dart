@@ -11,18 +11,20 @@ class ApiKeyPopup extends StatefulWidget {
 
 class _ApiKeyPopupState extends State<ApiKeyPopup> {
   String apiKey = '';
+  String geminiKey = '';
   String selectedModel = ''; // Default model
 
   String url1 = 'https://www.merge.dev/blog/chatgpt-api-key';
   String url2 = 'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
+  String geminiUrl = 'https://aistudio.google.com/app/apikey';
 
   GPTNoteBindService gptNoteBindService = GPTNoteBindService();
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     apiKey = gptNoteBindService.getKey;
+    geminiKey = gptNoteBindService.getGeminiKey;
     selectedModel = gptNoteBindService.getModel;
   }
 
@@ -38,22 +40,15 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
   Widget build(BuildContext context) {
     final selectedOption = apiKeyOptions.firstWhere((item) => item.value == selectedModel,
         orElse: () => apiKeyOptions.first);
-    return AlertDialog(
-      title: Text('Enter GPT API Key'),
-      //width fit content
+    
+    // We can highlight the corresponding key field based on the selected model's provider
+    final isGeminiModel = selectedOption.provider == 'gemini';
 
+    return AlertDialog(
+      title: Text('API Access Settings'),
       content: SingleChildScrollView(
         child: Column(
           children: [
-            TextField(
-              controller: TextEditingController(text: apiKey),
-              maxLines: null,
-              onChanged: (value) {
-                apiKey = value;
-              },
-              decoration: InputDecoration(labelText: 'API Key'),
-            ),
-            SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: selectedModel,
               items: apiKeyOptions
@@ -95,20 +90,57 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
                 ),
               ),
             ],
-            SizedBox(
-              height: 16,
-            ),
-            TextButton(
-              onPressed: () {
-                _launchUrl(url1);
+            SizedBox(height: 16),
+            Divider(),
+            SizedBox(height: 8),
+            // OpenAI Key Field
+            TextField(
+              controller: TextEditingController(text: apiKey),
+              maxLines: null,
+              onChanged: (value) {
+                apiKey = value;
               },
-              child: Text('How to get API Key'),
+              decoration: InputDecoration(
+                labelText: 'OpenAI API Key',
+                labelStyle: TextStyle(
+                  fontWeight: !isGeminiModel ? FontWeight.bold : FontWeight.normal,
+                  color: !isGeminiModel ? Theme.of(context).colorScheme.primary : null,
+                )
+              ),
             ),
-            TextButton(
-              onPressed: () {
-                _launchUrl(url2);
+            SizedBox(height: 16),
+            // Gemini Key Field
+            TextField(
+              controller: TextEditingController(text: geminiKey),
+              maxLines: null,
+              onChanged: (value) {
+                geminiKey = value;
               },
-              child: Text('How to get API Key 2'),
+              decoration: InputDecoration(
+                labelText: 'Gemini API Key',
+                labelStyle: TextStyle(
+                  fontWeight: isGeminiModel ? FontWeight.bold : FontWeight.normal,
+                  color: isGeminiModel ? Theme.of(context).colorScheme.primary : null,
+                )
+              ),
+            ),
+            SizedBox(height: 16),
+            Wrap(
+              spacing: 8.0,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    _launchUrl(url1);
+                  },
+                  child: Text('Get OpenAI Key'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _launchUrl(geminiUrl);
+                  },
+                  child: Text('Get Gemini Key'),
+                ),
+              ],
             ),
           ],
         ),
@@ -122,9 +154,8 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
         ),
         TextButton(
           onPressed: () {
-            // Use the apiKey as needed (e.g., send it to an API)
-            //print('API Key entered: $apiKey');
             gptNoteBindService.setKey(apiKey);
+            gptNoteBindService.setGeminiKey(geminiKey);
             gptNoteBindService.setModel(selectedModel);
             Navigator.of(context).pop();
           },

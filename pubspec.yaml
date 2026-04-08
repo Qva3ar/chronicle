@@ -63,6 +63,7 @@ dependencies:
   extended_text_field: ^16.0.2
   fl_chart: ^1.1.1
   adapty_flutter: ^3.6.1
+  google_generative_ai: ^0.4.7
 
 dev_dependencies:
   flutter_launcher_icons: "^0.13.1"
