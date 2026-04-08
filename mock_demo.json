@@ -1,0 +1,765 @@
+{
+    "notes": [
+        {
+            "_id": 2911,
+            "title": "Morning meditation",
+            "text": "{\"goal_id\":1,\"time_minutes\":45,\"status\":\"active\"}",
+            "created_at": 1775271887028,
+            "record_type": "goal",
+            "goal_id": 1,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2912,
+            "title": "Productivity: 8.7/10",
+            "text": "{\"score\":8.7,\"date\":\"2026-04-04\",\"total_weight\":27,\"completed_weight\":23.49,\"routines_done\":10,\"routines_total\":10,\"goals_progress\":0.78}",
+            "created_at": 1775272110115,
+            "record_type": "productivity",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2913,
+            "title": null,
+            "text": "Completed routine: morning stretching",
+            "created_at": 1775273556801,
+            "record_type": "routine",
+            "goal_id": null,
+            "routine_id": 4,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2930,
+            "title": "Newsletter idea",
+            "text": "Had an amazing idea during meditation today - what if I start a weekly newsletter about personal growth? Need to think about this more.",
+            "created_at": 1775274200000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                44,
+                60
+            ]
+        },
+        {
+            "_id": 2914,
+            "title": null,
+            "text": "Completed routine: drink green smoothie",
+            "created_at": 1775275744730,
+            "record_type": "routine",
+            "goal_id": null,
+            "routine_id": 14,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2931,
+            "title": null,
+            "text": "\"The only way to do great work is to love what you do.\" - Steve Jobs",
+            "created_at": 1775276500000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                14,
+                42
+            ]
+        },
+        {
+            "_id": 2932,
+            "title": null,
+            "text": "Completed routine: 10 min cold shower",
+            "created_at": 1775278000000,
+            "record_type": "routine",
+            "goal_id": null,
+            "routine_id": 17,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2933,
+            "title": "Coffee with David",
+            "text": "Met with David at the coffee shop. He recommended the book \"Deep Work\" by Cal Newport. Adding it to my reading list.",
+            "created_at": 1775280000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                55,
+                56
+            ]
+        },
+        {
+            "_id": 2934,
+            "title": "Read 30 pages daily",
+            "text": "{\"goal_id\":15,\"time_minutes\":35,\"status\":\"active\"}",
+            "created_at": 1775282000000,
+            "record_type": "goal",
+            "goal_id": 15,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2935,
+            "title": "Overnight oats recipe",
+            "text": "Tried a new recipe for overnight oats with chia seeds and blueberries. Turned out great, saving this for meal prep Sundays.",
+            "created_at": 1775284000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                57,
+                49
+            ]
+        },
+        {
+            "_id": 2916,
+            "title": null,
+            "text": "Pick up the kids from school and drop off the package at the post office",
+            "created_at": 1775289934435,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                52
+            ]
+        },
+        {
+            "_id": 2945,
+            "title": null,
+            "text": "Call the dentist — reschedule appointment to next Friday",
+            "created_at": 1775290200000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                52
+            ]
+        },
+        {
+            "_id": 2936,
+            "title": null,
+            "text": "Completed routine: walk 8000 steps",
+            "created_at": 1775290500000,
+            "record_type": "routine",
+            "goal_id": null,
+            "routine_id": 18,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2946,
+            "title": "Leg day workout",
+            "text": "Squats 4x12 (80kg)\nLeg press 3x15 (120kg)\nLunges 3x12 each\nCalf raises 4x20\nStretching 10 min\n\nFelt strong today, ready to increase squat weight next session.",
+            "created_at": 1775291000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                62,
+                57
+            ]
+        },
+        {
+            "_id": 2937,
+            "title": "Sleep optimization tips",
+            "text": "Interesting podcast episode on sleep optimization. Key points:\n- No screens 1 hour before bed\n- Keep room at 18-19 C\n- Consistent wake up time matters more than bedtime",
+            "created_at": 1775293000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                57,
+                58
+            ]
+        },
+        {
+            "_id": 2938,
+            "title": "My Pomodoro setup",
+            "text": "Finally figured out the Pomodoro technique that works for me: 40 min work / 10 min break instead of the classic 25/5. Game changer for deep focus sessions.",
+            "created_at": 1775296000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                30,
+                49
+            ]
+        },
+        {
+            "_id": 2947,
+            "title": "Monthly budget review",
+            "text": "Income: $5,200\nFixed expenses: $2,800\nVariable: $1,100\nSavings: $1,300 (25%)\n\nGood month! Hit the 25% savings target. Need to cut down on eating out next month.",
+            "created_at": 1775297000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                61
+            ]
+        },
+        {
+            "_id": 2919,
+            "title": "James Clear on habits",
+            "text": "https://youtu.be/okBmeYSkD3E?si=UaGVWyeZK577TmIs\n\nGreat talk on building habits by James Clear.\nKey takeaway: focus on systems, not goals.",
+            "created_at": 1775302002068,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                8,
+                50
+            ]
+        },
+        {
+            "_id": 2940,
+            "title": null,
+            "text": "Week 3 of waking up at 5:30 AM. Energy levels are way better. The trick was going to bed by 10 PM consistently.",
+            "created_at": 1775303500000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                44,
+                30
+            ]
+        },
+        {
+            "_id": 2941,
+            "title": "Gift ideas for Mom",
+            "text": "Gift ideas for Mom's birthday next month:\n- Kindle Paperwhite\n- Cooking class subscription\n- New gardening tools set",
+            "created_at": 1775306500000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                23,
+                59
+            ]
+        },
+        {
+            "_id": 2922,
+            "title": "Spanish B1 course",
+            "text": "{\"goal_id\":12,\"time_minutes\":15,\"status\":\"active\"}",
+            "created_at": 1775308893375,
+            "record_type": "goal",
+            "goal_id": 12,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": []
+        },
+        {
+            "_id": 2942,
+            "title": null,
+            "text": "Note to self: the best time to plant a tree was 20 years ago. The second best time is now. Stop overthinking and just start.",
+            "created_at": 1775310000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                42,
+                14
+            ]
+        },
+        {
+            "_id": 2943,
+            "title": "Grocery list",
+            "text": "Grocery list for the week:\n- Avocados\n- Greek yogurt\n- Salmon\n- Spinach\n- Brown rice\n- Almonds\n- Blueberries",
+            "created_at": 1775312000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                57
+            ]
+        },
+        {
+            "_id": 2944,
+            "title": null,
+            "text": "Watched a documentary about minimalism tonight. Really resonated with the idea of owning less but experiencing more. Want to start decluttering this weekend.",
+            "created_at": 1775316000000,
+            "record_type": "regular",
+            "goal_id": null,
+            "routine_id": null,
+            "is_locked": 0,
+            "tags": [
+                44,
+                60
+            ]
+        }
+    ],
+    "tags": [
+        {
+            "_id": 52,
+            "name": "Chrono",
+            "color": "4283452749",
+            "is_system": 1
+        },
+        {
+            "_id": 42,
+            "name": "motivation",
+            "color": "4287349578",
+            "is_system": 0
+        },
+        {
+            "_id": 2,
+            "name": "timeline",
+            "color": "4288585374",
+            "is_system": 0
+        },
+        {
+            "_id": 14,
+            "name": "quote",
+            "color": "4286141768",
+            "is_system": 0
+        },
+        {
+            "_id": 49,
+            "name": "experiment",
+            "color": "4283215696",
+            "is_system": 0
+        },
+        {
+            "_id": 30,
+            "name": "productivity",
+            "color": "4294961979",
+            "is_system": 0
+        },
+        {
+            "_id": 23,
+            "name": "family",
+            "color": "4278228616",
+            "is_system": 0
+        },
+        {
+            "_id": 44,
+            "name": "personal",
+            "color": "4294951175",
+            "is_system": 0
+        },
+        {
+            "_id": 8,
+            "name": "learning",
+            "color": "4280391411",
+            "is_system": 0
+        },
+        {
+            "_id": 50,
+            "name": "video",
+            "color": "4293467747",
+            "is_system": 0
+        },
+        {
+            "_id": 55,
+            "name": "books",
+            "color": "4282339765",
+            "is_system": 0
+        },
+        {
+            "_id": 56,
+            "name": "meeting",
+            "color": "4285887861",
+            "is_system": 0
+        },
+        {
+            "_id": 57,
+            "name": "health",
+            "color": "4283215696",
+            "is_system": 0
+        },
+        {
+            "_id": 58,
+            "name": "sleep",
+            "color": "4281558691",
+            "is_system": 0
+        },
+        {
+            "_id": 59,
+            "name": "ideas",
+            "color": "4294940672",
+            "is_system": 0
+        },
+        {
+            "_id": 60,
+            "name": "mindset",
+            "color": "4286578816",
+            "is_system": 0
+        },
+        {
+            "_id": 61,
+            "name": "finance",
+            "color": "4278238420",
+            "is_system": 0
+        },
+        {
+            "_id": 62,
+            "name": "workout",
+            "color": "4294198070",
+            "is_system": 0
+        }
+    ],
+    "workspaces": [
+        {
+            "name": "Book notes: Atomic Habits",
+            "document_markdown": "# Atomic Habits - Key Takeaways\n\n## The 4 Laws of Behavior Change\n\n### 1. Make it Obvious\n- Use implementation intentions: \"I will [behavior] at [time] in [location]\"\n- Use habit stacking: \"After [current habit], I will [new habit]\"\n- Design your environment for success\n\n### 2. Make it Attractive\n- Use temptation bundling\n- Join a culture where your desired behavior is normal\n- Create a motivation ritual\n\n### 3. Make it Easy\n- Reduce friction for good habits\n- Use the Two-Minute Rule\n- Automate your habits when possible\n\n### 4. Make it Satisfying\n- Use reinforcement: reward yourself immediately\n- Use a habit tracker\n- Never miss twice\n\n## Favorite Quotes\n> \"You do not rise to the level of your goals. You fall to the level of your systems.\"\n\n> \"Every action you take is a vote for the type of person you wish to become.\"\n",
+            "updated_at": 1775160259203,
+            "split_top_ratio": 0.39317156616865484,
+            "linked_record_ids": [
+                2919,
+                2940
+            ]
+        },
+        {
+            "name": "Weekly planning template",
+            "document_markdown": "## This Week's Focus Areas\n\n1. Complete the Spanish B1 module 5\n2. Read 3 chapters of \"Deep Work\"\n3. Finish the home office setup\n4. Schedule dentist appointment\n5. Meal prep for the week\n\n## Reflection\n- What went well last week?\n- What could be improved?\n- What am I grateful for?\n",
+            "updated_at": 1775137555325,
+            "split_top_ratio": 0.55,
+            "linked_record_ids": []
+        },
+        {
+            "name": "Morning routine checklist",
+            "document_markdown": "## My Ideal Morning (5:30 AM - 8:00 AM)\n\n### Wake up & Hydrate (5:30)\n- Glass of water with lemon\n- 5 minutes of deep breathing\n\n### Move (5:45)\n- 20 min stretching or yoga\n- Cold shower\n\n### Mind (6:15)\n- 15 min meditation\n- 10 min journaling\n\n### Learn (6:45)\n- 15 min Spanish lesson\n- 15 min reading\n\n### Plan (7:15)\n- Review today's tasks\n- Set top 3 priorities\n- Check calendar\n\n### Fuel (7:30)\n- Healthy breakfast\n- Vitamins & supplements",
+            "updated_at": 1775124039600,
+            "split_top_ratio": 0.55,
+            "linked_record_ids": []
+        },
+        {
+            "name": "Stoic philosophy notes",
+            "document_markdown": "# Key Stoic Principles\n\n## Dichotomy of Control\nFocus only on what you can control: your thoughts, actions, and responses.\nLet go of what you cannot: other people's opinions, the weather, the past.\n\n## Memento Mori\nRemember that life is finite. This isn't morbid - it's motivating.\nUse it to prioritize what truly matters.\n\n## Amor Fati\nLove your fate. Everything that happens is an opportunity to practice virtue.\n\n## Favorite Quotes\n> \"The happiness of your life depends upon the quality of your thoughts.\" - Marcus Aurelius\n\n> \"We suffer more in imagination than in reality.\" - Seneca\n\n> \"It's not what happens to you, but how you react to it that matters.\" - Epictetus\n\n## Books to Read\n- Meditations by Marcus Aurelius\n- Letters from a Stoic by Seneca\n- Discourses by Epictetus\n- The Daily Stoic by Ryan Holiday",
+            "updated_at": 1775121474613,
+            "split_top_ratio": 0.55,
+            "linked_record_ids": []
+        }
+    ],
+    "routines": [
+        {
+            "_id": 13,
+            "name": "Gratitude journaling",
+            "time": "06:00",
+            "days_of_week": "0,0,0,0,1,0,0",
+            "period_after": 780,
+            "interval": 100,
+            "is_done": 0,
+            "streak": 3,
+            "last_completed_date": null,
+            "show_streak": 0,
+            "previous_streak": 2,
+            "previous_last_completed_date": "2026-03-27",
+            "priority": 2
+        },
+        {
+            "_id": 15,
+            "name": "Shoulder exercises",
+            "time": "08:00",
+            "days_of_week": "1,0,1,0,1,0,0",
+            "period_after": 120,
+            "interval": 60,
+            "is_done": 1,
+            "streak": 3,
+            "last_completed_date": "2026-04-04",
+            "show_streak": 1,
+            "previous_streak": 2,
+            "previous_last_completed_date": "2026-04-01",
+            "priority": 2
+        },
+        {
+            "_id": 8,
+            "name": "Take vitamin D3",
+            "time": "09:00",
+            "days_of_week": "0,0,1,0,0,0,1",
+            "period_after": 60,
+            "interval": 20,
+            "is_done": 1,
+            "streak": 6,
+            "last_completed_date": "2026-04-04",
+            "show_streak": 1,
+            "previous_streak": 5,
+            "previous_last_completed_date": "2026-03-29",
+            "priority": 2
+        },
+        {
+            "_id": 17,
+            "name": "Cold shower",
+            "time": "06:30",
+            "days_of_week": "1,1,1,1,1,1,1",
+            "period_after": 60,
+            "interval": 15,
+            "is_done": 1,
+            "streak": 8,
+            "last_completed_date": "2026-04-04",
+            "show_streak": 1,
+            "previous_streak": 7,
+            "previous_last_completed_date": "2026-04-03",
+            "priority": 3
+        },
+        {
+            "_id": 18,
+            "name": "Walk 8000 steps",
+            "time": "12:00",
+            "days_of_week": "1,1,1,1,1,0,0",
+            "period_after": 480,
+            "interval": 60,
+            "is_done": 1,
+            "streak": 5,
+            "last_completed_date": "2026-04-04",
+            "show_streak": 1,
+            "previous_streak": 4,
+            "previous_last_completed_date": "2026-04-02",
+            "priority": 2
+        },
+        {
+            "_id": 19,
+            "name": "No phone first 30 min",
+            "time": "05:30",
+            "days_of_week": "1,1,1,1,1,1,1",
+            "period_after": 30,
+            "interval": 10,
+            "is_done": 1,
+            "streak": 13,
+            "last_completed_date": "2026-04-04",
+            "show_streak": 1,
+            "previous_streak": 12,
+            "previous_last_completed_date": "2026-04-04",
+            "priority": 3
+        }
+    ],
+    "goals": [
+        {
+            "_id": 1,
+            "title": "Morning meditation",
+            "hours": 1,
+            "minutes": 0,
+            "session_minutes": 30,
+            "is_active": 1,
+            "time_spent_seconds": 1620,
+            "session_resumed_timestamp_seconds": null,
+            "completed_at": null,
+            "archived_at": null,
+            "is_primary": 1,
+            "created_from_onboarding": 0,
+            "current_day_record_id": 2911,
+            "priority": 4
+        },
+        {
+            "_id": 2,
+            "title": "Spanish A1 - Duolingo",
+            "hours": 0,
+            "minutes": 30,
+            "session_minutes": 10,
+            "is_active": 0,
+            "time_spent_seconds": 0,
+            "session_resumed_timestamp_seconds": null,
+            "completed_at": null,
+            "archived_at": null,
+            "is_primary": 0,
+            "created_from_onboarding": 0,
+            "current_day_record_id": null,
+            "priority": 3
+        },
+        {
+            "_id": 12,
+            "title": "Spanish B1 course",
+            "hours": 1,
+            "minutes": 0,
+            "session_minutes": 15,
+            "is_active": 0,
+            "time_spent_seconds": 900,
+            "session_resumed_timestamp_seconds": null,
+            "completed_at": null,
+            "archived_at": null,
+            "is_primary": 0,
+            "created_from_onboarding": 0,
+            "current_day_record_id": 2922,
+            "priority": 3
+        },
+        {
+            "_id": 15,
+            "title": "Read 30 pages daily",
+            "hours": 0,
+            "minutes": 45,
+            "session_minutes": 20,
+            "is_active": 0,
+            "time_spent_seconds": 2100,
+            "session_resumed_timestamp_seconds": null,
+            "completed_at": null,
+            "archived_at": null,
+            "is_primary": 0,
+            "created_from_onboarding": 0,
+            "current_day_record_id": 2934,
+            "priority": 3
+        }
+    ],
+    "todos": [
+        {
+            "_id": 9,
+            "title": "Buy a new yoga mat",
+            "is_done": 0,
+            "target_datetime": null,
+            "created_at": 1767360392157,
+            "completed_at": null,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 12,
+            "title": "Dentist appointment",
+            "is_done": 0,
+            "target_datetime": 1775631600000,
+            "created_at": 1775200000000,
+            "completed_at": null,
+            "todo_type": "date",
+            "daily_reminder_enabled": 1,
+            "daily_reminder_time": "09:00",
+            "reminder_period_minutes": 1440,
+            "reminder_interval_minutes": 60
+        },
+        {
+            "_id": 18,
+            "title": "Submit project proposal",
+            "is_done": 0,
+            "target_datetime": 1775545200000,
+            "created_at": 1775100000000,
+            "completed_at": null,
+            "todo_type": "date",
+            "daily_reminder_enabled": 1,
+            "daily_reminder_time": "10:00",
+            "reminder_period_minutes": 60,
+            "reminder_interval_minutes": 30
+        },
+        {
+            "_id": 20,
+            "title": "Order new running shoes",
+            "is_done": 0,
+            "target_datetime": null,
+            "created_at": 1775250000000,
+            "completed_at": null,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 21,
+            "title": "Call insurance company",
+            "is_done": 0,
+            "target_datetime": 1775458800000,
+            "created_at": 1775300000000,
+            "completed_at": null,
+            "todo_type": "date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 22,
+            "title": "Prep weekly meal plan",
+            "is_done": 0,
+            "target_datetime": null,
+            "created_at": 1775310000000,
+            "completed_at": null,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 7,
+            "title": "Research best journaling apps",
+            "is_done": 1,
+            "target_datetime": null,
+            "created_at": 1765995079952,
+            "completed_at": 1767770407400,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 6,
+            "title": "Find a good morning meditation guide",
+            "is_done": 1,
+            "target_datetime": null,
+            "created_at": 1765995044318,
+            "completed_at": 1767770408743,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        },
+        {
+            "_id": 5,
+            "title": "Memorize 10 Spanish phrases",
+            "is_done": 1,
+            "target_datetime": null,
+            "created_at": 1765212940629,
+            "completed_at": 1765819056525,
+            "todo_type": "no_date",
+            "daily_reminder_enabled": 0,
+            "daily_reminder_time": null,
+            "reminder_period_minutes": null,
+            "reminder_interval_minutes": null
+        }
+    ],
+    "todo_reminders": [
+        {
+            "_id": 7,
+            "todo_id": 18,
+            "reminder_type": "1_hour_before",
+            "custom_offset_minutes": null,
+            "scheduled_at": 1775541600000
+        },
+        {
+            "_id": 6,
+            "todo_id": 12,
+            "reminder_type": "1_day_before",
+            "custom_offset_minutes": null,
+            "scheduled_at": 1775545200000
+        }
+    ],
+    "instructions": [
+        {
+            "_id": 1,
+            "text": "Summarize my note",
+            "visibility": 1
+        },
+        {
+            "_id": 2,
+            "text": "Translate to turkish",
+            "visibility": 0
+        },
+        {
+            "_id": 3,
+            "text": "Rewrite my note",
+            "visibility": 0
+        }
+    ]
+}
