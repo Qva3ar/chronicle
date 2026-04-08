@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 49;
+  static const int databaseVersion = 51;
   static const int pageSize = 20;
 }
 
@@ -1628,6 +1628,18 @@ class DatabaseHelper {
 
         log('Upgraded database to v49: Ensured all todo columns exist.');
       }
+
+      if (oldVersion < 50) {
+        log('Starting migration to v50: Lighten Chrono system tag color...');
+        await _insertChronoTag(db);
+        log('Upgraded database to v50: Lightened Chrono system tag color.');
+      }
+
+      if (oldVersion < 51) {
+        log('Starting migration to v51: Apply exact lightened original color...');
+        await _insertChronoTag(db);
+        log('Upgraded database to v51: Applied exact lightened original color.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1653,8 +1665,8 @@ class DatabaseHelper {
     }
   }
 
-  /// Official system "Chrono" tag color (ARGB 255,80,77,77).
-  static const String _systemChronoColor = '4283452749';
+  /// Official system "Chrono" tag color (lightened original: ARGB 255,167,211,166 / 0xFFA7D3A6).
+  static const String _systemChronoColor = '4289188774';
 
   /// Swaps all [record_tag] rows between system "Chrono" and user "Chrono App"
   /// (fixes inverted note assignments after dedupe migrations).
@@ -2652,7 +2664,7 @@ class DatabaseHelper {
         if (chronoRows.isEmpty) {
           await txn.insert(DatabaseTables.category, {
             DatabaseColumns.tagName: 'Chrono',
-            DatabaseColumns.tagColor: '4283452749',
+            DatabaseColumns.tagColor: _systemChronoColor,
             DatabaseColumns.tagIsSystem: 1,
           });
         } else {
@@ -2661,7 +2673,7 @@ class DatabaseHelper {
             DatabaseTables.category,
             {
               DatabaseColumns.tagIsSystem: 1,
-              DatabaseColumns.tagColor: '4283452749',
+              DatabaseColumns.tagColor: _systemChronoColor,
             },
             where: '${DatabaseColumns.id} = ?',
             whereArgs: [firstId],
