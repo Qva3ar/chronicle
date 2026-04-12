@@ -15,6 +15,7 @@ import 'package:chrono/services/workspace_ai_service.dart';
 import 'package:chrono/services/workspace_service.dart';
 import 'package:chrono/shared/api-key-popup.dart';
 import 'package:chrono/shared/tag_selection_dialog.dart';
+import 'package:chrono/shared/workspace_color_picker.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Workspace Editor
@@ -285,6 +286,43 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
     );
     if (name == null || name.isEmpty) return;
     final updated = e.copyWith(name: name);
+    setState(() => _entry = updated);
+    await _service.persistNow(updated);
+  }
+
+  Future<void> _changeColor() async {
+    final e = _entry;
+    if (e == null) return;
+    final newColor = await showDialog<String?>(
+      context: context,
+      builder: (ctx) {
+        String? selected = e.color;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: cardColor,
+            title: const Text('Workspace color', style: TextStyle(color: textPrimary)),
+            content: WorkspaceColorPicker(
+              selectedColorHex: selected,
+              onColorSelected: (hex) => setDialogState(() => selected = hex),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: textMuted)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, selected ?? ''),
+                child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (newColor == null) return; // cancelled
+    final updated = newColor.isEmpty
+        ? e.copyWith(clearColor: true)
+        : e.copyWith(color: newColor);
     setState(() => _entry = updated);
     await _service.persistNow(updated);
   }
@@ -679,6 +717,24 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              GestureDetector(
+                onTap: _changeColor,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: _entry!.color != null
+                        ? parseTagColor(_entry!.color)
+                        : MyColors.orangeDivider,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
               Flexible(
                 child: Text(
                   _entry!.name,

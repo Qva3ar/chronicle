@@ -7,6 +7,7 @@ import 'package:chrono/screens/todo_edit_screen.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/shared/chrono_ui.dart';
+import 'package:chrono/shared/premium_gate.dart';
 
 class TodoListScreen extends StatefulWidget {
   final int? highlightTodoId;
@@ -261,7 +262,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
-          onPressed: () => _showTodoForm(),
+          onPressed: () {
+            if (!checkPremiumOrShowPaywall(context)) return;
+            _showTodoForm();
+          },
         ),
       ],
     );

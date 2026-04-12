@@ -6,6 +6,7 @@ class WorkspaceEntry {
   final String documentMarkdown;
   final int updatedAt;
   final double splitTopRatio;
+  final String? color;
 
   WorkspaceEntry({
     this.id,
@@ -13,6 +14,7 @@ class WorkspaceEntry {
     required this.documentMarkdown,
     required this.updatedAt,
     this.splitTopRatio = 0.55,
+    this.color,
   });
 
   WorkspaceEntry copyWith({
@@ -21,6 +23,8 @@ class WorkspaceEntry {
     String? documentMarkdown,
     int? updatedAt,
     double? splitTopRatio,
+    String? color,
+    bool clearColor = false,
   }) {
     return WorkspaceEntry(
       id: id ?? this.id,
@@ -28,6 +32,7 @@ class WorkspaceEntry {
       documentMarkdown: documentMarkdown ?? this.documentMarkdown,
       updatedAt: updatedAt ?? this.updatedAt,
       splitTopRatio: splitTopRatio ?? this.splitTopRatio,
+      color: clearColor ? null : (color ?? this.color),
     );
   }
 
@@ -38,6 +43,7 @@ class WorkspaceEntry {
       DatabaseColumns.workspaceDocumentMarkdown: documentMarkdown,
       DatabaseColumns.workspaceUpdatedAt: updatedAt,
       DatabaseColumns.workspaceSplitTopRatio: splitTopRatio,
+      DatabaseColumns.workspaceColor: color,
     };
   }
 
@@ -58,6 +64,7 @@ class WorkspaceEntry {
           : int.tryParse('${map[DatabaseColumns.workspaceUpdatedAt]}') ??
               DateTime.now().millisecondsSinceEpoch,
       splitTopRatio: ratio.clamp(0.2, 0.85),
+      color: map[DatabaseColumns.workspaceColor]?.toString(),
     );
   }
 }

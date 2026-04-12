@@ -6,6 +6,7 @@ Star⭐ the repo if you like what you like more stuff on flutter 😉.
 <h1 align="center">
   Dayma Manish
 </h1>
+"The app uses the data sync foreground service to periodically process the user's productivity data, generate AI-based insights via network requests, and keep the Home Screen widgets up-to-date. This task is clearly noticeable to the user because they rely on the updated statistics on their Home Screen widgets and expect daily insight notifications based on the synced background data."
 
 [![Twitter Badge](https://img.shields.io/badge/-@manishdayma22-1ca0f1?style=flat-square&labelColor=1ca0f1&logo=twitter&logoColor=white&link=https://twitter.com/manishdayma22)](https://twitter.com/manishdayma22)
 [![GitHub DaymaManish](https://img.shields.io/github/followers/DaymaManish?label=follow&style=social)](https://github.com/DaymaManish)

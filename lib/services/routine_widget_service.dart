@@ -44,7 +44,11 @@ Future<void> routineWidgetCallback(Uri? uri) async {
           final alreadyHasRecord = await db.hasRoutineRecordForToday(routine.id!);
           if (!alreadyHasRecord) {
             final record = {
-              DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+              DatabaseColumns.recordText: jsonEncode({
+                'routine_id': routine.id,
+                'routine_name': routine.name,
+                'status': 'completed',
+              }),
               DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
               DatabaseColumns.recordType: 'routine',
               DatabaseColumns.recordRoutineId: routine.id,

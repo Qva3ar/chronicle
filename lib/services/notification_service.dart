@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -100,7 +101,7 @@ class NotificationService {
         }
       }
 
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
       final iosSettings = DarwinInitializationSettings(
         requestAlertPermission: !calledFromBackgroundTask,
         requestBadgePermission: !calledFromBackgroundTask,
@@ -276,7 +277,11 @@ class NotificationService {
       final alreadyHasRecord = await db.hasRoutineRecordForToday(routineId);
       if (!alreadyHasRecord) {
         final record = {
-          DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+          DatabaseColumns.recordText: jsonEncode({
+            'routine_id': routine.id,
+            'routine_name': routine.name,
+            'status': 'completed',
+          }),
           DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
           DatabaseColumns.recordType: 'routine',
           DatabaseColumns.recordRoutineId: routine.id,

@@ -28,6 +28,7 @@ import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
+import 'package:chrono/shared/premium_gate.dart';
 import 'package:chrono/widgets/insight_banner.dart';
 import 'package:chrono/widgets/productivity_banner.dart';
 import 'package:chrono/screens/productivity_screen.dart';
@@ -1059,6 +1060,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     const SizedBox(width: 12),
                     ProductivityBanner(
                       onTap: () {
+                        if (!checkPremiumOrShowPaywall(context)) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const ProductivityScreen()),

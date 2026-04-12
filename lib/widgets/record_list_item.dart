@@ -190,6 +190,32 @@ class RecordListItem extends StatelessWidget {
         );
       }
     }
+    if (item.recordType == RecordType.routine) {
+      final data = _parseRoutineData();
+      if (data != null) {
+        final name = data['routine_name'] ?? '';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatRoutineStatus(data['status']),
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+          ],
+        );
+      }
+    }
     if (item.recordType == RecordType.goal) {
       final data = _parseGoalData();
       if (data != null) {
@@ -236,6 +262,27 @@ class RecordListItem extends StatelessWidget {
     if (s == 'completed') return 'Completed';
     if (s == 'day_ended') return 'Day Ended';
     return s;
+  }
+
+  Map<String, dynamic>? _parseRoutineData() {
+    try {
+      final data = jsonDecode(item.text);
+      if (data is Map<String, dynamic> && data.containsKey('routine_id')) return data;
+    } catch (_) {}
+    // Legacy plain text format: "Completed routine: Name"
+    final match = RegExp(r'Completed routine: (.+)').firstMatch(item.text);
+    if (match != null) {
+      return {
+        'routine_name': match.group(1),
+        'status': 'completed',
+      };
+    }
+    return null;
+  }
+
+  String _formatRoutineStatus(dynamic status) {
+    if (status == 'completed') return 'Completed';
+    return status?.toString() ?? 'Completed';
   }
 
   Map<String, dynamic>? _parseGoalData() {

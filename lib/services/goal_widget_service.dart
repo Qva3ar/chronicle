@@ -20,7 +20,7 @@ Future<void> goalWidgetCallback(Uri? uri) async {
   final notifications = FlutterLocalNotificationsPlugin();
 
   // Initialize notifications for background
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
   const iosSettings = DarwinInitializationSettings();
   const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
   await notifications.initialize(initSettings);
@@ -160,7 +160,7 @@ Future<void> _showRunningNotification(FlutterLocalNotificationsPlugin notificati
     priority: Priority.high,
     ongoing: true,
     autoCancel: false,
-    icon: '@mipmap/ic_launcher',
+    icon: '@mipmap/launcher_icon',
     showProgress: true,
     indeterminate: true,
   );

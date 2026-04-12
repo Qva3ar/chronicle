@@ -84,7 +84,7 @@ Future<void> _showBackgroundRunningNotification(
       ongoing: true,
       autoCancel: false,
       showWhen: false,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
       // Add vibration pattern for visibility
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 500, 250, 500]), // Vibrate-pause-vibrate pattern
@@ -141,7 +141,7 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
     final notificationsPlugin = FlutterLocalNotificationsPlugin();
 
     // Initialize notifications (needed to cancel one)
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await notificationsPlugin.initialize(initSettings);
@@ -269,7 +269,11 @@ Future<void> _handleBackgroundRoutineDone(String payload) async {
     final alreadyHasRecord = await db.hasRoutineRecordForToday(routineId);
     if (!alreadyHasRecord) {
       final record = {
-        DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+        DatabaseColumns.recordText: jsonEncode({
+          'routine_id': routine.id,
+          'routine_name': routine.name,
+          'status': 'completed',
+        }),
         DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'routine',
         DatabaseColumns.recordRoutineId: routine.id,
@@ -282,7 +286,7 @@ Future<void> _handleBackgroundRoutineDone(String payload) async {
     await notificationService.markRoutineDone(routineId);
 
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await plugin.initialize(initSettings);
@@ -1609,7 +1613,7 @@ class TimerService extends ChangeNotifier {
       ongoing: true,
       autoCancel: false,
       showWhen: false,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
       // Progress bar configuration
       showProgress: true,
       maxProgress: 100,
@@ -1764,7 +1768,7 @@ class TimerService extends ChangeNotifier {
         }
       }
 
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
       const iosSettings = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,

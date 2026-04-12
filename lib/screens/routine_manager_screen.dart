@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/widgets/reminder_timeline_widget.dart';
+import 'package:chrono/shared/premium_gate.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
   /// When set (e.g. inside [DraggableScrollableSheet]), list scroll is linked to sheet drag.
@@ -102,6 +104,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   }
 
   Future<void> _toggleRoutineDone(Routine routine) async {
+    if (!checkPremiumOrShowPaywall(context)) return;
     final isDone = !routine.isDone;
     await _db.toggleRoutineDone(routine.id!, isDone);
 
@@ -121,9 +124,13 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
         final alreadyHasRecord = await _db.hasRoutineRecordForToday(routine.id!);
         if (!alreadyHasRecord) {
           final record = {
-            DatabaseColumns.recordText: 'Completed routine: ${routine.name}',
+            DatabaseColumns.recordText: jsonEncode({
+              'routine_id': routine.id,
+              'routine_name': routine.name,
+              'status': 'completed',
+            }),
             DatabaseColumns.recordCreatedAt: DateTime.now().millisecondsSinceEpoch,
-            DatabaseColumns.recordType: 'routine', // Mark as routine record
+            DatabaseColumns.recordType: 'routine',
             DatabaseColumns.recordRoutineId: routine.id,
           };
 
@@ -230,7 +237,10 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
           ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
-          onPressed: () => _showRoutineForm(),
+          onPressed: () {
+            if (!checkPremiumOrShowPaywall(context)) return;
+            _showRoutineForm();
+          },
         ),
       ],
     );

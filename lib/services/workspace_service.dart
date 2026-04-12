@@ -20,11 +20,12 @@ class WorkspaceService {
 
   Future<void> persistNow(WorkspaceEntry entry) => _db.updateWorkspace(entry);
 
-  Future<int> createWorkspace(String name) {
+  Future<int> createWorkspace(String name, {String? color}) {
     return _db.insertWorkspace(WorkspaceEntry(
       name: name,
       documentMarkdown: '',
       updatedAt: DateTime.now().millisecondsSinceEpoch,
+      color: color,
     ));
   }
 

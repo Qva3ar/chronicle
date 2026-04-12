@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 51;
+  static const int databaseVersion = 52;
   static const int pageSize = 20;
 }
 
@@ -154,6 +154,7 @@ class DatabaseColumns {
   static const String workspaceDocumentMarkdown = 'document_markdown';
   static const String workspaceUpdatedAt = 'updated_at';
   static const String workspaceSplitTopRatio = 'split_top_ratio';
+  static const String workspaceColor = 'color';
 
   static const String workspaceRecordWorkspaceId = 'workspace_id';
   static const String workspaceRecordRecordId = 'record_id';
@@ -555,7 +556,8 @@ class DatabaseHelper {
           ${DatabaseColumns.workspaceName} TEXT NOT NULL,
           ${DatabaseColumns.workspaceDocumentMarkdown} TEXT NOT NULL DEFAULT '',
           ${DatabaseColumns.workspaceUpdatedAt} INTEGER NOT NULL,
-          ${DatabaseColumns.workspaceSplitTopRatio} REAL NOT NULL DEFAULT 0.55
+          ${DatabaseColumns.workspaceSplitTopRatio} REAL NOT NULL DEFAULT 0.55,
+          ${DatabaseColumns.workspaceColor} TEXT
         )
       ''');
 
@@ -1639,6 +1641,14 @@ class DatabaseHelper {
         log('Starting migration to v51: Apply exact lightened original color...');
         await _insertChronoTag(db);
         log('Upgraded database to v51: Applied exact lightened original color.');
+      }
+
+      if (oldVersion < 52) {
+        log('Starting migration to v52: Add color column to workspace...');
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.workspace} ADD COLUMN ${DatabaseColumns.workspaceColor} TEXT',
+        );
+        log('Upgraded database to v52: Added workspace color column.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -3072,7 +3082,11 @@ class DatabaseHelper {
       );
 
       final record = {
-        DatabaseColumns.recordText: 'Completed routine: $routineName',
+        DatabaseColumns.recordText: jsonEncode({
+          'routine_id': routineId,
+          'routine_name': routineName,
+          'status': 'completed',
+        }),
         DatabaseColumns.recordCreatedAt: backdatedTimestamp.millisecondsSinceEpoch,
         DatabaseColumns.recordType: 'routine',
         DatabaseColumns.recordRoutineId: routineId,
@@ -3598,6 +3612,7 @@ status: day_ended
       DatabaseColumns.workspaceDocumentMarkdown: entry.documentMarkdown,
       DatabaseColumns.workspaceUpdatedAt: now,
       DatabaseColumns.workspaceSplitTopRatio: entry.splitTopRatio,
+      DatabaseColumns.workspaceColor: entry.color,
     });
   }
 
@@ -3611,6 +3626,7 @@ status: day_ended
         DatabaseColumns.workspaceDocumentMarkdown: entry.documentMarkdown,
         DatabaseColumns.workspaceUpdatedAt: DateTime.now().millisecondsSinceEpoch,
         DatabaseColumns.workspaceSplitTopRatio: entry.splitTopRatio,
+        DatabaseColumns.workspaceColor: entry.color,
       },
       where: '${DatabaseColumns.id} = ?',
       whereArgs: [entry.id],
@@ -3742,6 +3758,7 @@ status: day_ended
         'document_markdown': w.documentMarkdown,
         'updated_at': w.updatedAt,
         'split_top_ratio': w.splitTopRatio,
+        'color': w.color,
         'linked_record_ids': ids,
       });
     }
@@ -3765,11 +3782,14 @@ status: day_ended
             ? (m['split_top_ratio'] as num).toDouble()
             : double.tryParse('${m['split_top_ratio']}') ?? 0.55;
 
+        final color = m['color']?.toString();
+
         final wid = await txn.insert(DatabaseTables.workspace, {
           DatabaseColumns.workspaceName: name,
           DatabaseColumns.workspaceDocumentMarkdown: doc,
           DatabaseColumns.workspaceUpdatedAt: updatedAt,
           DatabaseColumns.workspaceSplitTopRatio: ratio.clamp(0.2, 0.85),
+          DatabaseColumns.workspaceColor: color,
         });
 
         final links = m['linked_record_ids'];

@@ -406,7 +406,7 @@ Future<void> _showCheckinNotification(String checkinType, int notificationId) as
     final plugin = FlutterLocalNotificationsPlugin();
 
     // Initialize notifications in background context
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -464,7 +464,7 @@ Future<void> _showRoutineNotification(
   try {
     final plugin = FlutterLocalNotificationsPlugin();
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     final iosSettings = DarwinInitializationSettings(
       notificationCategories: [
         DarwinNotificationCategory(
@@ -552,7 +552,7 @@ Future<void> _showSessionCompletionNotifications(
     final plugin = FlutterLocalNotificationsPlugin();
 
     // Initialize notifications in background context with action handler
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(
       android: androidSettings,

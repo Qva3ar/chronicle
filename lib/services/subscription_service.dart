@@ -9,7 +9,7 @@ class SubscriptionService {
   static final SubscriptionService instance = SubscriptionService._privateConstructor();
 
   /// `true` — всегда премиум (для разработки). Перед публикацией — `false`.
-  static const bool _forcePremiumOverride = true;
+  static const bool _forcePremiumOverride = false;
 
   final ValueNotifier<bool> hasSubscription = ValueNotifier(_forcePremiumOverride);
 
@@ -34,7 +34,7 @@ class SubscriptionService {
       Adapty().activate(
         configuration: AdaptyConfiguration(
           // TODO: заменить на реальный Adapty API key из дашборда
-          apiKey: 'public_live_REPLACE_ME.REPLACE_ME',
+          apiKey: 'public_live_lPMxt6oX.Of6FWs4YuvUvDYrVPsVc',
         ),
       );
       await Adapty().setLogLevel(AdaptyLogLevel.verbose);
@@ -79,11 +79,14 @@ class SubscriptionService {
       final result = await Adapty().makePurchase(product: product);
       switch (result) {
         case AdaptyPurchaseResultSuccess(profile: final profile):
-          if (profile.accessLevels['premium']?.isActive ?? false) {
-            log('[Subscription] Purchase successful');
+          log('[Subscription] Purchase successful');
+          final isActive = profile.accessLevels['premium']?.isActive ?? false;
+          _applySubscriptionFlag(isActive);
+          if (!isActive) {
+            // Profile may not have updated yet — re-check
             await _checkSubscriptionStatus();
-            return true;
           }
+          return true;
         case AdaptyPurchaseResultPending():
           log('[Subscription] Purchase pending');
         case AdaptyPurchaseResultUserCancelled():

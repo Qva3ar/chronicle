@@ -9,6 +9,7 @@ import '../services/timer_service.dart';
 import '../services/daily_reset_service.dart';
 import '../services/goal_service.dart'; // Added import
 import '../colors.dart';
+import '../shared/premium_gate.dart';
 import 'goal_calendar_screen.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -148,6 +149,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Future<void> _toggleGoalSession(Goal goal) async {
     if (goal.isArchived) return;
+    if (!checkPremiumOrShowPaywall(context)) return;
     final timerService = TimerService.instance;
 
     if (timerService.activeGoal?.id == goal.id && timerService.isRunning) {
@@ -279,7 +281,10 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
         ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
-          onPressed: _showAddGoalForm,
+          onPressed: () {
+            if (!checkPremiumOrShowPaywall(context)) return;
+            _showAddGoalForm();
+          },
         ),
       ],
     );

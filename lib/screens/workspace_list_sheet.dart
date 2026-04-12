@@ -5,6 +5,8 @@ import 'package:chrono/models/workspace_entry.dart';
 import 'package:chrono/screens/workspace_editor_screen.dart';
 import 'package:chrono/services/workspace_service.dart';
 import 'package:chrono/shared/chrono_ui.dart';
+import 'package:chrono/shared/workspace_color_picker.dart';
+import 'package:chrono/shared/premium_gate.dart';
 
 /// Bottom-sheet version of the workspace list.
 /// Accepts a [sheetScrollController] from a [DraggableScrollableSheet]
@@ -49,43 +51,12 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
   }
 
   Future<void> _createNew() async {
-    final name = await showDialog<String>(
+    final result = await showDialog<({String name, String? color})>(
       context: context,
-      builder: (ctx) {
-        final c = TextEditingController(text: 'Workspace');
-        return AlertDialog(
-          backgroundColor: cardColor,
-          title: const Text('New workspace', style: TextStyle(color: textPrimary)),
-          content: TextField(
-            controller: c,
-            autofocus: true,
-            style: const TextStyle(color: textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Name',
-              hintStyle: const TextStyle(color: textHint),
-              filled: true,
-              fillColor: cardColor2,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: textMuted)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('Create', style: TextStyle(color: MyColors.orangeDivider)),
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => _NewWorkspaceSheetDialog(),
     );
-    if (name == null || name.isEmpty) return;
-    final id = await _service.createWorkspace(name);
+    if (result == null || result.name.isEmpty) return;
+    final id = await _service.createWorkspace(result.name, color: result.color);
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -151,7 +122,10 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
       actions: [
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
-          onPressed: _createNew,
+          onPressed: () {
+            if (!checkPremiumOrShowPaywall(context)) return;
+            _createNew();
+          },
           tooltip: 'New workspace',
         ),
       ],
@@ -161,6 +135,9 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
   Widget _buildWorkspaceCard(WorkspaceEntry w) {
     final count = _linkedCounts[w.id] ?? 0;
     final preview = _previewText(w.documentMarkdown);
+    final accent = w.color != null
+        ? parseTagColor(w.color)
+        : MyColors.orangeDivider;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -179,62 +156,74 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
             );
             _load();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        w.name,
-                        style: const TextStyle(
-                          color: textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(width: 4, color: accent.withValues(alpha: 0.7)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  w.name,
+                                  style: const TextStyle(
+                                    color: textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: textMuted, size: 20),
+                                onPressed: () => _confirmDelete(w),
+                                tooltip: 'Delete',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          if (preview.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              preview,
+                              style: const TextStyle(color: textMuted, fontSize: 13, height: 1.3),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time_rounded, size: 14, color: textHint),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatDate(w.updatedAt),
+                                style: const TextStyle(color: textHint, fontSize: 12),
+                              ),
+                              const SizedBox(width: 16),
+                              Icon(Icons.link_rounded, size: 14, color: textHint),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$count note${count != 1 ? 's' : ''}',
+                                style: const TextStyle(color: textHint, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: textMuted, size: 20),
-                      onPressed: () => _confirmDelete(w),
-                      tooltip: 'Delete',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                if (preview.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    preview,
-                    style: const TextStyle(color: textMuted, fontSize: 13, height: 1.3),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: textHint),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatDate(w.updatedAt),
-                      style: const TextStyle(color: textHint, fontSize: 12),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(Icons.link_rounded, size: 14, color: textHint),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$count note${count != 1 ? 's' : ''}',
-                      style: const TextStyle(color: textHint, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -249,7 +238,10 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
       subtitle:
           'Tap + to create your first workspace.\nLink notes, write documents, and use AI to find related content.',
       buttonLabel: 'Create Workspace',
-      onButton: _createNew,
+      onButton: () {
+        if (!checkPremiumOrShowPaywall(context)) return;
+        _createNew();
+      },
     );
   }
 
@@ -329,6 +321,68 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NewWorkspaceSheetDialog extends StatefulWidget {
+  @override
+  State<_NewWorkspaceSheetDialog> createState() => _NewWorkspaceSheetDialogState();
+}
+
+class _NewWorkspaceSheetDialogState extends State<_NewWorkspaceSheetDialog> {
+  final _controller = TextEditingController(text: 'Workspace');
+  String? _selectedColor;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: cardColor,
+      title: const Text('New workspace', style: TextStyle(color: textPrimary)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            style: const TextStyle(color: textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Name',
+              hintStyle: const TextStyle(color: textHint),
+              filled: true,
+              fillColor: cardColor2,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          WorkspaceColorPicker(
+            selectedColorHex: _selectedColor,
+            onColorSelected: (hex) => setState(() => _selectedColor = hex),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: textMuted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(
+            context,
+            (name: _controller.text.trim(), color: _selectedColor),
+          ),
+          child: const Text('Create', style: TextStyle(color: MyColors.orangeDivider)),
+        ),
+      ],
     );
   }
 }

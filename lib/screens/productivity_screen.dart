@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/services/productivity_service.dart';
@@ -18,7 +17,6 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   List<ProductivityScore> _history = [];
   bool _loading = true;
   _DateRange _range = _DateRange.week;
-  int? _selectedDayIndex;
 
   @override
   void initState() {
@@ -79,46 +77,62 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MyColors.primaryColor,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: MyColors.primaryColor,
-        title: const Text('Продуктивность', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: bgColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Productivity',
+          style: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCurrentScoreCard(),
-                  const SizedBox(height: 20),
-                  _buildRangeSelector(),
-                  const SizedBox(height: 16),
-                  _buildChart(),
-                  const SizedBox(height: 16),
-                  _buildAverageCard(),
-                  const SizedBox(height: 16),
-                  _buildHistoryList(),
-                ],
+          ? const Center(child: CircularProgressIndicator(color: MyColors.orangeDivider))
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: MyColors.orangeDivider,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildScoreCircle(),
+                    const SizedBox(height: 20),
+                    _buildBreakdown(),
+                    const SizedBox(height: 20),
+                    _buildRangeSelector(),
+                    const SizedBox(height: 12),
+                    _buildBarChart(),
+                    const SizedBox(height: 12),
+                    _buildAverageCard(),
+                    const SizedBox(height: 20),
+                    _buildHistoryList(),
+                  ],
+                ),
               ),
             ),
     );
   }
 
-  Widget _buildCurrentScoreCard() {
+  // ── Score circle ──
+
+  Widget _buildScoreCircle() {
     if (_currentScore == null || _currentScore!.totalWeight == 0) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: cardColor2,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Text(
-            'Нет активных рутин и целей на сегодня',
-            style: TextStyle(color: Colors.white54),
+      return _card(
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(
+            child: Text(
+              'No active routines or goals today',
+              style: TextStyle(color: textMuted),
+            ),
           ),
         ),
       );
@@ -127,262 +141,243 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     final score = _currentScore!;
     final color = _scoreColor(score.score);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor2,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Сегодня',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: CircularProgressIndicator(
-                    value: score.score / 10,
-                    strokeWidth: 6,
-                    backgroundColor: Colors.white10,
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      score.score.toStringAsFixed(1),
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      'из 10',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(
+          width: 130,
+          height: 130,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              _buildStatChip(
-                Icons.check_circle_outline,
-                '${score.routinesDone}/${score.routinesTotal}',
-                'рутин',
+              SizedBox(
+                width: 130,
+                height: 130,
+                child: CircularProgressIndicator(
+                  value: score.score / 10,
+                  strokeWidth: 10,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.white10,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
               ),
-              _buildStatChip(
-                Icons.flag_outlined,
-                '${(score.goalsProgress * 100).round()}%',
-                'цели',
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    score.score.toStringAsFixed(1),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    'out of 10',
+                    style: TextStyle(
+                      color: textMuted.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatChip(IconData icon, String value, String label) {
+  // ── Breakdown rows ──
+
+  Widget _buildBreakdown() {
+    if (_currentScore == null || _currentScore!.totalWeight == 0) {
+      return const SizedBox.shrink();
+    }
+    final score = _currentScore!;
+    final routineProgress = score.routinesTotal > 0
+        ? score.routinesDone / score.routinesTotal
+        : 0.0;
+
     return Column(
       children: [
-        Icon(icon, color: Colors.white54, size: 20),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        _BreakdownRow(
+          title: 'Routines completed',
+          value: '${score.routinesDone} / ${score.routinesTotal}',
+          progress: routineProgress,
+          color: const Color(0xFF66BB6A),
+        ),
+        const SizedBox(height: 8),
+        _BreakdownRow(
+          title: 'Goal progress',
+          value: '${(score.goalsProgress * 100).round()}%',
+          progress: score.goalsProgress.clamp(0.0, 1.0),
+          color: const Color(0xFF42A5F5),
+        ),
       ],
     );
   }
 
+  // ── Range selector ──
+
   Widget _buildRangeSelector() {
-    return Row(
-      children: [
-        for (final range in _DateRange.values)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: ChoiceChip(
-                label: Text(_rangeLabel(range)),
-                selected: _range == range,
-                onSelected: (_) {
-                  setState(() {
-                    _range = range;
-                    _selectedDayIndex = null;
-                  });
-                },
-                selectedColor: MyColors.trecondaryColor,
-                backgroundColor: cardColor2,
-                labelStyle: TextStyle(
-                  color: _range == range ? Colors.white : Colors.white54,
-                  fontSize: 13,
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: _DateRange.values.map((range) {
+          final isActive = _range == range;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _range = range),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: isActive ? cardColor2 : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    _rangeLabel(range),
+                    style: TextStyle(
+                      color: isActive ? textPrimary : textMuted,
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+          );
+        }).toList(),
+      ),
     );
   }
 
   String _rangeLabel(_DateRange range) {
     switch (range) {
       case _DateRange.week:
-        return 'Неделя';
+        return 'Week';
       case _DateRange.month:
-        return 'Месяц';
+        return 'Month';
       case _DateRange.all:
-        return 'Всё время';
+        return 'All time';
     }
   }
 
-  Widget _buildChart() {
+  // ── Bar chart ──
+
+  Widget _buildBarChart() {
     final data = _filteredHistory;
     if (data.isEmpty) {
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: cardColor2,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(
-          child: Text(
-            'Пока нет данных за этот период',
-            style: TextStyle(color: Colors.white38),
+      return _card(
+        child: const SizedBox(
+          height: 160,
+          child: Center(
+            child: Text(
+              'No data for this period yet',
+              style: TextStyle(color: textMuted),
+            ),
           ),
         ),
       );
     }
 
-    final spots = <FlSpot>[];
-    for (var i = 0; i < data.length; i++) {
-      spots.add(FlSpot(i.toDouble(), data[i].score));
-    }
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    return Container(
-      height: 220,
-      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: cardColor2,
-        borderRadius: BorderRadius.circular(12),
+    return _card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+        child: SizedBox(
+          height: _barChartHeight(data.length),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: data.map((s) {
+              final isToday = s.date == todayStr;
+              return Expanded(
+                child: _BarColumn(
+                  score: s,
+                  isToday: isToday,
+                  maxHeight: _barChartHeight(data.length) - 24,
+                  showLabel: _shouldShowLabel(data, s),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
       ),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 2.5,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.white10,
-              strokeWidth: 1,
-            ),
-          ),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                interval: 2.5,
-                getTitlesWidget: (value, meta) {
-                  if (value == 0 || value == 5 || value == 10) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Text(
-                        value.toInt().toString(),
-                        style: const TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+    );
+  }
+
+  double _barChartHeight(int count) {
+    if (count <= 7) return 140;
+    if (count <= 14) return 140;
+    return 160;
+  }
+
+  bool _shouldShowLabel(List<ProductivityScore> data, ProductivityScore s) {
+    final count = data.length;
+    final idx = data.indexOf(s);
+    if (count <= 7) return true;
+    if (count <= 14) return idx % 2 == 0 || idx == count - 1;
+    if (count <= 31) return idx % 5 == 0 || idx == count - 1;
+    return idx % 7 == 0 || idx == count - 1;
+  }
+
+  // ── Average card ──
+
+  Widget _buildAverageCard() {
+    final avg = _averageScore;
+    final data = _filteredHistory;
+    if (data.isEmpty) return const SizedBox.shrink();
+
+    final color = _scoreColor(avg);
+
+    return _card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.analytics_rounded, color: color, size: 22),
             ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 24,
-                interval: _bottomInterval(data.length),
-                getTitlesWidget: (value, meta) {
-                  final idx = value.toInt();
-                  if (idx < 0 || idx >= data.length) return const SizedBox.shrink();
-                  final date = DateTime.tryParse(data[idx].date);
-                  if (date == null) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      DateFormat('dd.MM').format(date),
-                      style: const TextStyle(color: Colors.white38, fontSize: 10),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Average score',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${data.length} day${data.length != 1 ? 's' : ''} tracked',
+                    style: const TextStyle(color: textMuted, fontSize: 12),
+                  ),
+                ],
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          borderData: FlBorderData(show: false),
-          minY: 0,
-          maxY: 10,
-          lineTouchData: LineTouchData(
-            enabled: true,
-            touchCallback: (event, response) {
-              if (response?.lineBarSpots != null && response!.lineBarSpots!.isNotEmpty) {
-                setState(() {
-                  _selectedDayIndex = response.lineBarSpots!.first.spotIndex;
-                });
-              }
-            },
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((spot) {
-                  final idx = spot.spotIndex;
-                  if (idx < data.length) {
-                    final s = data[idx];
-                    return LineTooltipItem(
-                      '${s.score.toStringAsFixed(1)}/10\n${s.routinesDone}/${s.routinesTotal} рутин',
-                      const TextStyle(color: Colors.white, fontSize: 12),
-                    );
-                  }
-                  return null;
-                }).toList();
-              },
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              curveSmoothness: 0.25,
-              color: Colors.greenAccent,
-              barWidth: 2.5,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  final isSelected = index == _selectedDayIndex;
-                  return FlDotCirclePainter(
-                    radius: isSelected ? 5 : 3,
-                    color: isSelected ? Colors.greenAccent : Colors.greenAccent.withValues(alpha: 0.6),
-                    strokeWidth: isSelected ? 2 : 0,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                color: Colors.greenAccent.withValues(alpha: 0.1),
+            Text(
+              avg.toStringAsFixed(1),
+              style: TextStyle(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -391,41 +386,7 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     );
   }
 
-  double _bottomInterval(int count) {
-    if (count <= 7) return 1;
-    if (count <= 14) return 2;
-    if (count <= 30) return 5;
-    return (count / 6).ceilToDouble();
-  }
-
-  Widget _buildAverageCard() {
-    final avg = _averageScore;
-    final data = _filteredHistory;
-    if (data.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardColor2,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.analytics_outlined, color: _scoreColor(avg), size: 24),
-          const SizedBox(width: 12),
-          Text(
-            'Средний балл: ${avg.toStringAsFixed(1)}/10',
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
-          const Spacer(),
-          Text(
-            '${data.length} дн.',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── History list ──
 
   Widget _buildHistoryList() {
     final data = _filteredHistory.reversed.toList();
@@ -435,10 +396,14 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(bottom: 8),
+          padding: EdgeInsets.only(bottom: 10),
           child: Text(
-            'История',
-            style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
+            'History',
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         ...data.take(30).map((s) => _buildDayTile(s)),
@@ -450,50 +415,280 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     final date = DateTime.tryParse(score.date);
     final dateStr = date != null ? DateFormat('dd MMM, EEE').format(date) : score.date;
     final color = _scoreColor(score.score);
+    final routineProgress = score.routinesTotal > 0
+        ? score.routinesDone / score.routinesTotal
+        : 0.0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(width: 4, color: color.withValues(alpha: 0.7)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      // Date & stats
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dateStr,
+                              style: const TextStyle(
+                                color: textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                _MiniStat(
+                                  icon: Icons.check_circle_outline,
+                                  text: '${score.routinesDone}/${score.routinesTotal}',
+                                  color: const Color(0xFF66BB6A),
+                                  progress: routineProgress,
+                                ),
+                                const SizedBox(width: 16),
+                                _MiniStat(
+                                  icon: Icons.flag_outlined,
+                                  text: '${(score.goalsProgress * 100).round()}%',
+                                  color: const Color(0xFF42A5F5),
+                                  progress: score.goalsProgress.clamp(0.0, 1.0),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Score
+                      Text(
+                        score.score.toStringAsFixed(1),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Helpers ──
+
+  Widget _card({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Breakdown Row
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _BreakdownRow extends StatelessWidget {
+  final String title;
+  final String value;
+  final double progress;
+  final Color color;
+
+  const _BreakdownRow({
+    required this.title,
+    required this.value,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
+          // Mini circular indicator
           Container(
-            width: 6,
-            height: 32,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(3),
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 3,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.white10,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  dateStr,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-                Text(
-                  '${score.routinesDone}/${score.routinesTotal} рутин  •  Цели ${(score.goalsProgress * 100).round()}%',
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Text(
-            score.score.toStringAsFixed(1),
+            value,
             style: TextStyle(
               color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bar Column (chart)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _BarColumn extends StatelessWidget {
+  final ProductivityScore score;
+  final bool isToday;
+  final double maxHeight;
+  final bool showLabel;
+
+  const _BarColumn({
+    required this.score,
+    required this.isToday,
+    required this.maxHeight,
+    required this.showLabel,
+  });
+
+  Color _barColor(double s) {
+    if (s >= 7) return Colors.greenAccent;
+    if (s >= 4) return Colors.orangeAccent;
+    return Colors.redAccent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _barColor(score.score);
+    final barHeight = (score.score / 10) * maxHeight;
+    final date = DateTime.tryParse(score.date);
+    final label = date != null ? DateFormat('E').format(date).substring(0, 2) : '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 1.5),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            width: 16,
+            height: barHeight.clamp(2.0, maxHeight),
+            decoration: BoxDecoration(
+              color: isToday ? color : color.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(4),
+              border: isToday
+                  ? Border.all(color: color, width: 1.5)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 14,
+            child: showLabel
+                ? Text(
+                    label,
+                    style: TextStyle(
+                      color: isToday ? textPrimary : textMuted,
+                      fontSize: 10,
+                      fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mini stat (for history tiles)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MiniStat extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+  final double progress;
+
+  const _MiniStat({
+    required this.icon,
+    required this.text,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 2,
+            strokeCap: StrokeCap.round,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

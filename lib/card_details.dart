@@ -18,6 +18,7 @@ import 'package:chrono/screens/tag_form_screen.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:chrono/services/workspace_service.dart';
 import 'package:chrono/models/workspace_entry.dart';
+import 'package:chrono/shared/premium_gate.dart';
 import 'package:chrono/shared/chrono_ui.dart';
 
 class CardDetailPage extends StatefulWidget {
@@ -702,6 +703,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                   colorFilter: ColorFilter.mode(Colors.grey, BlendMode.srcIn),
                 ),
                 onPressed: () {
+                  if (!checkPremiumOrShowPaywall(context)) return;
                   if (gptNoteBindService.isKeyProvided()) {
                     showChatModal();
                   } else {
