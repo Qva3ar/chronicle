@@ -74,6 +74,97 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     return Colors.redAccent;
   }
 
+  // ── Streak calculation ──
+
+  static const double _streakThreshold = 7.0;
+
+  int get _currentStreak {
+    if (_history.isEmpty) return 0;
+    int streak = 0;
+    // Walk backwards from most recent
+    for (int i = _history.length - 1; i >= 0; i--) {
+      if (_history[i].score >= _streakThreshold) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  int get _bestStreak {
+    if (_history.isEmpty) return 0;
+    int best = 0;
+    int current = 0;
+    for (final s in _history) {
+      if (s.score >= _streakThreshold) {
+        current++;
+        if (current > best) best = current;
+      } else {
+        current = 0;
+      }
+    }
+    return best;
+  }
+
+  // ── Trend calculation ──
+
+  double? get _trendDelta {
+    final data = _filteredHistory;
+    if (data.length < 2) return null;
+
+    int halfLen;
+    switch (_range) {
+      case _DateRange.week:
+        halfLen = 7;
+      case _DateRange.month:
+        halfLen = 15;
+      case _DateRange.all:
+        halfLen = (data.length / 2).ceil();
+    }
+
+    // Current period = last N entries, previous = the N before that
+    final currentPeriod = data.length > halfLen
+        ? data.sublist(data.length - halfLen)
+        : data;
+
+    final previousEnd = data.length - currentPeriod.length;
+    if (previousEnd <= 0) return null;
+
+    final previousPeriod = data.sublist(
+      (previousEnd - halfLen).clamp(0, previousEnd),
+      previousEnd,
+    );
+
+    if (previousPeriod.isEmpty) return null;
+
+    final currentAvg =
+        currentPeriod.map((s) => s.score).reduce((a, b) => a + b) / currentPeriod.length;
+    final previousAvg =
+        previousPeriod.map((s) => s.score).reduce((a, b) => a + b) / previousPeriod.length;
+
+    return currentAvg - previousAvg;
+  }
+
+  // ── Weekday averages ──
+
+  Map<int, double> get _weekdayAverages {
+    final sums = <int, double>{};
+    final counts = <int, int>{};
+    for (final s in _history) {
+      final d = DateTime.tryParse(s.date);
+      if (d == null) continue;
+      final wd = d.weekday; // 1=Mon, 7=Sun
+      sums[wd] = (sums[wd] ?? 0) + s.score;
+      counts[wd] = (counts[wd] ?? 0) + 1;
+    }
+    final avgs = <int, double>{};
+    for (final wd in sums.keys) {
+      avgs[wd] = sums[wd]! / counts[wd]!;
+    }
+    return avgs;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,14 +195,20 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildScoreCircle(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    _buildStreakRow(),
+                    const SizedBox(height: 16),
                     _buildBreakdown(),
                     const SizedBox(height: 20),
                     _buildRangeSelector(),
                     const SizedBox(height: 12),
+                    _buildTrendCard(),
+                    const SizedBox(height: 12),
                     _buildBarChart(),
                     const SizedBox(height: 12),
                     _buildAverageCard(),
+                    const SizedBox(height: 16),
+                    _buildWeekdayPatterns(),
                     const SizedBox(height: 20),
                     _buildHistoryList(),
                   ],
@@ -185,6 +282,82 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── Streak row ──
+
+  Widget _buildStreakRow() {
+    final current = _currentStreak;
+    final best = _bestStreak;
+    if (best == 0) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        Expanded(
+          child: _card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.local_fire_department,
+                      color: current > 0 ? warningColor : textHint, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$current day${current != 1 ? 's' : ''}',
+                          style: TextStyle(
+                            color: current > 0 ? warningColor : textMuted,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Text('current streak',
+                            style: TextStyle(color: textMuted, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.emoji_events_outlined,
+                      color: MyColors.orangeDivider, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$best day${best != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            color: MyColors.orangeDivider,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Text('best streak',
+                            style: TextStyle(color: textMuted, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -267,6 +440,71 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
       case _DateRange.all:
         return 'All time';
     }
+  }
+
+  // ── Trend card ──
+
+  Widget _buildTrendCard() {
+    final delta = _trendDelta;
+    if (delta == null) return const SizedBox.shrink();
+
+    final isUp = delta >= 0;
+    final color = isUp ? Colors.greenAccent : Colors.redAccent;
+    final icon = isUp ? Icons.trending_up : Icons.trending_down;
+    final avg = _averageScore;
+    final periodLabel = _range == _DateRange.week
+        ? 'vs last week'
+        : _range == _DateRange.month
+            ? 'vs previous month'
+            : 'vs first half';
+
+    return _card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${avg.toStringAsFixed(1)} avg',
+                    style: const TextStyle(
+                      color: textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    periodLabel,
+                    style: const TextStyle(color: textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${isUp ? '+' : ''}${delta.toStringAsFixed(1)}',
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Bar chart ──
@@ -386,6 +624,92 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     );
   }
 
+  // ── Weekday patterns ──
+
+  Widget _buildWeekdayPatterns() {
+    final avgs = _weekdayAverages;
+    if (avgs.length < 3) return const SizedBox.shrink(); // need at least 3 days of data
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final sorted = avgs.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final maxAvg = sorted.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Text(
+            'By weekday',
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        _card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              children: sorted.map((entry) {
+                final wd = entry.key;
+                final avg = entry.value;
+                final color = _scoreColor(avg);
+                final ratio = maxAvg > 0 ? avg / 10 : 0.0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          dayNames[wd - 1],
+                          style: const TextStyle(
+                            color: textMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: ratio,
+                            minHeight: 8,
+                            backgroundColor: Colors.white10,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              color.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          avg.toStringAsFixed(1),
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ── History list ──
 
   Widget _buildHistoryList() {
@@ -418,6 +742,8 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     final routineProgress = score.routinesTotal > 0
         ? score.routinesDone / score.routinesTotal
         : 0.0;
+    final hasDetails =
+        score.routineDetails.isNotEmpty || score.goalDetails.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -428,65 +754,171 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(width: 4, color: color.withValues(alpha: 0.7)),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(
-                    children: [
-                      // Date & stats
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dateStr,
-                              style: const TextStyle(
-                                color: textPrimary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            trailing: const SizedBox.shrink(),
+            title: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(width: 4, color: color.withValues(alpha: 0.7)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _MiniStat(
-                                  icon: Icons.check_circle_outline,
-                                  text: '${score.routinesDone}/${score.routinesTotal}',
-                                  color: const Color(0xFF66BB6A),
-                                  progress: routineProgress,
+                                Row(
+                                  children: [
+                                    Text(
+                                      dateStr,
+                                      style: const TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (hasDetails) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.expand_more, size: 16, color: textHint),
+                                    ],
+                                  ],
                                 ),
-                                const SizedBox(width: 16),
-                                _MiniStat(
-                                  icon: Icons.flag_outlined,
-                                  text: '${(score.goalsProgress * 100).round()}%',
-                                  color: const Color(0xFF42A5F5),
-                                  progress: score.goalsProgress.clamp(0.0, 1.0),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    _MiniStat(
+                                      icon: Icons.check_circle_outline,
+                                      text: '${score.routinesDone}/${score.routinesTotal}',
+                                      color: const Color(0xFF66BB6A),
+                                      progress: routineProgress,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    _MiniStat(
+                                      icon: Icons.flag_outlined,
+                                      text: '${(score.goalsProgress * 100).round()}%',
+                                      color: const Color(0xFF42A5F5),
+                                      progress: score.goalsProgress.clamp(0.0, 1.0),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          Text(
+                            score.score.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                      // Score
-                      Text(
-                        score.score.toStringAsFixed(1),
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            children: hasDetails
+                ? [_buildDayDetails(score)]
+                : [],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayDetails(ProductivityScore score) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Divider(color: cardBorder.withValues(alpha: 0.3), height: 1),
+          const SizedBox(height: 10),
+          if (score.routineDetails.isNotEmpty) ...[
+            const Text('Routines',
+                style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            ...score.routineDetails.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        r.completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: r.completed ? const Color(0xFF66BB6A) : textHint,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          r.name,
+                          style: TextStyle(
+                            color: r.completed ? textPrimary : textMuted,
+                            fontSize: 13,
+                            decoration: r.completed ? null : TextDecoration.lineThrough,
+                            decorationColor: textHint,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
+                )),
+          ],
+          if (score.goalDetails.isNotEmpty) ...[
+            if (score.routineDetails.isNotEmpty) const SizedBox(height: 10),
+            const Text('Goals',
+                style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            ...score.goalDetails.map((g) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          value: g.progress.clamp(0.0, 1.0),
+                          strokeWidth: 2.5,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: Colors.white10,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            g.progress >= 1.0
+                                ? const Color(0xFF66BB6A)
+                                : const Color(0xFF42A5F5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          g.name,
+                          style: const TextStyle(color: textPrimary, fontSize: 13),
+                        ),
+                      ),
+                      Text(
+                        '${(g.progress * 100).round()}%',
+                        style: TextStyle(
+                          color: g.progress >= 1.0
+                              ? const Color(0xFF66BB6A)
+                              : const Color(0xFF42A5F5),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ],
       ),
     );
   }

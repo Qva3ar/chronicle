@@ -9,6 +9,37 @@ import 'package:chrono/models/record_type.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:intl/intl.dart';
 
+class RoutineDetail {
+  final String name;
+  final bool completed;
+
+  RoutineDetail({required this.name, required this.completed});
+
+  Map<String, dynamic> toJson() => {'name': name, 'done': completed};
+
+  factory RoutineDetail.fromJson(Map<String, dynamic> json) => RoutineDetail(
+        name: json['name'] as String? ?? '',
+        completed: json['done'] as bool? ?? false,
+      );
+}
+
+class GoalDetail {
+  final String name;
+  final double progress; // 0.0 - 1.0
+
+  GoalDetail({required this.name, required this.progress});
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'progress': double.parse(progress.toStringAsFixed(2)),
+      };
+
+  factory GoalDetail.fromJson(Map<String, dynamic> json) => GoalDetail(
+        name: json['name'] as String? ?? '',
+        progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
 class ProductivityScore {
   final double score;
   final String date;
@@ -17,6 +48,8 @@ class ProductivityScore {
   final int routinesDone;
   final int routinesTotal;
   final double goalsProgress;
+  final List<RoutineDetail> routineDetails;
+  final List<GoalDetail> goalDetails;
 
   ProductivityScore({
     required this.score,
@@ -26,6 +59,8 @@ class ProductivityScore {
     required this.routinesDone,
     required this.routinesTotal,
     required this.goalsProgress,
+    this.routineDetails = const [],
+    this.goalDetails = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -36,6 +71,8 @@ class ProductivityScore {
         'routines_done': routinesDone,
         'routines_total': routinesTotal,
         'goals_progress': double.parse(goalsProgress.toStringAsFixed(2)),
+        'routines': routineDetails.map((r) => r.toJson()).toList(),
+        'goals': goalDetails.map((g) => g.toJson()).toList(),
       };
 
   factory ProductivityScore.fromJson(Map<String, dynamic> json) {
@@ -47,6 +84,14 @@ class ProductivityScore {
       routinesDone: (json['routines_done'] as num).toInt(),
       routinesTotal: (json['routines_total'] as num).toInt(),
       goalsProgress: (json['goals_progress'] as num).toDouble(),
+      routineDetails: (json['routines'] as List?)
+              ?.map((r) => RoutineDetail.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
+      goalDetails: (json['goals'] as List?)
+              ?.map((g) => GoalDetail.fromJson(g as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }
@@ -124,6 +169,7 @@ class ProductivityService {
     double totalWeight = 0;
     double completedWeight = 0;
     int routinesDone = 0;
+    final routineDetails = <RoutineDetail>[];
 
     for (final routine in dayRoutines) {
       final w = routine.priority * routineWeightFactor;
@@ -143,9 +189,12 @@ class ProductivityService {
         completedWeight += w;
         routinesDone++;
       }
+      routineDetails.add(RoutineDetail(name: routine.name, completed: completed));
     }
 
     double goalsProgressSum = 0;
+    final goalDetails = <GoalDetail>[];
+
     for (final goal in activeGoals) {
       totalWeight += goal.priority;
       double progress = 0.0;
@@ -169,6 +218,7 @@ class ProductivityService {
       }
       completedWeight += goal.priority * progress;
       goalsProgressSum += progress;
+      goalDetails.add(GoalDetail(name: goal.title, progress: progress));
     }
 
     final score = totalWeight > 0 ? 10 * completedWeight / totalWeight : 0.0;
@@ -183,6 +233,8 @@ class ProductivityService {
       routinesDone: routinesDone,
       routinesTotal: dayRoutines.length,
       goalsProgress: avgGoalsProgress,
+      routineDetails: routineDetails,
+      goalDetails: goalDetails,
     );
   }
 
