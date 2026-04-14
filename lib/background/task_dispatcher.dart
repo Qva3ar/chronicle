@@ -3,6 +3,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -215,6 +216,12 @@ status: $statusKey''',
 
     // Show notifications
     await _showSessionCompletionNotifications(updatedGoal, sessionDuration, isGoalComplete);
+
+    try {
+      await ProductivityService.instance.createOrUpdateDailyRecord();
+    } catch (e) {
+      print('[SessionCompletion] ⚠️ Failed to update productivity: $e');
+    }
 
     return true;
   } catch (e, stackTrace) {

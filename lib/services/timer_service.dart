@@ -299,6 +299,12 @@ Future<void> _handleBackgroundRoutineDone(String payload) async {
       print('⚠️ ROUTINE DONE ACTION: Failed to update widget: $e');
     }
 
+    try {
+      await ProductivityService.instance.createOrUpdateDailyRecord();
+    } catch (e) {
+      print('⚠️ ROUTINE DONE ACTION: Failed to update productivity: $e');
+    }
+
     print('✅ ROUTINE DONE ACTION: Routine "${routine.name}" marked as done');
   } catch (e, stackTrace) {
     print('❌ ROUTINE DONE ACTION: Error: $e');

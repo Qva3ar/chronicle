@@ -30,7 +30,9 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   final NotificationService _notifications = NotificationService();
   List<Routine> _routines = [];
   List<Routine> _otherDayRoutines = [];
+  List<Routine> _archivedRoutines = [];
   bool _showOtherDays = false;
+  bool _showArchived = false;
 
   // ignore: cancel_subscriptions
   StreamSubscription? _resetSubscription;
@@ -75,11 +77,14 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
 
     final allRoutines = routines.map((r) => Routine.fromMap(r)).toList();
 
-    final todayList = allRoutines
+    final active = allRoutines.where((r) => !r.isArchived).toList();
+    final archived = allRoutines.where((r) => r.isArchived).toList();
+
+    final todayList = active
         .where((r) => r.isActiveOnDay(currentDayIndex))
         .toList();
 
-    final otherDayList = allRoutines
+    final otherDayList = active
         .where((r) => !r.isActiveOnDay(currentDayIndex))
         .toList();
 
@@ -100,6 +105,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     setState(() {
       _routines = todayList;
       _otherDayRoutines = otherDayList;
+      _archivedRoutines = archived;
     });
   }
 
@@ -207,6 +213,29 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     }
   }
 
+  Future<void> _archiveRoutine(Routine routine, bool archive) async {
+    if (archive) {
+      await _notifications.cancelRoutineNotification(routine.id!);
+    }
+    await _db.updateRoutine(routine.id!, {
+      DatabaseColumns.routineIsArchived: archive ? 1 : 0,
+    });
+    if (!archive) {
+      // Reschedule notifications when unarchiving
+      final nextOccurrence = routine.getNextOccurrence();
+      await _notifications.scheduleRoutineNotification(
+        routineId: routine.id!,
+        routineName: routine.name,
+        scheduledTime: nextOccurrence,
+        periodAfter: routine.periodAfter,
+        interval: routine.interval,
+      );
+    }
+    await _loadRoutines();
+    await _updateWidget();
+    await ProductivityService.instance.createOrUpdateDailyRecord();
+  }
+
   Future<void> _deleteRoutine(Routine routine) async {
     // Remove all routine data including notifications and alarms
     await _notifications.cancelRoutineNotification(routine.id!);
@@ -246,36 +275,59 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     );
   }
 
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String label,
+    Color? color,
+    VoidCallback? onTap,
+    bool expanded = true,
+  }) {
+    final c = color ?? MyColors.forthyColor.withValues(alpha: 0.7);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: c),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: c,
+              ),
+            ],
+            const SizedBox(width: 8),
+            Expanded(child: Divider(color: c.withValues(alpha: 0.3), height: 1)),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildRoutineListChildren() {
     return [
       ..._routines.map((r) => _buildRoutineTile(r, isOtherDay: false)),
       if (_showOtherDays && _otherDayRoutines.isNotEmpty) ...[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Row(
-            children: [
-              Icon(Icons.calendar_month,
-                  size: 14, color: MyColors.forthyColor.withValues(alpha: 0.7)),
-              const SizedBox(width: 6),
-              Text(
-                'Other days',
-                style: TextStyle(
-                  color: MyColors.forthyColor.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Divider(
-                  color: MyColors.forthyColor.withValues(alpha: 0.2),
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildSectionHeader(icon: Icons.calendar_month, label: 'Other days'),
         ..._otherDayRoutines.map((r) => _buildRoutineTile(r, isOtherDay: true)),
+      ],
+      if (_archivedRoutines.isNotEmpty) ...[
+        _buildSectionHeader(
+          icon: Icons.archive_outlined,
+          label: 'Archived (${_archivedRoutines.length})',
+          color: textHint,
+          onTap: () => setState(() => _showArchived = !_showArchived),
+          expanded: _showArchived,
+        ),
+        if (_showArchived)
+          ..._archivedRoutines.map((r) => _buildRoutineTile(r, isArchived: true)),
       ],
     ];
   }
@@ -348,79 +400,79 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     }
   }
 
-  Widget _buildRoutineTile(Routine routine, {required bool isOtherDay}) {
+  Widget _buildRoutineTile(Routine routine, {bool isOtherDay = false, bool isArchived = false}) {
     final prioColor = _priorityColor(routine.priority);
+    final dimmed = isOtherDay || isArchived;
 
     return Dismissible(
-      key: Key('${routine.id}_${isOtherDay ? 'other' : 'today'}'),
+      key: Key('${routine.id}_${isArchived ? 'archived' : isOtherDay ? 'other' : 'today'}'),
       direction: DismissDirection.horizontal,
       background: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: infoColor,
+          color: isArchived ? successColor : infoColor,
           borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 16),
-        child: const Icon(Icons.edit, color: white),
+        child: Icon(isArchived ? Icons.unarchive : Icons.edit, color: white),
       ),
       secondaryBackground: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: MyColors.remove,
+          color: isArchived ? MyColors.remove : textMuted,
           borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        child: const Icon(Icons.delete, color: white),
+        child: Icon(isArchived ? Icons.delete : Icons.archive, color: white),
       ),
       confirmDismiss: (direction) async {
+        if (isArchived) {
+          if (direction == DismissDirection.startToEnd) {
+            // Unarchive
+            _archiveRoutine(routine, false);
+            return false;
+          } else {
+            // Delete
+            return await _confirmDeleteDialog(routine);
+          }
+        }
         if (direction == DismissDirection.startToEnd) {
           _showRoutineForm(routine);
           return false;
         } else {
-          return await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: cardColor,
-              title: const Text('Delete Routine', style: TextStyle(color: textPrimary)),
-              content: Text(
-                'Are you sure you want to delete "${routine.name}"?',
-                style: const TextStyle(color: textPrimary),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel',
-                      style: TextStyle(color: textSecondary)),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Delete',
-                      style: TextStyle(color: MyColors.remove)),
-                ),
-              ],
-            ),
-          );
+          // Archive
+          _archiveRoutine(routine, true);
+          return false;
         }
       },
       onDismissed: (direction) {
-        if (direction == DismissDirection.endToStart) {
+        if (isArchived && direction == DismissDirection.endToStart) {
           _deleteRoutine(routine);
         }
       },
       child: Opacity(
-        opacity: isOtherDay ? 0.5 : 1.0,
+        opacity: dimmed ? 0.5 : 1.0,
         child: ChronoCard(
-          leftIndicator: prioColor.withValues(alpha: 0.7),
-          borderColor: routine.isDone && !isOtherDay
+          leftIndicator: prioColor.withValues(alpha: isArchived ? 0.3 : 0.7),
+          borderColor: routine.isDone && !dimmed
               ? successColor.withValues(alpha: 0.3)
               : cardBorder.withValues(alpha: 0.3),
-          onTap: isOtherDay ? () => _showRoutineForm(routine) : () => _toggleRoutineDone(routine),
+          onTap: isArchived
+              ? () => _archiveRoutine(routine, false)
+              : isOtherDay
+                  ? () => _showRoutineForm(routine)
+                  : () => _toggleRoutineDone(routine),
           child: Row(
             children: [
-              // Checkbox / calendar icon
-              if (isOtherDay)
+              // Checkbox / calendar / archive icon
+              if (isArchived)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Icon(Icons.archive_outlined, color: textHint, size: 20),
+                )
+              else if (isOtherDay)
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: Icon(Icons.calendar_today, color: textMuted, size: 20),
@@ -456,23 +508,25 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                     Text(
                       routine.name,
                       style: TextStyle(
-                        color: isOtherDay
+                        color: dimmed
                             ? textMuted
                             : routine.isDone
                                 ? textMuted
                                 : textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        decoration: routine.isDone && !isOtherDay ? TextDecoration.lineThrough : null,
+                        decoration: routine.isDone && !dimmed ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isOtherDay
+                      isArchived
                           ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
-                          : '${routine.time.format(context)} — ${_formatDaysOfWeek(routine.daysOfWeek)}',
+                          : isOtherDay
+                              ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
+                              : '${routine.time.format(context)} — ${_formatDaysOfWeek(routine.daysOfWeek)}',
                       style: TextStyle(
-                        color: isOtherDay ? textHint : routine.isDone ? textHint : textMuted,
+                        color: dimmed ? textHint : routine.isDone ? textHint : textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -481,7 +535,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
               ),
 
               // Streak badge + calendar
-              if (!isOtherDay && routine.showStreak && routine.streak > 0)
+              if (!dimmed && routine.showStreak && routine.streak > 0)
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: ChronoBadge(
@@ -490,16 +544,41 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                     color: warningColor,
                   ),
                 ),
-              IconButton(
-                icon: Icon(Icons.calendar_today, color: textMuted, size: 18),
-                onPressed: () => _showCalendarHistory(routine),
-                tooltip: 'View completion history',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
+              if (!isArchived)
+                IconButton(
+                  icon: Icon(Icons.calendar_today, color: textMuted, size: 18),
+                  onPressed: () => _showCalendarHistory(routine),
+                  tooltip: 'View completion history',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<bool?> _confirmDeleteDialog(Routine routine) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text('Delete Routine', style: TextStyle(color: textPrimary)),
+        content: Text(
+          'Are you sure you want to delete "${routine.name}"?',
+          style: const TextStyle(color: textPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+          ),
+        ],
       ),
     );
   }
@@ -607,6 +686,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       streak: widget.routine?.streak ?? 0,
       lastCompletedDate: widget.routine?.lastCompletedDate,
       priority: _priority,
+      isArchived: widget.routine?.isArchived ?? false,
     );
 
     final db = DatabaseHelper.instance;

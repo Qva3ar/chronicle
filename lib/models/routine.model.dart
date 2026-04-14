@@ -12,6 +12,7 @@ class Routine {
   final String? lastCompletedDate;
   final bool showStreak;
   final int priority;
+  final bool isArchived;
 
   Routine({
     this.id,
@@ -25,6 +26,7 @@ class Routine {
     this.lastCompletedDate,
     this.showStreak = true,
     this.priority = 2,
+    this.isArchived = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -41,6 +43,7 @@ class Routine {
       'last_completed_date': lastCompletedDate,
       'show_streak': showStreak ? 1 : 0,
       'priority': priority,
+      'is_archived': isArchived ? 1 : 0,
     };
   }
 
@@ -63,6 +66,7 @@ class Routine {
       lastCompletedDate: map['last_completed_date'] as String?,
       showStreak: (map['show_streak'] as int? ?? 1) == 1,
       priority: map['priority'] as int? ?? 2,
+      isArchived: (map['is_archived'] as int? ?? 0) == 1,
     );
   }
 
@@ -78,6 +82,7 @@ class Routine {
     String? lastCompletedDate,
     bool? showStreak,
     int? priority,
+    bool? isArchived,
   }) {
     return Routine(
       id: id ?? this.id,
@@ -91,6 +96,7 @@ class Routine {
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       showStreak: showStreak ?? this.showStreak,
       priority: priority ?? this.priority,
+      isArchived: isArchived ?? this.isArchived,
     );
   }
 

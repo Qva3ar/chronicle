@@ -65,6 +65,44 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
     _load();
   }
 
+  Future<void> _changeColor(WorkspaceEntry w) async {
+    if (w.id == null) return;
+    final hex = await showDialog<String?>(
+      context: context,
+      builder: (ctx) {
+        String? selected = w.color;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: cardColor,
+            title: const Text('Change color', style: TextStyle(color: textPrimary)),
+            content: WorkspaceColorPicker(
+              selectedColorHex: selected,
+              onColorSelected: (h) => setDialogState(() => selected = h),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: textMuted)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, selected),
+                child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+    final updated = hex == w.color
+        ? w
+        : w.copyWith(color: hex, clearColor: hex == null);
+    if (updated != w) {
+      await _service.persistNow(updated);
+      _load();
+    }
+  }
+
   Future<void> _confirmDelete(WorkspaceEntry w) async {
     if (w.id == null) return;
     final ok = await showDialog<bool>(
@@ -182,12 +220,27 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: textMuted, size: 20),
-                                onPressed: () => _confirmDelete(w),
-                                tooltip: 'Delete',
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, color: textMuted, size: 20),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
+                                color: surfaceElevated,
+                                onSelected: (v) {
+                                  if (v == 'color') _changeColor(w);
+                                  if (v == 'delete') _confirmDelete(w);
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'color',
+                                    child: Text('Change color',
+                                        style: TextStyle(color: textPrimary)),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete',
+                                        style: TextStyle(color: MyColors.remove)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

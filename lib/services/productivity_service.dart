@@ -104,7 +104,7 @@ class ProductivityService {
     final routineMaps = await _db.getAllRoutines();
     final allRoutines = routineMaps.map((m) => Routine.fromMap(m)).toList();
     final dayRoutines =
-        allRoutines.where((r) => r.isActiveOnDay(currentDayIndex)).toList();
+        allRoutines.where((r) => !r.isArchived && r.isActiveOnDay(currentDayIndex)).toList();
 
     final allGoals = await _db.getAllGoals();
     final activeGoals = allGoals.where((g) => !g.isArchived).toList();

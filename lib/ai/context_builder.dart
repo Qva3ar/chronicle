@@ -132,8 +132,8 @@ class ContextBuilder {
     final List<String> pendingRoutines = [];
     final List<String> completedRoutines = [];
 
-    // Filter relevant routines for today
-    for (final r in routines) {
+    // Filter relevant routines for today (exclude archived)
+    for (final r in routines.where((r) => (r[DatabaseColumns.routineIsArchived] as int? ?? 0) == 0)) {
       final daysStr = r[DatabaseColumns.routineDaysOfWeek] as String;
       final days = daysStr.split(',').map((e) => e == '1').toList();
       final isForToday = days.length > (now.weekday - 1) && days[now.weekday - 1];

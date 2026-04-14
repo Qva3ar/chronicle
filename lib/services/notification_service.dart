@@ -332,9 +332,9 @@ class NotificationService {
       final routineService = RoutineService(dbManager);
       final goalService = GoalService(dbManager);
 
-      // Reset routines and goals
+      // Reset active (non-archived) routines and goals
       final routines = await routineService.getAllRoutines();
-      for (final routine in routines) {
+      for (final routine in routines.where((r) => !r.isArchived)) {
         await routineService.resetRoutine(routine.id);
       }
       await goalService.resetAllGoals();
@@ -427,8 +427,8 @@ class NotificationService {
       // First, clear all done statuses from SharedPreferences
       await resetAllRoutineDoneStatuses();
 
-      // Then reschedule each routine
-      for (final routine in routines) {
+      // Then reschedule each active (non-archived) routine
+      for (final routine in routines.where((r) => !r.isArchived)) {
         final nextOccurrence = routine.getNextOccurrence();
         await scheduleRoutineNotification(
           routineId: routine.id!,

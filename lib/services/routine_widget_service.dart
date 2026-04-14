@@ -147,9 +147,9 @@ class RoutineWidgetService {
       final now = DateTime.now();
       final currentDay = now.weekday - 1; // Convert to 0-based index (Monday = 0)
 
-      // Filter routines active today
+      // Filter routines active today (exclude archived)
       final todayRoutines = routines.where((routine) {
-        return routine.isActiveOnDay(currentDay);
+        return !routine.isArchived && routine.isActiveOnDay(currentDay);
       }).toList();
 
       // Sort by time

@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 52;
+  static const int databaseVersion = 53;
   static const int pageSize = 20;
 }
 
@@ -76,6 +76,7 @@ class DatabaseColumns {
   static const String routinePreviousStreak = 'previous_streak';
   static const String routinePreviousLastCompletedDate = 'previous_last_completed_date';
   static const String routinePriority = 'priority';
+  static const String routineIsArchived = 'is_archived';
 
   // Goal table columns
   static const String goalTitle = 'title';
@@ -406,7 +407,8 @@ class DatabaseHelper {
           ${DatabaseColumns.routineShowStreak} INTEGER NOT NULL DEFAULT 1,
           ${DatabaseColumns.routinePreviousStreak} INTEGER,
           ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT,
-          ${DatabaseColumns.routinePriority} INTEGER NOT NULL DEFAULT 2
+          ${DatabaseColumns.routinePriority} INTEGER NOT NULL DEFAULT 2,
+          ${DatabaseColumns.routineIsArchived} INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -1649,6 +1651,14 @@ class DatabaseHelper {
           'ALTER TABLE ${DatabaseTables.workspace} ADD COLUMN ${DatabaseColumns.workspaceColor} TEXT',
         );
         log('Upgraded database to v52: Added workspace color column.');
+      }
+
+      if (oldVersion < 53) {
+        log('Starting migration to v53: Add is_archived column to routines...');
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.routines} ADD COLUMN ${DatabaseColumns.routineIsArchived} INTEGER NOT NULL DEFAULT 0',
+        );
+        log('Upgraded database to v53: Added routine is_archived column.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -3198,12 +3208,47 @@ class DatabaseHelper {
   }
 
   /// Reset all routines' done status to false
+  /// Also resets streaks for routines that were not completed on their last scheduled day
   Future<void> resetRoutinesDoneStatus() async {
     try {
       final Database db = await instance.database;
+
+      // Reset streaks for routines that were NOT done on their scheduled day
+      final routines = await db.query(DatabaseTables.routines);
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayIndex = yesterday.weekday - 1; // 0-based, Monday=0
+
+      for (final routine in routines) {
+        final isArchived = (routine[DatabaseColumns.routineIsArchived] as int? ?? 0) == 1;
+        if (isArchived) continue; // archived — skip
+
+        final isDone = (routine[DatabaseColumns.routineIsDone] as int? ?? 0) == 1;
+        if (isDone) continue; // completed yesterday — streak is fine
+
+        final daysStr = routine[DatabaseColumns.routineDaysOfWeek] as String? ?? '';
+        final days = daysStr.split(',');
+        if (yesterdayIndex >= days.length) continue;
+
+        final wasScheduledYesterday = days[yesterdayIndex] == '1';
+        if (!wasScheduledYesterday) continue; // not scheduled — streak unchanged
+
+        final currentStreak = routine[DatabaseColumns.routineStreak] as int? ?? 0;
+        if (currentStreak == 0) continue; // already zero
+
+        final routineId = routine[DatabaseColumns.id] as int;
+        await db.update(
+          DatabaseTables.routines,
+          {DatabaseColumns.routineStreak: 0},
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [routineId],
+        );
+      }
+
+      // Reset isDone for active (non-archived) routines
       await db.update(
         DatabaseTables.routines,
         {DatabaseColumns.routineIsDone: 0},
+        where: '${DatabaseColumns.routineIsArchived} = 0',
       );
     } catch (e) {
       log('Error resetting routines done status: $e');
