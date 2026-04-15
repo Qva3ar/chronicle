@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:chrono/models/record.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -13,8 +14,6 @@ class RecordService {
   GPTService gptService = GPTService();
   // 🎯 FIXED: Private constructor with proper debouncing and state management
   RecordService._internal() {
-    print("🔧 RecordService: Initializing with enhanced debouncing");
-
     // Debounce title changes (keep original timing)
     _titleSubject.debounceTime(Duration(milliseconds: 300)).listen((event) {
       prepareTitle(event);
@@ -75,7 +74,6 @@ class RecordService {
 
   // 🎯 ENHANCED: Dispose method with proper cleanup
   void dispose() {
-    print("🧹 RecordService: Disposing and cleaning up");
     _importSubject.close();
     _currentRecordId = null;
     _isCreatingRecord = false;
@@ -116,11 +114,9 @@ class RecordService {
   void setCurrentRecordId(int? recordId) {
     if (recordId != null) {
       _currentRecordId = recordId;
-      print("🎯 RecordService: Set current record ID to $recordId (edit mode)");
     } else {
       _currentRecordId = null;
       _lastProcessedText = ''; // Reset when starting new note
-      print("🎯 RecordService: Cleared record ID (create mode)");
     }
   }
 
@@ -139,24 +135,17 @@ class RecordService {
     // 🎯 ENHANCED: Skip empty text and prevent duplicate processing
     if (text.isEmpty || text.trim().isEmpty) {
       if (_currentRecordId != null) {
-        print("🗑️ RecordService: Empty text for existing record, deleting ID: $_currentRecordId");
         deleteRecord(_currentRecordId!);
-      } else {
-        print("⏭️ RecordService: Skipping empty text for new record");
       }
       return;
     }
 
     // 🎯 CRITICAL FIX: Prevent processing the same text multiple times
     if (text == _lastProcessedText) {
-      print(
-          "⏭️ RecordService: Skipping duplicate text: '${text.substring(0, text.length > 20 ? 20 : text.length)}...'");
       return;
     }
 
     _lastProcessedText = text;
-    print(
-        "📝 RecordService: Processing text change: '${text.substring(0, text.length > 30 ? 30 : text.length)}...'");
 
     Map<String, dynamic> updatedRow = {
       DatabaseColumns.recordText: text,
@@ -194,7 +183,6 @@ class RecordService {
   void _handleTitleAndText(Map<String, dynamic> updatedRow) async {
     // 🎯 CRITICAL FIX: Prevent concurrent operations
     if (_isCreatingRecord) {
-      print("⏸️ RecordService: Already creating/updating record, skipping");
       return;
     }
 
@@ -203,42 +191,29 @@ class RecordService {
     try {
       if (_currentRecordId != null) {
         // 📝 EDIT MODE: Update existing record
-        print("✏️ RecordService: Updating existing record ID: $_currentRecordId");
-
         bool recordExists = await dbHelper.recordExists(_currentRecordId!);
         if (recordExists) {
           updatedRow[DatabaseColumns.id] = _currentRecordId;
           await dbHelper.updateRecord(updatedRow, _tagIdsSubject.value!);
-          print("✅ RecordService: Record $_currentRecordId updated successfully");
         } else {
-          print("⚠️ RecordService: Record $_currentRecordId doesn't exist, creating new one");
           updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
           final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
           if (newRecord != null) {
             _currentRecordId = newRecord.id;
-            print("✅ RecordService: New record created with ID: $_currentRecordId");
           }
         }
       } else {
         // 🆕 CREATE MODE: Create new record only if we don't have one yet
         if (updatedRow[DatabaseColumns.recordText] != null) {
-          print("🆕 RecordService: Creating new record (current ID is null)");
-
           updatedRow[DatabaseColumns.recordCreatedAt] = DateTime.now().millisecondsSinceEpoch;
           final newRecord = await createRecord(updatedRow, _tagIdsSubject.value!);
           if (newRecord != null) {
             _currentRecordId = newRecord.id;
-            print("✅ RecordService: New record created successfully with ID: $_currentRecordId");
-            print("🔄 RecordService: Switching to EDIT MODE for subsequent changes");
-          } else {
-            print("❌ RecordService: Failed to create new record");
           }
-        } else {
-          print("⏭️ RecordService: No text content to save, skipping record creation");
         }
       }
     } catch (e) {
-      print("❌ RecordService: Error in _handleTitleAndText: $e");
+      log("Error in _handleTitleAndText: $e");
     } finally {
       _isCreatingRecord = false;
     }

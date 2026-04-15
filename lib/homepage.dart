@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:chrono/screens/goals_screen.dart';
@@ -29,7 +30,6 @@ import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/shared/premium_gate.dart';
-import 'package:chrono/widgets/insight_banner.dart';
 import 'package:chrono/widgets/productivity_banner.dart';
 import 'package:chrono/screens/productivity_screen.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
@@ -110,8 +110,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final uri = await WidgetService.getWidgetLaunchUri();
       if (uri != null) {
-        print('[HomePage] Widget launch detected: $uri');
-
         if (uri.host == 'create_note') {
           // Open create note screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -125,9 +123,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           recordsTag: [],
                         )));
           });
-        } else if (uri.host == 'open_insight') {
-          // Show latest insight banner (already displayed on home page)
-          print('[HomePage] Opening insight view');
         }
       }
     } catch (e) {
@@ -977,7 +972,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         children: [
           Column(
             children: [
-              const InsightBanner(),
+              // InsightBanner hidden - AI insights feature disabled
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(

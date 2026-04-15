@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:workmanager/workmanager.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/goal.model.dart';
@@ -19,7 +20,6 @@ import 'package:home_widget/home_widget.dart';
 @pragma('vm:entry-point')
 void backgroundTaskDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    print('[TaskDispatcher] 🔄 Background task started: $task');
     final startTime = DateTime.now();
 
     try {
@@ -57,18 +57,13 @@ void backgroundTaskDispatcher() {
           success = await _handleCheckinNotification(inputData);
           break;
         default:
-          print('[TaskDispatcher] ❌ Unknown task: $task');
+          log('[TaskDispatcher] Unknown task: $task');
           success = false;
       }
 
-      final duration = DateTime.now().difference(startTime);
-      print(
-          '[TaskDispatcher] ${success ? "✅" : "❌"} Task $task completed in ${duration.inSeconds}s');
-
       return Future.value(success);
     } catch (e, stackTrace) {
-      print('[TaskDispatcher] ❌ Error in task $task: $e');
-      print('Stack trace: $stackTrace');
+      log('[TaskDispatcher] Error in task $task: $e\nStack trace: $stackTrace');
       return Future.value(false);
     }
   });
@@ -87,7 +82,7 @@ class TaskNames {
 Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
   try {
     if (inputData == null) {
-      print('[SessionCompletion] ❌ No input data provided');
+      log('[SessionCompletion] No input data provided');
       return false;
     }
 
@@ -96,46 +91,31 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     final sessionDuration = inputData['sessionDuration'] as int?;
 
     if (goalId == null || sessionStartTime == null || sessionDuration == null) {
-      print('[SessionCompletion] ❌ Missing required parameters');
+      log('[SessionCompletion] Missing required parameters');
       return false;
     }
-
-    print('[SessionCompletion] 🔔 Processing session completion for goal ID: $goalId');
-    print('   - Session start: ${DateTime.fromMillisecondsSinceEpoch(sessionStartTime * 1000)}');
-    print('   - Session duration: ${_formatTime(sessionDuration)}');
 
     final db = DatabaseHelper.instance;
     final goal = await db.getGoal(goalId);
 
     if (goal == null) {
-      print('[SessionCompletion] ❌ Goal not found with ID: $goalId');
+      log('[SessionCompletion] Goal not found with ID: $goalId');
       return false;
     }
 
     // Check if goal is already completed or inactive
     if (goal.completedAt != null) {
-      print('[SessionCompletion] ℹ️ Goal "${goal.title}" already completed. Skipping.');
       return true;
     }
 
     if (!goal.isActive) {
-      print(
-          '[SessionCompletion] ℹ️ Goal "${goal.title}" is no longer active. User may have stopped it.');
       return true;
     }
-
-    print('[SessionCompletion] 📊 Processing session completion for: "${goal.title}"');
-    print(
-        '   - Current time spent: ${_formatTime(goal.timeSpentSeconds)}/${_formatTime(goal.totalSeconds)}');
 
     // Calculate new time spent
     final newTimeSpent = goal.timeSpentSeconds + sessionDuration;
     final isGoalComplete = newTimeSpent >= goal.totalSeconds;
     final exactTime = isGoalComplete ? goal.totalSeconds : newTimeSpent;
-
-    print('   - Session duration: ${_formatTime(sessionDuration)}');
-    print('   - New time spent: ${_formatTime(exactTime)}');
-    print('   - Will complete goal: $isGoalComplete');
 
     // Update the goal
     final updatedGoal = goal.copyWith(
@@ -147,7 +127,6 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     );
 
     await db.updateGoal(updatedGoal);
-    print('[SessionCompletion] ✅ Goal updated successfully');
 
     // Update daily progress record (for both completed and in-progress goals)
     if (updatedGoal.currentDayRecordId != null) {

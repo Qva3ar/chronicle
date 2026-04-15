@@ -18,15 +18,15 @@ class OfflineDataMockup extends StatelessWidget {
           children: [
             // Phone icon with shield
             SizedBox(
-              width: 160,
-              height: 160,
+              width: 120,
+              height: 120,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   // Outer glow ring
                   Container(
-                    width: 140,
-                    height: 140,
+                    width: 105,
+                    height: 105,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -36,8 +36,8 @@ class OfflineDataMockup extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    width: 110,
-                    height: 110,
+                    width: 82,
+                    height: 82,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: MyColors.orangeDivider.withValues(alpha: 0.08),
@@ -48,17 +48,17 @@ class OfflineDataMockup extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.smartphone_rounded,
-                      size: 52,
+                      size: 40,
                       color: MyColors.orangeDivider,
                     ),
                   ),
                   // Shield badge
                   Positioned(
-                    right: 12,
-                    bottom: 18,
+                    right: 6,
+                    bottom: 10,
                     child: Container(
-                      width: 44,
-                      height: 44,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         color: const Color(0xFF2D3B2D),
                         shape: BoxShape.circle,
@@ -69,7 +69,7 @@ class OfflineDataMockup extends StatelessWidget {
                       ),
                       child: const Icon(
                         Icons.shield_rounded,
-                        size: 22,
+                        size: 18,
                         color: successColor,
                       ),
                     ),
@@ -77,7 +77,7 @@ class OfflineDataMockup extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
 
             // Info cards
             _OfflineInfoCard(
@@ -843,19 +843,6 @@ class AIChatMockup extends StatelessWidget {
               ],
             ),
           ),
-          // API key notice
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'Requires your own API key',
-              style: TextStyle(
-                color: MyColors.remove,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
           // Input bar
           Container(
             margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),

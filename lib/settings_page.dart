@@ -31,7 +31,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final rows = await db.query(DatabaseTables.appSettings, limit: 1);
     if (rows.isNotEmpty && mounted) {
       setState(() {
-        _mainIntentionText = rows.first[DatabaseColumns.settingMainIntentionText] as String? ?? '';
+        _mainIntentionText =
+            rows.first[DatabaseColumns.settingMainIntentionText] as String? ??
+                '';
       });
     }
   }
@@ -71,182 +73,222 @@ class _SettingsPageState extends State<SettingsPage> {
     showDeleteConfirmationDialog(context);
   }
 
-  Future<void> _deleteAllGoals() async {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: cardColor,
-          title: const Text('Delete All Goals', style: TextStyle(color: textPrimary)),
-          content: const Text('Are you sure you want to delete all goals? This action cannot be undone.',
-              style: TextStyle(color: textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await DatabaseHelper.instance.deleteAllGoals();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All goals deleted successfully')),
-                  );
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error deleting goals: $e')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: MyColors.remove),
-              child: const Text('Delete All', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // ── Confirmation helper ──
 
-  Future<void> _deleteAllRoutines() async {
-    showDialog(
+  Future<bool?> _showConfirmation({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    Color confirmColor = MyColors.remove,
+  }) {
+    return showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: cardColor,
-          title: const Text('Delete All Routines', style: TextStyle(color: textPrimary)),
-          content: const Text(
-              'Are you sure you want to delete all routines? This will also cancel all routine notifications. This action cannot be undone.',
-              style: TextStyle(color: textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(color: textPrimary, fontSize: 17)),
+        content: Text(message, style: const TextStyle(color: textSecondary, fontSize: 14, height: 1.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: confirmColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  List<Map<String, dynamic>> routines =
-                      await DatabaseHelper.instance.getAllRoutines();
-                  for (var routine in routines) {
-                    try {
-                      await _notificationService.cancelRoutineNotification(routine['_id']);
-                    } catch (e) {
-                      print('Error canceling notification for routine ${routine['_id']}: $e');
-                    }
-                  }
-                  await DatabaseHelper.instance.deleteAllRoutines();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All routines deleted successfully')),
-                  );
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error deleting routines: $e')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: MyColors.remove),
-              child: const Text('Delete All', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _resetRoutines() async {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: cardColor,
-          title: const Text('Reset Routines', style: TextStyle(color: textPrimary)),
-          content: const Text(
-              'Are you sure you want to reset all routines? This will:\n\n'
-              '• Mark all routines as not done\n'
-              '• Reschedule all notifications\n\n'
-              'This action cannot be undone.',
-              style: TextStyle(color: textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  final dbManager = DatabaseHelper.instance;
-                  final routineService = RoutineService(dbManager);
-                  final routines = await routineService.getAllRoutines();
-                  for (final routine in routines) {
-                    await routineService.resetRoutine(routine.id);
-                  }
-                  await _notificationService.checkAndRescheduleRoutines();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Routines reset successfully')),
-                  );
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error resetting routines: $e'), backgroundColor: MyColors.remove),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: warningColor),
-              child: const Text('Reset', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+    final confirmed = await _showConfirmation(
+      title: 'Reset Routines',
+      message: 'This will mark all routines as not done and reschedule notifications.\n\nStreak data will be preserved.',
+      confirmLabel: 'Reset',
+      confirmColor: warningColor,
     );
+    if (confirmed != true) return;
+
+    try {
+      final dbManager = DatabaseHelper.instance;
+      final routineService = RoutineService(dbManager);
+      final routines = await routineService.getAllRoutines();
+      for (final routine in routines) {
+        await routineService.resetRoutine(routine.id);
+      }
+      await _notificationService.checkAndRescheduleRoutines();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Routines reset successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: MyColors.remove),
+        );
+      }
+    }
   }
 
   Future<void> _resetGoals() async {
-    showDialog(
+    final confirmed = await _showConfirmation(
+      title: 'Reset Goals',
+      message: 'This will reset all goal completion status, time spent, and stop active sessions.',
+      confirmLabel: 'Reset',
+      confirmColor: warningColor,
+    );
+    if (confirmed != true) return;
+
+    try {
+      final goalService = GoalService(DatabaseHelper.instance);
+      await goalService.resetAllGoals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Goals reset successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: MyColors.remove),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAllGoals() async {
+    final confirmed = await _showConfirmation(
+      title: 'Delete All Goals',
+      message: 'Are you sure? All goals will be permanently deleted.\n\nThis cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true) return;
+
+    try {
+      await DatabaseHelper.instance.deleteAllGoals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All goals deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAllRoutines() async {
+    final confirmed = await _showConfirmation(
+      title: 'Delete All Routines',
+      message: 'Are you sure? All routines and their notifications will be permanently deleted.\n\nThis cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true) return;
+
+    try {
+      List<Map<String, dynamic>> routines =
+          await DatabaseHelper.instance.getAllRoutines();
+      for (var routine in routines) {
+        try {
+          await _notificationService
+              .cancelRoutineNotification(routine['_id']);
+        } catch (e) {
+          print(
+              'Error canceling notification for routine ${routine['_id']}: $e');
+        }
+      }
+      await DatabaseHelper.instance.deleteAllRoutines();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All routines deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showDangerZone() {
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: cardColor,
-          title: const Text('Reset Goals', style: TextStyle(color: textPrimary)),
-          content: const Text(
-              'Are you sure you want to reset all goals? This will:\n\n'
-              '• Reset all goal completion status\n'
-              '• Reset time spent to 0\n'
-              '• Stop all active sessions\n\n'
-              'This action cannot be undone.',
-              style: TextStyle(color: textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  final dbManager = DatabaseHelper.instance;
-                  final goalService = GoalService(dbManager);
-                  await goalService.resetAllGoals();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Goals reset successfully')),
-                  );
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error resetting goals: $e'), backgroundColor: MyColors.remove),
-                  );
-                }
+            const Text(
+              'Danger Zone',
+              style: TextStyle(
+                color: MyColors.remove,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'These actions are irreversible. Make sure you have a backup.',
+              style: TextStyle(color: textMuted, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            _DangerAction(
+              icon: Icons.delete_outline,
+              label: 'Delete All Goals',
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAllGoals();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: infoColor),
-              child: const Text('Reset', style: TextStyle(color: Colors.white)),
+            ),
+            _DangerAction(
+              icon: Icons.delete_outline,
+              label: 'Delete All Routines',
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAllRoutines();
+              },
+            ),
+            _DangerAction(
+              icon: Icons.delete_forever,
+              label: 'Delete All Records',
+              subtitle: 'Notes, tags, and all associated data',
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAllRecords(context);
+              },
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -256,63 +298,51 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
-        title: const Text('Settings', style: TextStyle(color: textPrimary)),
+        title:
+            const Text('Settings', style: TextStyle(color: textPrimary)),
         iconTheme: const IconThemeData(color: textPrimary),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // ── Main Intention ──
+
+          // ── Backup & Restore ──
           ChronoSettingsGroup(
-            title: 'Main Intention',
+            title: 'Backup & Restore',
             children: [
               ChronoSettingsRow(
-                icon: Icons.flag_rounded,
-                iconColor: Colors.purple,
-                label: 'Edit Main Intention',
-                subtitle: _mainIntentionText.isNotEmpty ? _mainIntentionText : null,
-                onTap: _editMainIntention,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Data ──
-          ChronoSettingsGroup(
-            title: 'Data',
-            children: [
-              ChronoSettingsRow(
-                icon: Icons.file_download_outlined,
+                icon: Icons.backup_rounded,
                 iconColor: infoColor,
-                label: 'Import Records',
-                onTap: _importRecords,
-              ),
-              ChronoSettingsRow(
-                icon: Icons.file_upload_outlined,
-                iconColor: infoColor,
-                label: 'Export Records',
+                label: 'Export Backup',
+                subtitle: 'Save your data as JSON file',
                 onTap: _exportRecords,
               ),
+              ChronoSettingsRow(
+                icon: Icons.restore_rounded,
+                iconColor: successColor,
+                label: 'Import Backup',
+                subtitle: 'Restore from a backup file',
+                onTap: _importRecords,
+              ),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // ── Reset ──
+          // ── Troubleshooting ──
           ChronoSettingsGroup(
-            title: 'Reset',
+            title: 'Troubleshooting',
             children: [
               ChronoSettingsRow(
-                icon: Icons.refresh,
+                icon: Icons.refresh_rounded,
                 iconColor: warningColor,
                 label: 'Reset Routines',
                 subtitle: 'Mark all as not done, reschedule notifications',
                 onTap: _resetRoutines,
               ),
               ChronoSettingsRow(
-                icon: Icons.restart_alt,
-                iconColor: infoColor,
+                icon: Icons.restart_alt_rounded,
+                iconColor: warningColor,
                 label: 'Reset Goals',
                 subtitle: 'Reset completion status and time spent',
                 onTap: _resetGoals,
@@ -322,28 +352,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 20),
 
-          // ── Danger Zone ──
+          // ── Danger Zone (single entry point) ──
           ChronoSettingsGroup(
-            title: 'Danger Zone',
             children: [
               ChronoSettingsRow(
-                icon: Icons.delete_outline,
-                iconColor: warningColor,
-                label: 'Delete All Goals',
-                onTap: _deleteAllGoals,
-              ),
-              ChronoSettingsRow(
-                icon: Icons.delete_outline,
-                iconColor: warningColor,
-                label: 'Delete All Routines',
-                onTap: _deleteAllRoutines,
-              ),
-              ChronoSettingsRow(
-                icon: Icons.delete_forever,
+                icon: Icons.warning_amber_rounded,
                 iconColor: MyColors.remove,
-                label: 'Delete All Records',
-                subtitle: 'This cannot be undone',
-                onTap: () => _deleteAllRecords(context),
+                label: 'Danger Zone',
+                subtitle: 'Delete data permanently',
+                onTap: _showDangerZone,
               ),
             ],
           ),
@@ -358,11 +375,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   iconColor: textMuted,
                   label: 'Print Tags to Console',
                   onTap: () async {
-                    await DatabaseHelper.instance.debugPrintTagsDumpToConsole();
+                    await DatabaseHelper.instance
+                        .debugPrintTagsDumpToConsole();
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Tags printed to debug console (flutter run / Logcat)'),
+                          content: Text(
+                              'Tags printed to debug console (flutter run / Logcat)'),
                         ),
                       );
                     }
@@ -374,6 +393,76 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+class _DangerAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  const _DangerAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: MyColors.remove.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: MyColors.remove),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: MyColors.remove,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        style: TextStyle(
+                          color: textMuted.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: textMuted.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
       ),
     );
   }

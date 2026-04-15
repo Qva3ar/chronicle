@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 53;
+  static const int databaseVersion = 54;
   static const int pageSize = 20;
 }
 
@@ -61,6 +61,7 @@ class DatabaseColumns {
 
   // Instructions table columns
   static const String instructionText = 'text';
+  static const String instructionAutoSend = 'auto_send';
   static const String visibility = 'visibility';
 
   // Routine table columns
@@ -226,7 +227,6 @@ class DatabaseHelper {
 
   /// Verify data integrity when opening database
   Future<void> _onOpen(Database db) async {
-    debugPrint('🔓 Database onOpen: Chrono maintenance + tag dump');
     log('🔓 Database opened successfully');
     // Safety net: ensure system "Chrono" tag exists even if migrations were skipped
     // or the tag was removed before it became a system tag.
@@ -258,7 +258,6 @@ class DatabaseHelper {
       }
 
       void line(String s) {
-        debugPrint(s);
         log(s, name: 'TAGS_DEBUG');
       }
 
@@ -274,8 +273,6 @@ class DatabaseHelper {
       }
       line('========== TAGS_DEBUG_DUMP_END ==========');
     } catch (e, st) {
-      debugPrint('TAGS_DEBUG_DUMP failed: $e');
-      debugPrint('$st');
       log('TAGS_DEBUG_DUMP failed: $e', stackTrace: st);
     }
   }
@@ -337,7 +334,6 @@ class DatabaseHelper {
   Future<void> initializeDatabase() async {
     try {
       await database;
-      print('Database initialized');
     } catch (e) {
       log('Error initializing database: $e');
       rethrow;
@@ -388,7 +384,8 @@ class DatabaseHelper {
         CREATE TABLE ${DatabaseTables.instructions} (
           ${DatabaseColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
           ${DatabaseColumns.instructionText} TEXT,
-          ${DatabaseColumns.visibility} INTEGER
+          ${DatabaseColumns.visibility} INTEGER,
+          ${DatabaseColumns.instructionAutoSend} INTEGER NOT NULL DEFAULT 1
         )
       ''');
 
@@ -1660,6 +1657,14 @@ class DatabaseHelper {
         );
         log('Upgraded database to v53: Added routine is_archived column.');
       }
+
+      if (oldVersion < 54) {
+        log('Starting migration to v54: Add auto_send column to instructions...');
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.instructions} ADD COLUMN ${DatabaseColumns.instructionAutoSend} INTEGER NOT NULL DEFAULT 1',
+        );
+        log('Upgraded database to v54: Added instruction auto_send column.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1669,9 +1674,9 @@ class DatabaseHelper {
   /// Insert default instructions
   Future<void> _insertDefaultInstructions(Database db) async {
     final defaultInstructions = [
-      {'text': 'Summarize my note', 'visibility': 1},
-      {'text': 'Translate to turkish', 'visibility': 0},
-      {'text': 'Rewrite my note', 'visibility': 0},
+      {'text': 'Summarize my note', 'visibility': 1, 'auto_send': 1},
+      {'text': 'Translate to turkish', 'visibility': 0, 'auto_send': 1},
+      {'text': 'Rewrite my note', 'visibility': 0, 'auto_send': 0},
     ];
 
     for (final instruction in defaultInstructions) {
@@ -1680,6 +1685,7 @@ class DatabaseHelper {
         {
           DatabaseColumns.instructionText: instruction['text'],
           DatabaseColumns.visibility: instruction['visibility'],
+          DatabaseColumns.instructionAutoSend: instruction['auto_send'],
         },
       );
     }
@@ -1745,8 +1751,6 @@ class DatabaseHelper {
           await txn.insert(DatabaseTables.recordTag, m);
         }
       });
-      debugPrint(
-          '✅ Swapped record_tag: Chrono id=$systemId ↔ Chrono App id=$appId');
       log('✅ Swapped record_tag between Chrono ($systemId) and Chrono App ($appId)');
     } catch (e, st) {
       log('❌ _swapChronoAndChronoAppRecordLinks: $e', stackTrace: st);
@@ -1819,10 +1823,8 @@ class DatabaseHelper {
         }
       }
       log('✅ _ensureSingleChronoSystemTag: kept system Chrono id=$canonicalId, demoted ${systemRows.length - 1} duplicate(s)');
-      debugPrint('✅ _ensureSingleChronoSystemTag: canonical Chrono id=$canonicalId');
     } catch (e) {
       log('❌ _ensureSingleChronoSystemTag: $e');
-      debugPrint('❌ _ensureSingleChronoSystemTag: $e');
     }
   }
 
@@ -2533,6 +2535,7 @@ class DatabaseHelper {
       final Map<String, dynamic> row = {
         DatabaseColumns.instructionText: instruction.text,
         DatabaseColumns.visibility: instruction.visibility ? 1 : 0,
+        DatabaseColumns.instructionAutoSend: instruction.autoSend ? 1 : 0,
       };
       return await db.insert(DatabaseTables.instructions, row);
     } catch (e) {

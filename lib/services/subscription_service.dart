@@ -9,7 +9,7 @@ class SubscriptionService {
   static final SubscriptionService instance = SubscriptionService._privateConstructor();
 
   /// `true` — всегда премиум (для разработки). Перед публикацией — `false`.
-  static const bool _forcePremiumOverride = false;
+  static const bool _forcePremiumOverride = true;
 
   final ValueNotifier<bool> hasSubscription = ValueNotifier(_forcePremiumOverride);
 

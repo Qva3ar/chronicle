@@ -547,7 +547,10 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
           ),
-          InstructionsBlockWidget(onSubmitted: _onSubmitted),
+          InstructionsBlockWidget(
+            onSubmitted: _onSubmitted,
+            textController: _textController,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
@@ -784,6 +787,7 @@ class _ChatPageState extends State<ChatPage> {
             onSubmitted: _onSubmitted,
             onStop: onStop,
             awaitingResponse: _awaitingResponse,
+            controller: _textController,
           ),
         ],
       ),

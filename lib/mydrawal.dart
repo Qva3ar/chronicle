@@ -5,7 +5,6 @@ import 'package:chrono/shared/api-key-popup.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'colors.dart';
 import 'shared/chrono_ui.dart';
-import 'package:chrono/screens/settings/insights_settings_screen.dart';
 import 'package:chrono/screens/paywall_screen.dart';
 import 'package:chrono/services/subscription_service.dart';
 
@@ -126,15 +125,6 @@ class MyDrawal extends StatelessWidget {
               ),
               ChronoSettingsGroup(
                 children: [
-                  ChronoSettingsRow(
-                    icon: Icons.auto_awesome,
-                    iconColor: MyColors.orangeDivider,
-                    label: 'AI Insights Settings',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const InsightsSettingsScreen()),
-                    ),
-                  ),
                   ChronoSettingsRow(
                     icon: Icons.description_outlined,
                     iconColor: infoColor,

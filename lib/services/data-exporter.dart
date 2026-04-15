@@ -22,11 +22,12 @@ class DataExporter {
       List<Map<String, dynamic>> tags = await _dbHelper.queryAllRows();
       exportData['notes'] = notes;
       exportData['tags'] = tags;
-      if (includeWorkspaces) {
-        final workspaces = await _dbHelper.fetchAllWorkspacesForExport();
-        if (workspaces.isNotEmpty) {
-          exportData['workspaces'] = workspaces;
-        }
+    }
+
+    if (includeWorkspaces) {
+      final workspaces = await _dbHelper.fetchAllWorkspacesForExport();
+      if (workspaces.isNotEmpty) {
+        exportData['workspaces'] = workspaces;
       }
     }
 

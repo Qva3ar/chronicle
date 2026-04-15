@@ -4,11 +4,13 @@ class Instruction {
   int? id; // Auto-incremented id
   String text;
   bool visibility;
+  bool autoSend; // true = send immediately, false = insert into input
 
   Instruction({
     this.id,
     required this.text,
     required this.visibility,
+    this.autoSend = true,
   });
 
   // Convert the object to a Map
@@ -17,6 +19,7 @@ class Instruction {
       DatabaseColumns.id: id,
       DatabaseColumns.instructionText: text,
       DatabaseColumns.visibility: visibility ? 1 : 0,
+      DatabaseColumns.instructionAutoSend: autoSend ? 1 : 0,
     };
   }
 
@@ -26,6 +29,7 @@ class Instruction {
       id: map[DatabaseColumns.id],
       text: map[DatabaseColumns.instructionText],
       visibility: map[DatabaseColumns.visibility] == 1,
+      autoSend: (map[DatabaseColumns.instructionAutoSend] ?? 1) == 1,
     );
   }
 }

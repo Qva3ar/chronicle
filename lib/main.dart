@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,8 +30,6 @@ void main() async {
 
     // Check onboarding flag
     final prefs = await SharedPreferences.getInstance();
-    // TODO: remove this line after testing onboarding
-    await prefs.remove('onboarding_done');
     final onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
     // Register widget callback (sync, must be done before any widget tap)
@@ -45,8 +44,8 @@ void main() async {
       _deferredInitialization();
     });
   } catch (e, stackTrace) {
-    print('Error during app initialization: $e');
-    print('Stack trace: $stackTrace');
+    log('Error during app initialization: $e');
+    log('Stack trace: $stackTrace');
   }
 }
 
@@ -70,8 +69,8 @@ Future<void> _deferredInitialization() async {
     final goalWidgetService = GoalWidgetService(DatabaseHelper.instance);
     await goalWidgetService.initialize();
   } catch (e, stackTrace) {
-    print('Error during deferred initialization: $e');
-    print('Stack trace: $stackTrace');
+    log('Error during deferred initialization: $e');
+    log('Stack trace: $stackTrace');
   }
 }
 
@@ -161,6 +160,13 @@ class MyApp extends StatelessWidget {
         listTileTheme: const ListTileThemeData(
           textColor: white,
           iconColor: white,
+        ),
+
+        // Cursor & selection colors
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: MyColors.orangeDivider,
+          selectionColor: MyColors.orangeDivider,
+          selectionHandleColor: MyColors.orangeDivider,
         ),
 
         // Input decoration theme

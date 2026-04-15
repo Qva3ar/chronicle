@@ -24,15 +24,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       animationIndex: 0,
     ),
     _PageData(
-      title: 'Your Data.\nYour Device.',
+      title: 'Your Data. Your Device.',
       subtitle:
-          'Chrono works 100% offline.\nAll your notes, goals, and routines stay\non your phone — private and always available.',
+          'Chrono works 100% offline.\nAll your data stays on your phone —\nprivate and always available.',
+      footnote: 'AI features may send your data to third-party services.',
       animationIndex: 1,
     ),
     _PageData(
       title: 'Your External Brain',
       subtitle:
-          'Making notes has never been this easy.\nWriting isn\'t just recording — it\'s thinking.',
+          'Writing isn\'t just recording — it\'s thinking.\nMaking notes has never been this easy.',
       animationIndex: 2,
     ),
     _PageData(
@@ -51,6 +52,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Your Notes Are\na Knowledge Base',
       subtitle:
           'Chat with AI for free — bring your own API key.\nFeed your notes as context to get insights\nbuilt on your own data.',
+      footnote: 'Requires your own API key.',
       animationIndex: 5,
     ),
     _PageData(
@@ -200,11 +202,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 class _PageData {
   final String title;
   final String subtitle;
+  final String? footnote;
   final int animationIndex;
 
   const _PageData({
     required this.title,
     required this.subtitle,
+    this.footnote,
     required this.animationIndex,
   });
 }
@@ -268,9 +272,9 @@ class _FeaturePage extends StatelessWidget {
           // Mockup area
           Expanded(
             flex: 5,
-            child: mockup,
+            child: ClipRect(child: mockup),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           // Text area
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -308,6 +312,19 @@ class _FeaturePage extends StatelessWidget {
             height: 1.5,
           ),
         ),
+        if (data.footnote != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            data.footnote!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: MyColors.remove.withValues(alpha: 0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 1.4,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -383,8 +400,8 @@ class _PaywallContentState extends State<PaywallContent> {
         // Sort: monthly, 3-months, annual, lifetime
         products.sort((a, b) => _sortKey(a).compareTo(_sortKey(b)));
         // Default select annual
-        final annualIdx = products.indexWhere((p) =>
-            p.subscription?.period.unit.toString().contains('year') ?? false);
+        final annualIdx = products
+            .indexWhere((p) => p.subscription?.period.unit.toString().contains('year') ?? false);
         setState(() {
           _products = products;
           _selectedIndex = annualIdx != -1 ? annualIdx : 0;
@@ -494,8 +511,7 @@ class _PaywallContentState extends State<PaywallContent> {
 
                 // Premium badge
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: MyColors.orangeDivider.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -556,17 +572,13 @@ class _PaywallContentState extends State<PaywallContent> {
                           children: [
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? MyColors.orangeDivider
-                                        .withValues(alpha: 0.08)
+                                    ? MyColors.orangeDivider.withValues(alpha: 0.08)
                                     : cardColor,
                                 border: Border.all(
-                                  color: isSelected
-                                      ? MyColors.orangeDivider
-                                      : cardColor3,
+                                  color: isSelected ? MyColors.orangeDivider : cardColor3,
                                   width: 1.5,
                                 ),
                                 borderRadius: BorderRadius.circular(14),
@@ -580,36 +592,28 @@ class _PaywallContentState extends State<PaywallContent> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isSelected
-                                            ? MyColors.orangeDivider
-                                            : textMuted,
+                                        color: isSelected ? MyColors.orangeDivider : textMuted,
                                         width: 2,
                                       ),
-                                      color: isSelected
-                                          ? MyColors.orangeDivider
-                                          : Colors.transparent,
+                                      color:
+                                          isSelected ? MyColors.orangeDivider : Colors.transparent,
                                     ),
                                     child: isSelected
-                                        ? const Icon(Icons.check,
-                                            size: 14, color: Colors.black)
+                                        ? const Icon(Icons.check, size: 14, color: Colors.black)
                                         : null,
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           _planLabel(product),
                                           style: TextStyle(
                                             fontSize: 15,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            color: isSelected
-                                                ? textPrimary
-                                                : textSecondary,
+                                            fontWeight:
+                                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                                            color: isSelected ? textPrimary : textSecondary,
                                           ),
                                         ),
                                         if (isLifetime)
@@ -629,9 +633,7 @@ class _PaywallContentState extends State<PaywallContent> {
                                     style: TextStyle(
                                       fontSize: 17,
                                       fontWeight: FontWeight.w700,
-                                      color: isSelected
-                                          ? MyColors.orangeDivider
-                                          : textSecondary,
+                                      color: isSelected ? MyColors.orangeDivider : textSecondary,
                                     ),
                                   ),
                                 ],
@@ -642,8 +644,7 @@ class _PaywallContentState extends State<PaywallContent> {
                                 top: -10,
                                 right: 10,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: MyColors.orangeDivider,
                                     borderRadius: BorderRadius.circular(8),
@@ -672,8 +673,7 @@ class _PaywallContentState extends State<PaywallContent> {
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation(MyColors.orangeDivider),
+                        valueColor: AlwaysStoppedAnimation(MyColors.orangeDivider),
                       ),
                     ),
                   ),
@@ -686,8 +686,7 @@ class _PaywallContentState extends State<PaywallContent> {
 
         // Bottom bar
         Padding(
-          padding: EdgeInsets.fromLTRB(
-              28, 8, 28, MediaQuery.of(context).padding.bottom + 16),
+          padding: EdgeInsets.fromLTRB(28, 8, 28, MediaQuery.of(context).padding.bottom + 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -745,9 +744,7 @@ class _PaywallContentState extends State<PaywallContent> {
                       style: TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ),
-                  Text('  |  ',
-                      style: TextStyle(
-                          color: textMuted.withValues(alpha: 0.3))),
+                  Text('  |  ', style: TextStyle(color: textMuted.withValues(alpha: 0.3))),
                   TextButton(
                     onPressed: widget.onFinish,
                     child: Text(

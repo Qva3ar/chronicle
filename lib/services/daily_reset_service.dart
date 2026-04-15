@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/services/notification_service.dart';
@@ -42,51 +43,35 @@ class DailyResetService {
         final now = DateTime.now().millisecondsSinceEpoch;
         final timeSinceLastReset = Duration(milliseconds: now - lastResetTimestamp);
 
-        print('[DailyResetService] 🧪 TEST MODE: Checking if reset needed');
-        print('   - Last reset: ${_formatTimestamp(lastResetTimestamp)}');
-        print('   - Current time: ${_formatTimestamp(now)}');
-        print('   - Time since last reset: ${timeSinceLastReset.inMinutes} minutes');
-        print('   - Required interval: ${_testInterval.inHours} hours');
-
         if (timeSinceLastReset < _testInterval) {
-          final minutesRemaining = (_testInterval - timeSinceLastReset).inMinutes;
-          print('[DailyResetService] ✅ Reset already done recently. Next reset in $minutesRemaining minutes');
           return false;
         }
 
         // Need to perform reset
-        print('[DailyResetService] 🌅 Starting fallback reset (TEST MODE - 2 hour interval)');
         await _performDailyReset();
 
         // Update the last reset timestamp
         await prefs.setInt(_lastResetTimestampKey, now);
-        print('[DailyResetService] ✅ Fallback reset completed and timestamp stored');
         return true;
       } else {
         // PRODUCTION MODE: Check if date has changed
         final today = _getTodayDateString();
         final lastResetDate = prefs.getString(_lastResetDateKey);
 
-        print('[DailyResetService] Checking if reset needed - today: $today, last reset: $lastResetDate');
-
         if (lastResetDate == today) {
           // Already reset today, no action needed
-          print('[DailyResetService] ✅ Daily reset already completed for today');
           return false;
         }
 
         // Need to perform daily reset
-        print('[DailyResetService] 🌅 Starting fallback daily reset for $today');
         await _performDailyReset();
 
         // Update the last reset date
         await prefs.setString(_lastResetDateKey, today);
-        print('[DailyResetService] ✅ Fallback daily reset completed and date stored');
         return true;
       }
     } catch (e, stackTrace) {
-      print('[DailyResetService] ❌ Error in runDailyResetIfNeeded: $e');
-      print('Stack trace: $stackTrace');
+      log('[DailyResetService] Error in runDailyResetIfNeeded: $e\n$stackTrace');
       return false;
     }
   }
@@ -101,12 +86,6 @@ class DailyResetService {
   /// - Updates the last reset date in SharedPreferences
   Future<void> performDailyResetAndStoreDate() async {
     try {
-      if (_testMode) {
-        print('[DailyResetService] 🧪 TEST MODE: Starting reset (from background task)');
-      } else {
-        print('[DailyResetService] 🌅 Starting daily reset (from background task)');
-      }
-
       await _performDailyReset();
 
       // Store timestamp to prevent duplicate resets

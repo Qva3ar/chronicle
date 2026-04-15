@@ -96,10 +96,10 @@ class _ChatPageNoteState extends State<ChatPageNote> {
             ),
           ),
         ),
-        InstructionsBlockWidget(onSubmitted: (String instruction) {
-          _textController.text = instruction;
-          setState(() {});
-        }),
+        InstructionsBlockWidget(
+          onSubmitted: _onSubmitted,
+          textController: _textController,
+        ),
         // Padding(
         //   padding: const EdgeInsets.symmetric(horizontal: 16),
         //   child: Column(

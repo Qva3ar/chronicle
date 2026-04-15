@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:chrono/colors.dart';
 import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
@@ -15,22 +16,31 @@ class _ExportDialogState extends State<ExportDialog> {
   bool _includeGoals = true;
   bool _includeTodos = true;
   bool _includeInstructions = true;
+  bool _includeWorkspaces = true;
   bool _isExporting = false;
   bool _exportCompleted = false;
-  String _statusMessage = "Select data to export";
+  String _statusMessage = 'Select data to include in your backup';
   File? _exportedFile;
 
+  bool get _hasSelection =>
+      _includeNotes ||
+      _includeRoutines ||
+      _includeGoals ||
+      _includeTodos ||
+      _includeInstructions ||
+      _includeWorkspaces;
+
   Future<void> _exportData() async {
-    if (!_includeNotes && !_includeRoutines && !_includeGoals && !_includeTodos && !_includeInstructions) {
+    if (!_hasSelection) {
       setState(() {
-        _statusMessage = "Please select at least one data type to export.";
+        _statusMessage = 'Please select at least one data type.';
       });
       return;
     }
 
     setState(() {
       _isExporting = true;
-      _statusMessage = "Exporting data...";
+      _statusMessage = 'Exporting data...';
     });
 
     try {
@@ -41,16 +51,17 @@ class _ExportDialogState extends State<ExportDialog> {
         includeGoals: _includeGoals,
         includeTodos: _includeTodos,
         includeInstructions: _includeInstructions,
+        includeWorkspaces: _includeWorkspaces,
       );
 
       setState(() {
         _exportedFile = file;
         _exportCompleted = true;
-        _statusMessage = "Export completed! Choose how to share your backup.";
+        _statusMessage = 'Backup ready! Choose how to save it.';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = "Export failed: ${e.toString()}";
+        _statusMessage = 'Export failed: ${e.toString()}';
       });
     } finally {
       setState(() {
@@ -68,22 +79,24 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeRoutines) dataTypes.add('routines');
       if (_includeGoals) dataTypes.add('goals');
       if (_includeTodos) dataTypes.add('todos');
+      if (_includeWorkspaces) dataTypes.add('workspaces');
       if (_includeInstructions) dataTypes.add('instructions');
 
       final result = await Share.shareXFiles(
         [XFile(_exportedFile!.path)],
         subject: 'Chrono Data Backup',
-        text: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
+        text:
+            'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
       );
 
       if (result.status == ShareResultStatus.success) {
         setState(() {
-          _statusMessage = "Backup shared successfully!";
+          _statusMessage = 'Backup shared successfully!';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = "Share failed: ${e.toString()}";
+        _statusMessage = 'Share failed: ${e.toString()}';
       });
     }
   }
@@ -97,10 +110,12 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeRoutines) dataTypes.add('routines');
       if (_includeGoals) dataTypes.add('goals');
       if (_includeTodos) dataTypes.add('todos');
+      if (_includeWorkspaces) dataTypes.add('workspaces');
       if (_includeInstructions) dataTypes.add('instructions');
 
       final Email email = Email(
-        body: 'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
+        body:
+            'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
         subject: 'Chrono Data Backup',
         recipients: [],
         attachmentPaths: [_exportedFile!.path],
@@ -109,17 +124,17 @@ class _ExportDialogState extends State<ExportDialog> {
 
       await FlutterEmailSender.send(email);
       setState(() {
-        _statusMessage = "Email composer opened!";
+        _statusMessage = 'Email composer opened!';
       });
     } catch (e) {
-      // Handle "no email client" error gracefully
-      if (e.toString().contains('not_available') || e.toString().contains('No email clients')) {
+      if (e.toString().contains('not_available') ||
+          e.toString().contains('No email clients')) {
         setState(() {
           _statusMessage = "No email app found. Please use 'Share' instead.";
         });
       } else {
         setState(() {
-          _statusMessage = "Email failed: ${e.toString()}";
+          _statusMessage = 'Email failed: ${e.toString()}';
         });
       }
     }
@@ -127,119 +142,237 @@ class _ExportDialogState extends State<ExportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Export Data'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_statusMessage),
-          SizedBox(height: 16),
-          if (!_isExporting && !_exportCompleted) ...[
+    return Dialog(
+      backgroundColor: cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: infoColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.backup_rounded,
+                      size: 18, color: infoColor),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Export Backup',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             Text(
-              'Select data to export:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              _statusMessage,
+              style: TextStyle(
+                color: textMuted,
+                fontSize: 13,
+              ),
             ),
-            SizedBox(height: 8),
-            CheckboxListTile(
-              title: Text('Notes & Tags'),
-              subtitle: Text('All your notes and tags'),
-              value: _includeNotes,
-              onChanged: (bool? value) {
-                setState(() {
-                  _includeNotes = value ?? false;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            CheckboxListTile(
-              title: Text('Routines'),
-              subtitle: Text('Your daily routines and reminders'),
-              value: _includeRoutines,
-              onChanged: (bool? value) {
-                setState(() {
-                  _includeRoutines = value ?? false;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            CheckboxListTile(
-              title: Text('Goals'),
-              subtitle: Text('Your time-tracking goals'),
-              value: _includeGoals,
-              onChanged: (bool? value) {
-                setState(() {
-                  _includeGoals = value ?? false;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            CheckboxListTile(
-              title: Text('Todos'),
-              subtitle: Text('Your todo list and reminders'),
-              value: _includeTodos,
-              onChanged: (bool? value) {
-                setState(() {
-                  _includeTodos = value ?? false;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            CheckboxListTile(
-              title: Text('Instructions'),
-              subtitle: Text('Your GPT instructions'),
-              value: _includeInstructions,
-              onChanged: (bool? value) {
-                setState(() {
-                  _includeInstructions = value ?? false;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
+            const SizedBox(height: 16),
+
+            if (!_isExporting && !_exportCompleted) ...[
+              // Checkboxes
+              _ExportCheckbox(
+                label: 'Notes & Tags',
+                icon: Icons.note_rounded,
+                value: _includeNotes,
+                onChanged: (v) => setState(() => _includeNotes = v ?? false),
+              ),
+              _ExportCheckbox(
+                label: 'Routines',
+                icon: Icons.schedule_rounded,
+                value: _includeRoutines,
+                onChanged: (v) => setState(() => _includeRoutines = v ?? false),
+              ),
+              _ExportCheckbox(
+                label: 'Goals',
+                icon: Icons.track_changes_rounded,
+                value: _includeGoals,
+                onChanged: (v) => setState(() => _includeGoals = v ?? false),
+              ),
+              _ExportCheckbox(
+                label: 'Todos',
+                icon: Icons.checklist_rounded,
+                value: _includeTodos,
+                onChanged: (v) => setState(() => _includeTodos = v ?? false),
+              ),
+              _ExportCheckbox(
+                label: 'Workspaces',
+                icon: Icons.workspaces_rounded,
+                value: _includeWorkspaces,
+                onChanged: (v) =>
+                    setState(() => _includeWorkspaces = v ?? false),
+              ),
+              _ExportCheckbox(
+                label: 'AI Instructions',
+                icon: Icons.psychology_rounded,
+                value: _includeInstructions,
+                onChanged: (v) =>
+                    setState(() => _includeInstructions = v ?? false),
+              ),
+              const SizedBox(height: 16),
+
+              // Export button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _hasSelection ? _exportData : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: infoColor,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: cardColor2,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Create Backup',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel',
+                      style: TextStyle(color: textMuted, fontSize: 13)),
+                ),
+              ),
+            ],
+
+            if (_isExporting)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation(infoColor),
+                  ),
+                ),
+              ),
+
+            if (_exportCompleted && !_isExporting) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _sendEmailWithAttachment,
+                      icon: const Icon(Icons.email_outlined, size: 18),
+                      label: const Text('Email'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textPrimary,
+                        side: BorderSide(
+                            color: cardBorder.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _shareFile,
+                      icon: const Icon(Icons.share_rounded, size: 18),
+                      label: const Text('Share'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: infoColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Done',
+                      style: TextStyle(color: textMuted, fontSize: 13)),
+                ),
+              ),
+            ],
           ],
-          if (_isExporting) Center(child: CircularProgressIndicator()),
-          if (_exportCompleted && !_isExporting) ...[
-            SizedBox(height: 8),
-            Text(
-              'Backup created successfully!',
-              style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ],
+        ),
       ),
-      actions: [
-        if (!_isExporting && !_exportCompleted) ...[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: _exportData,
-            child: Text('Export'),
-          ),
-        ],
-        if (_exportCompleted && !_isExporting) ...[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _sendEmailWithAttachment,
-            icon: Icon(Icons.email),
-            label: Text('Email'),
-          ),
-          ElevatedButton.icon(
-            onPressed: _shareFile,
-            icon: Icon(Icons.share),
-            label: Text('Share'),
-          ),
-        ],
-        if (_isExporting)
-          TextButton(
-            onPressed: null,
-            child: Text('Please wait...'),
-          ),
-      ],
+    );
+  }
+}
+
+class _ExportCheckbox extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+
+  const _ExportCheckbox({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: value,
+                onChanged: onChanged,
+                activeColor: MyColors.orangeDivider,
+                checkColor: Colors.black,
+                side: BorderSide(color: textMuted, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(icon, size: 16, color: textMuted),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: value ? textPrimary : textSecondary,
+                fontSize: 14,
+                fontWeight: value ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
