@@ -783,6 +783,16 @@ class BackgroundTaskManager {
     return DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
   }
 
+  /// Cancel insight generation tasks
+  static Future<void> cancelInsightGeneration() async {
+    try {
+      await Workmanager().cancelByUniqueName('insight_periodic');
+      print('[BackgroundTaskManager] ✅ Insight generation tasks cancelled');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to cancel insight generation: $e');
+    }
+  }
+
   /// Schedule periodic insight generation
   static Future<void> scheduleInsightGeneration({
     required bool enabled,

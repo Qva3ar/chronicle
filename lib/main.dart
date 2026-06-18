@@ -17,6 +17,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/services/subscription_service.dart';
+import 'package:chrono/ai/context_builder.dart';
 
 // Global navigator key for navigation from notifications
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -61,6 +62,32 @@ Future<void> _deferredInitialization() async {
     await BackgroundTaskManager.initialize();
     await BackgroundTaskManager.scheduleDailyReset();
     await DailyResetService.instance.runDailyResetIfNeeded();
+
+    // One-shot heal pass for routine streaks corrupted by the previous
+    // non-idempotent daily-reset bug (calendar shows full history but streak=1).
+    // Guarded so it only runs once per install — subsequent days are handled
+    // by [DailyResetService] which now invokes the heal automatically.
+    try {
+      const healFlagKey = 'routine_streak_heal_v1_done';
+      final healPrefs = await SharedPreferences.getInstance();
+      if (!(healPrefs.getBool(healFlagKey) ?? false)) {
+        await DatabaseHelper.instance.healRoutineStreaksFromRecords();
+        await healPrefs.setBool(healFlagKey, true);
+        log('Routine streak heal pass v1 completed');
+      }
+    } catch (e) {
+      log('Routine streak heal pass failed (non-critical): $e');
+    }
+
+    // Ensure insight tasks respect current settings on app startup
+    try {
+      final settingsData = await ContextBuilder.instance.loadSettings();
+      if (!settingsData.insightEnabled) {
+        await BackgroundTaskManager.cancelInsightGeneration();
+      }
+    } catch (e) {
+      log('Warning: Could not check insight settings on startup: $e');
+    }
 
     final widgetService = WidgetService(DatabaseHelper.instance);
     await widgetService.initialize();

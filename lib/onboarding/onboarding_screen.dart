@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/homepage.dart';
 import 'package:chrono/onboarding/onboarding_animations.dart';
 import 'package:chrono/onboarding/onboarding_mockups.dart';
 import 'package:chrono/services/subscription_service.dart';
+
+// Required by App Store Review Guideline 3.1.2 — auto-renewable subscriptions
+// must include functional links to Terms of Use (EULA) and Privacy Policy
+// inside the purchase flow.
+const String kTermsOfUseUrl =
+    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const String kPrivacyPolicyUrl =
+    'https://docs.google.com/document/d/16Yi3piQAQLk3SW5itI1iiIntvVG9amvWDSaZpIX43ts/edit?usp=sharing';
+
+Future<void> _openLegalUrl(String url) async {
+  final uri = Uri.parse(url);
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -386,11 +400,28 @@ class _PaywallContentState extends State<PaywallContent> {
   bool _purchasing = false;
   List<dynamic>? _products;
   int _selectedIndex = 0;
+  bool _plansVisible = false;
+
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_plansVisible && _scrollController.offset > 80) {
+      setState(() => _plansVisible = true);
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -469,6 +500,19 @@ class _PaywallContentState extends State<PaywallContent> {
     return 'Plan';
   }
 
+  Future<void> _onButtonTap() async {
+    if (!_plansVisible) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _plansVisible = true);
+      return;
+    }
+    await _purchase();
+  }
+
   Future<void> _purchase() async {
     if (_products == null || _products!.isEmpty) {
       widget.onFinish();
@@ -504,34 +548,25 @@ class _PaywallContentState extends State<PaywallContent> {
       children: [
         Expanded(
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               children: [
                 const SizedBox(height: 16),
 
-                // Premium badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: MyColors.orangeDivider.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: MyColors.orangeDivider.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Text(
-                    'CHRONO PRO',
-                    style: TextStyle(
-                      color: MyColors.orangeDivider,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
 
                 // Title
+                const Text(
+                  'Chrono Premium',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: MyColors.orangeDivider,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 const Text(
                   'Unlock Your\nFull Potential',
                   textAlign: TextAlign.center,
@@ -692,7 +727,7 @@ class _PaywallContentState extends State<PaywallContent> {
             children: [
               // Subscribe button
               GestureDetector(
-                onTap: _purchasing ? null : _purchase,
+                onTap: _purchasing ? null : _onButtonTap,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 18),
@@ -719,9 +754,9 @@ class _PaywallContentState extends State<PaywallContent> {
                               strokeWidth: 2.5,
                             ),
                           )
-                        : const Text(
-                            'Start Growing',
-                            style: TextStyle(
+                        : Text(
+                            _plansVisible ? 'Start Growing' : 'See Plans',
+                            style: const TextStyle(
                               color: Color(0xFF1A1B1F),
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
@@ -753,6 +788,61 @@ class _PaywallContentState extends State<PaywallContent> {
                     ),
                   ),
                 ],
+              ),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () => _openLegalUrl(kTermsOfUseUrl),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Terms of Use (EULA)',
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: 12,
+                        decoration: TextDecoration.underline,
+                        decorationColor: textMuted,
+                      ),
+                    ),
+                  ),
+                  Text('·',
+                      style: TextStyle(color: textMuted.withValues(alpha: 0.4))),
+                  TextButton(
+                    onPressed: () => _openLegalUrl(kPrivacyPolicyUrl),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Privacy Policy',
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: 12,
+                        decoration: TextDecoration.underline,
+                        decorationColor: textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. Manage or cancel subscriptions in your App Store account settings.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: textMuted.withValues(alpha: 0.7),
+                    fontSize: 10,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ],
           ),

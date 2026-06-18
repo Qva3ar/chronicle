@@ -351,10 +351,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                         controller: sheetCtrl,
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          SizedBox(
-                            height: MediaQuery.sizeOf(context).height * 0.35,
-                            child: _buildEmptyState(),
-                          ),
+                          _buildEmptyState(),
                         ],
                       )
                     : ListView(

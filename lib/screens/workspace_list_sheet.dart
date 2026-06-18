@@ -329,10 +329,7 @@ class _WorkspaceListSheetState extends State<WorkspaceListSheet> {
                             controller: sheetCtrl,
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: [
-                              SizedBox(
-                                height: MediaQuery.sizeOf(context).height * 0.35,
-                                child: _buildEmptyState(),
-                              ),
+                              _buildEmptyState(),
                             ],
                           )
                         : ListView.builder(

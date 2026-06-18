@@ -127,6 +127,17 @@ class DailyResetService {
     await db.resetRoutinesDoneStatus();
     print('[DailyResetService] ✅ Routines reset complete');
 
+    // Self-heal any routine streaks that were previously corrupted (e.g. by the
+    // non-idempotent reset bug where streak was wrongly zeroed on retry/fallback).
+    // Recomputes streak from the actual completion records. No-op when streaks
+    // are already consistent. Safe to run on every daily reset.
+    try {
+      await db.healRoutineStreaksFromRecords();
+      print('[DailyResetService] ✅ Routine streaks self-heal pass complete');
+    } catch (e) {
+      print('[DailyResetService] ⚠️ Streak self-heal failed (non-critical): $e');
+    }
+
     // Reset goals' daily progress
     await goalService.resetAllGoals();
     print('[DailyResetService] ✅ Goals reset complete');

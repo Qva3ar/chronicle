@@ -52,6 +52,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       labelStyle: const TextStyle(color: textMuted),
       helperText: helperText,
       helperStyle: const TextStyle(color: textHint, fontSize: 12),
+      helperMaxLines: 2,
+      errorMaxLines: 1,
       border: OutlineInputBorder(
         borderSide: BorderSide(color: cardBorder),
         borderRadius: BorderRadius.circular(12),
@@ -66,6 +68,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       ),
       errorBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: MyColors.remove),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: MyColors.remove, width: 1.5),
         borderRadius: BorderRadius.circular(12),
       ),
     );
@@ -107,7 +113,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
             TextFormField(
               controller: _titleController,
               style: const TextStyle(color: textPrimary, fontSize: 16),
-              decoration: _inputDecoration('Goal Title'),
+              decoration: _inputDecoration('Goal Title', helperText: ' '),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter a goal title';
@@ -131,7 +137,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         child: TextFormField(
                           controller: _hoursController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Hours'),
+                          decoration: _inputDecoration('Hours', helperText: ' '),
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.isEmpty) return null;
@@ -146,12 +152,21 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         child: TextFormField(
                           controller: _minutesController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Minutes'),
+                          decoration: _inputDecoration('Minutes', helperText: ' '),
                           keyboardType: TextInputType.number,
                           validator: (value) {
-                            if (value == null || value.isEmpty) return 'Required';
-                            final minutes = int.tryParse(value);
-                            if (minutes == null || minutes < 0 || minutes >= 60) return '0-59';
+                            final hours = int.tryParse(_hoursController.text);
+                            final hasHours = hours != null && hours > 0;
+                            
+                            if (!hasHours && (value == null || value.isEmpty)) {
+                              return 'Required';
+                            }
+                            
+                            if (value != null && value.isNotEmpty) {
+                              final minutes = int.tryParse(value);
+                              if (minutes == null || minutes < 0 || minutes >= 60) return '0-59';
+                            }
+                            
                             return null;
                           },
                         ),
@@ -309,8 +324,19 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     }
 
     final hours = int.tryParse(_hoursController.text) ?? 0;
-    final minutes = int.parse(_minutesController.text);
+    final minutes = int.tryParse(_minutesController.text) ?? 0;
     final sessionMinutes = int.parse(_sessionMinutesController.text);
+
+    // Check that total time is greater than 0
+    if (hours == 0 && minutes == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please specify at least some hours or minutes'),
+          backgroundColor: MyColors.remove,
+        ),
+      );
+      return;
+    }
 
     final db = DatabaseHelper.instance;
 

@@ -55,6 +55,16 @@
 		<string>remote-notification</string>
 		<string>processing</string>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.chrono.session_completion</string>
+		<string>com.chrono.daily_reset</string>
+		<string>com.chrono.insight_generation</string>
+		<string>com.chrono.routine_notification</string>
+		<string>com.chrono.checkin_notification</string>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundAppRefresh</string>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundProcessingTask</string>
+	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Chrono needs to send you notifications for routines, goal sessions, and daily insights.</string>
     <key>ITSAppUsesNonExemptEncryption</key>

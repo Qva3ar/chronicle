@@ -16,6 +16,9 @@ class MyDrawal extends StatelessWidget {
   final policyUrl =
       'https://docs.google.com/document/d/16Yi3piQAQLk3SW5itI1iiIntvVG9amvWDSaZpIX43ts/edit?usp=sharing';
 
+  static const _eulaUrl =
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
   Future<void> _showApiKeyPopup(BuildContext context) async {
     return showDialog(
       context: context,
@@ -25,11 +28,10 @@ class MyDrawal extends StatelessWidget {
     );
   }
 
-  Future<void> _launchUrl() async {
-    final url = Uri.parse(policyUrl);
-
-    if (!await launchUrl(url)) {
-      throw Exception('Could not launch $url');
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not launch $uri');
     }
   }
 
@@ -173,7 +175,13 @@ class MyDrawal extends StatelessWidget {
                     icon: Icons.policy_outlined,
                     iconColor: textSecondary,
                     label: 'Privacy Policy',
-                    onTap: () => _launchUrl(),
+                    onTap: () => _launchUrl(policyUrl),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.gavel_outlined,
+                    iconColor: textSecondary,
+                    label: 'Terms of Use (EULA)',
+                    onTap: () => _launchUrl(_eulaUrl),
                   ),
                 ],
               ),

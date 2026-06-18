@@ -319,10 +319,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                             controller: sheetCtrl,
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: [
-                              SizedBox(
-                                height: MediaQuery.sizeOf(context).height * 0.35,
-                                child: _buildEmptyState(),
-                              ),
+                              _buildEmptyState(),
                             ],
                           )
                         : ReorderableListView(

@@ -14,7 +14,8 @@ class ProductivityBanner extends StatefulWidget {
   State<ProductivityBanner> createState() => _ProductivityBannerState();
 }
 
-class _ProductivityBannerState extends State<ProductivityBanner> {
+class _ProductivityBannerState extends State<ProductivityBanner>
+    with WidgetsBindingObserver {
   ProductivityScore? _currentScore;
   bool _loading = true;
   Timer? _refreshTimer;
@@ -24,6 +25,7 @@ class _ProductivityBannerState extends State<ProductivityBanner> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _load());
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) => _load());
@@ -35,10 +37,23 @@ class _ProductivityBannerState extends State<ProductivityBanner> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _resetSubscription?.cancel();
     _scoreUpdatedSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Recalculate immediately when app returns from background.
+      // Background isolate may have updated the DB (e.g. routine marked done
+      // via notification action) but the in-memory stream doesn't cross
+      // isolate boundaries, so the banner would stay stale until the next
+      // periodic timer tick.
+      _load();
+    }
   }
 
   Future<void> _load() async {

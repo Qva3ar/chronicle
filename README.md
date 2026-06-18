@@ -1,29 +1,14 @@
 
-# 🔥🔥 Flutter Sql Crud Using Sqflite or Sql (Insert,Update,Delete,Select) 🔥🔥
+# 🔥🔥 Chrono 🔥🔥
 
-Star⭐ the repo if you like what you like more stuff on flutter 😉.
+My Vision for the Best Productivity App
+My journey into productivity started with Zettelkasten and the habit of note-taking. It helps me remember things better (I’m a pretty forgetful and distracted person), clear my head, and generate new ideas. Notes have become my "second brain," capturing those interesting thoughts that I’d otherwise forget immediately.
+I used Google Keep for a long time, but eventually, I needed a better way to handle tags—it’s just not very convenient in Keep. I tried Obsidian, Notion, and OneNote, but they felt too bloated and clunky, so I gave up on them quickly. To me, the real value of note-taking isn’t in complex processing, but in the simple act of writing things down.
+So, I built my own app with a heavy focus on UI/UX (I’m obsessed with it). I wanted to be able to jot down a note and add tags with minimal friction. I made the app fully offline: in today's world, data security is a priority, plus the speed boost of working offline is a huge advantage.
+Next, I realized that routine is what actually makes us better—those small, consistent steps toward a better version of ourselves. A 10-minute workout, taking supplements, speech exercises—tasks you finish in one go. But I ran into a problem: I’d often forget to check off the routine. I’d swipe the notification thinking "I'll do it in a second," and then just forget. I solved this by adding a recurring reminder logic with two fields: Period After and Interval. For example, if I need to do neck exercises at 9 AM, I set Period After: 90 min and Interval: 30. This means I’ll get the main notification plus three more at 30-minute intervals. This significantly improved my consistency. I called it the Routine Manager.
+Moving on, I needed a way to track activities that take more than half an hour and can't be done in one sitting, like reading or learning a language. In other apps, I’d always forget to hit "stop," and the timer would just keep running. I added this feature but with a key improvement: sessions. When a session ends, you get a notification asking: "Want to start another session?" I stripped away everything unnecessary and called it the Goal Manager.
+That’s how Chrono was born. For me, it’s not just another planner; it’s a way to negotiate with my own time. My digital exoskeleton.
+Chrono doesn't provide the spark if you’re empty inside, but it turns your inner flame into a clear and manageable mechanism.
+PS: I have three and a half more features in the works that I’ll talk about in the next part. 
+PS2: I accidentally uploaded a pre-production version to Google Play—feel free to try it out.Once the final version is ready, the app will move to a subscription model.
 
-<h1 align="center">
-  Dayma Manish
-</h1>
-"The app uses the data sync foreground service to periodically process the user's productivity data, generate AI-based insights via network requests, and keep the Home Screen widgets up-to-date. This task is clearly noticeable to the user because they rely on the updated statistics on their Home Screen widgets and expect daily insight notifications based on the synced background data."
-
-[![Twitter Badge](https://img.shields.io/badge/-@manishdayma22-1ca0f1?style=flat-square&labelColor=1ca0f1&logo=twitter&logoColor=white&link=https://twitter.com/manishdayma22)](https://twitter.com/manishdayma22)
-[![GitHub DaymaManish](https://img.shields.io/github/followers/DaymaManish?label=follow&style=social)](https://github.com/DaymaManish)
-[![Gmail Badge](https://img.shields.io/badge/-manishdayma65@gmail.com-c14438?style=flat-square&logo=Gmail&logoColor=white&link=mailto:manishdayma65@gmail.com)](mailto:manishdayma65@gmail.com)
-
-[![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white)](https://instagram.com/ishidayma)
-[![LinkedIn](https://img.shields.io/badge/linkedin-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/daymamanish/)
-<a href="https://www.buymeacoffee.com/manishdayma" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
-
-## ✨ Requirements
-* Any Operating System (ie. MacOS X, Linux, Windows)
-* Any IDE with Flutter SDK installed (ie. IntelliJ, Android Studio, VSCode etc)
-* A little knowledge of Dart and Flutter.
-
-## Some Screenshots For You 💖
-<img height="480px" src="screenshots/1.jpg">|
-<img height="480px" src="screenshots/2.jpg">
-<img height="480px" src="screenshots/3.jpg">
-<img height="480px" src="screenshots/3.jpg">
-<br>

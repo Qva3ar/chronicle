@@ -283,32 +283,23 @@ class ChronoEmptyState extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 80,
-                height: 80,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
                   color: cardColor2,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: cardBorder.withValues(alpha: 0.3),
                   ),
                 ),
-                child: Icon(icon, size: 40, color: textMuted),
+                child: Icon(icon, size: 32, color: textMuted),
               ),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,

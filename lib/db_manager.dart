@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 54;
+  static const int databaseVersion = 56;
   static const int pageSize = 20;
 }
 
@@ -1665,6 +1665,18 @@ class DatabaseHelper {
         );
         log('Upgraded database to v54: Added instruction auto_send column.');
       }
+
+      if (oldVersion < 55) {
+        log('Starting migration to v55: Update Chrono tag color to dark gray...');
+        await _insertChronoTag(db);
+        log('Upgraded database to v55: Updated Chrono tag color to dark gray.');
+      }
+
+      if (oldVersion < 56) {
+        log('Starting migration to v56: Fix Chrono tag color (was purple, now proper dark gray)...');
+        await _insertChronoTag(db);
+        log('Upgraded database to v56: Fixed Chrono tag color to proper dark gray.');
+      }
     } catch (e) {
       log('Error during database upgrade: $e');
       rethrow;
@@ -1691,8 +1703,8 @@ class DatabaseHelper {
     }
   }
 
-  /// Official system "Chrono" tag color (lightened original: ARGB 255,167,211,166 / 0xFFA7D3A6).
-  static const String _systemChronoColor = '4289188774';
+  /// Official system "Chrono" tag color (dark gray: ARGB 255,126,130,135 / 0xFF7E8287).
+  static const String _systemChronoColor = '4286481031';
 
   /// Swaps all [record_tag] rows between system "Chrono" and user "Chrono App"
   /// (fixes inverted note assignments after dedupe migrations).
@@ -2103,6 +2115,7 @@ class DatabaseHelper {
     bool? showGoalRecords,
     bool? showRoutineRecords,
     bool? showTodoRecords,
+    bool? showProductivityRecords,
   }) async {
     try {
       final Database db = await instance.database;
@@ -2118,6 +2131,10 @@ class DatabaseHelper {
       }
       if (showTodoRecords == false) {
         typeFilters.add("${DatabaseTables.record}.${DatabaseColumns.recordTodoId} IS NULL");
+      }
+      if (showProductivityRecords == false) {
+        typeFilters.add(
+            "(${DatabaseTables.record}.${DatabaseColumns.recordType} IS NULL OR ${DatabaseTables.record}.${DatabaseColumns.recordType} != 'productivity')");
       }
 
       String query;
@@ -3212,21 +3229,32 @@ class DatabaseHelper {
 
   /// Reset all routines' done status to false
   /// Also resets streaks for routines that were not completed on their last scheduled day
+  ///
+  /// IMPORTANT: This function MUST be idempotent. It is invoked by WorkManager at
+  /// midnight AND by the fallback [DailyResetService.runDailyResetIfNeeded] on
+  /// app startup/resume. WorkManager may also retry the task on partial failure.
+  /// Therefore the "was completed yesterday?" check uses the durable
+  /// `last_completed_date` field — NOT the volatile `is_done` flag, which this
+  /// very function clears at the end and would otherwise cause the second run
+  /// to wrongly reset streaks to 0.
   Future<void> resetRoutinesDoneStatus() async {
     try {
       final Database db = await instance.database;
 
-      // Reset streaks for routines that were NOT done on their scheduled day
       final routines = await db.query(DatabaseTables.routines);
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
       final yesterdayIndex = yesterday.weekday - 1; // 0-based, Monday=0
 
       for (final routine in routines) {
         final isArchived = (routine[DatabaseColumns.routineIsArchived] as int? ?? 0) == 1;
         if (isArchived) continue; // archived — skip
 
-        final isDone = (routine[DatabaseColumns.routineIsDone] as int? ?? 0) == 1;
-        if (isDone) continue; // completed yesterday — streak is fine
+        // Use the durable completion date instead of `is_done` so this function
+        // stays idempotent across retries / fallback runs.
+        final lastCompletedDate =
+            routine[DatabaseColumns.routineLastCompletedDate] as String?;
+        if (lastCompletedDate == yesterdayStr) continue; // truly done yesterday
 
         final daysStr = routine[DatabaseColumns.routineDaysOfWeek] as String? ?? '';
         final days = daysStr.split(',');
@@ -3256,6 +3284,55 @@ class DatabaseHelper {
     } catch (e) {
       log('Error resetting routines done status: $e');
       rethrow;
+    }
+  }
+
+  /// One-time self-healing pass for streaks that were corrupted by the previous
+  /// non-idempotent [resetRoutinesDoneStatus] (the value was wrongly zeroed when
+  /// the daily reset ran twice in a row, so users see streak=1 on routines whose
+  /// calendar shows continuous completions).
+  ///
+  /// For each non-archived routine, recompute the true streak from the
+  /// completion records. Only writes when the stored streak disagrees with the
+  /// recomputed value, to keep this cheap.
+  Future<void> healRoutineStreaksFromRecords() async {
+    try {
+      final Database db = await instance.database;
+      final routines = await db.query(
+        DatabaseTables.routines,
+        where: '${DatabaseColumns.routineIsArchived} = 0',
+      );
+
+      for (final routine in routines) {
+        final routineId = routine[DatabaseColumns.id] as int?;
+        if (routineId == null) continue;
+        final storedStreak = routine[DatabaseColumns.routineStreak] as int? ?? 0;
+        final storedLast =
+            routine[DatabaseColumns.routineLastCompletedDate] as String?;
+
+        // Snapshot pre-state so we can detect whether _recalculateRoutineStreak
+        // actually changed anything worth logging.
+        await _recalculateRoutineStreak(db, routineId);
+
+        final after = await db.query(
+          DatabaseTables.routines,
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [routineId],
+        );
+        if (after.isEmpty) continue;
+        final newStreak = after.first[DatabaseColumns.routineStreak] as int? ?? 0;
+        final newLast =
+            after.first[DatabaseColumns.routineLastCompletedDate] as String?;
+
+        if (newStreak != storedStreak || newLast != storedLast) {
+          log('[StreakHeal] routine=$routineId '
+              'streak: $storedStreak → $newStreak, '
+              'lastCompleted: $storedLast → $newLast');
+        }
+      }
+    } catch (e) {
+      log('Error healing routine streaks: $e');
+      // self-healing is best-effort — never propagate
     }
   }
 

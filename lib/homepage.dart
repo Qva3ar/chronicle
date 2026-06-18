@@ -193,9 +193,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      setState(() {
-        _needsRefresh = true;
-      });
+      // Immediately refresh records and productivity score when returning
+      // from background. A routine may have been completed via notification
+      // action in a background isolate, updating the DB but not the in-memory
+      // stream. Without an immediate refresh the stale productivity record
+      // would remain visible until the user scrolls to the top.
+      loadRecords(refresh: true);
+      ProductivityService.instance.createOrUpdateDailyRecord();
     }
   }
 
@@ -240,6 +244,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         showGoalRecords: currentFilterSettings?.showGoalRecords,
         showRoutineRecords: currentFilterSettings?.showRoutineRecords,
         showTodoRecords: currentFilterSettings?.showTodoRecords,
+        showProductivityRecords: currentFilterSettings?.showProductivityRecords,
       );
 
       setState(() {
@@ -268,6 +273,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       searchText: searchController.text,
       showGoalRecords: currentFilterSettings?.showGoalRecords,
       showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+      showTodoRecords: currentFilterSettings?.showTodoRecords,
+      showProductivityRecords: currentFilterSettings?.showProductivityRecords,
     );
 
     setState(() {
@@ -288,6 +295,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       offset,
       showGoalRecords: currentFilterSettings?.showGoalRecords,
       showRoutineRecords: currentFilterSettings?.showRoutineRecords,
+      showTodoRecords: currentFilterSettings?.showTodoRecords,
+      showProductivityRecords: currentFilterSettings?.showProductivityRecords,
     );
 
     if (newRecords.isNotEmpty) {
@@ -614,6 +623,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _showChronoInfoPopup(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: cardColor2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.access_time_rounded, color: MyColors.orangeDivider, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Chronological notes',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'The Chrono tag is for timeline notes — quick logs of what happens during your day:\n\n'
+            '• visited a place\n'
+            '• something happened\n'
+            '• currently at a location\n'
+            '• met someone\n\n'
+            'Use the quick input to capture moments as they happen.',
+            style: TextStyle(color: textSecondary, fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Got it',
+                style: TextStyle(color: MyColors.orangeDivider, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildChronoQuickInputBar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -641,23 +696,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           width: _chronoQuickFocusNode.hasFocus ? 1.5 : 1,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: surfaceElevated,
+          Material(
+            color: surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => _showChronoInfoPopup(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cardBorder, width: 0.5),
-            ),
-            child: const Text(
-              'Chrono',
-              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cardBorder, width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text(
+                      'Chrono',
+                      style:
+                          TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: textMuted,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 6),
           Expanded(
             child: TextField(
               controller: _chronoQuickController,
@@ -676,24 +750,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 errorBorder: InputBorder.none,
                 disabledBorder: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                contentPadding: EdgeInsets.symmetric(vertical: 6),
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           _isSubmittingChronoQuick
               ? const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(6),
                   child: SizedBox(
-                    width: 24,
-                    height: 24,
+                    width: 22,
+                    height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2, color: MyColors.orangeDivider),
                   ),
                 )
               : IconButton(
                   onPressed: _submitChronoQuickNote,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  visualDensity: VisualDensity.compact,
                   icon: Icon(
                     Icons.send_rounded,
+                    size: 22,
                     color:
                         _chronoQuickController.text.isNotEmpty ? MyColors.orangeDivider : textMuted,
                   ),
@@ -721,13 +799,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color:
                     isActive ? MyColors.orangeDivider.withValues(alpha: 0.15) : Colors.transparent,
@@ -735,7 +813,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               child: icon,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
@@ -869,7 +947,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            padding: const EdgeInsets.only(top: 2, bottom: 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -1018,7 +1096,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     if (currentFilterSettings != null &&
                                         (!currentFilterSettings!.showGoalRecords ||
                                             !currentFilterSettings!.showRoutineRecords ||
-                                            !currentFilterSettings!.showTodoRecords))
+                                            !currentFilterSettings!.showTodoRecords ||
+                                            !currentFilterSettings!.showProductivityRecords))
                                       Positioned(
                                         top: 4,
                                         right: 4,
@@ -1226,14 +1305,15 @@ class _FilterDialogState extends State<FilterDialog> {
         'Filter Records',
         style: TextStyle(color: Colors.white),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Select which types of records to show:',
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 16),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Select which types of records to show:',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
           SwitchListTile(
             title: const Text(
               'Show records from Goals',
@@ -1284,7 +1364,25 @@ class _FilterDialogState extends State<FilterDialog> {
               });
             },
           ),
-        ],
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text(
+              'Show Productivity Index',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              'Include daily productivity score records',
+              style: TextStyle(color: Colors.white60),
+            ),
+            value: settings.showProductivityRecords,
+            onChanged: (value) {
+              setState(() {
+                settings = settings.copyWith(showProductivityRecords: value);
+              });
+            },
+          ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

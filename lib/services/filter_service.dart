@@ -54,12 +54,14 @@ class FilterService {
     final showRoutineRecords = await getShowRoutineRecords();
     final showTodoRecords = await getShowTodoRecords();
     final showCompletedTodos = await getShowCompletedTodos();
+    final showProductivityRecords = await getShowProductivityRecords();
 
     return FilterSettings(
       showGoalRecords: showGoalRecords,
       showRoutineRecords: showRoutineRecords,
       showTodoRecords: showTodoRecords,
       showCompletedTodos: showCompletedTodos,
+      showProductivityRecords: showProductivityRecords,
     );
   }
 
@@ -68,6 +70,19 @@ class FilterService {
     await setShowRoutineRecords(settings.showRoutineRecords);
     await setShowTodoRecords(settings.showTodoRecords);
     await setShowCompletedTodos(settings.showCompletedTodos);
+    await setShowProductivityRecords(settings.showProductivityRecords);
+  }
+
+  static const String _showProductivityRecordsKey = 'show_productivity_records';
+
+  Future<bool> getShowProductivityRecords() async {
+    await _initPrefs();
+    return _prefs!.getBool(_showProductivityRecordsKey) ?? true;
+  }
+
+  Future<void> setShowProductivityRecords(bool value) async {
+    await _initPrefs();
+    await _prefs!.setBool(_showProductivityRecordsKey, value);
   }
 
   static const String _showCompletedTodosKey = 'show_completed_todos';
@@ -100,12 +115,14 @@ class FilterSettings {
   final bool showRoutineRecords;
   final bool showTodoRecords;
   final bool showCompletedTodos;
+  final bool showProductivityRecords;
 
   FilterSettings({
     required this.showGoalRecords,
     required this.showRoutineRecords,
     this.showTodoRecords = false,
     required this.showCompletedTodos,
+    this.showProductivityRecords = true,
   });
 
   FilterSettings copyWith({
@@ -113,12 +130,15 @@ class FilterSettings {
     bool? showRoutineRecords,
     bool? showTodoRecords,
     bool? showCompletedTodos,
+    bool? showProductivityRecords,
   }) {
     return FilterSettings(
       showGoalRecords: showGoalRecords ?? this.showGoalRecords,
       showRoutineRecords: showRoutineRecords ?? this.showRoutineRecords,
       showTodoRecords: showTodoRecords ?? this.showTodoRecords,
       showCompletedTodos: showCompletedTodos ?? this.showCompletedTodos,
+      showProductivityRecords:
+          showProductivityRecords ?? this.showProductivityRecords,
     );
   }
 }
