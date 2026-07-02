@@ -697,6 +697,13 @@ class BackgroundTaskManager {
         constraints: Constraints(
           networkType: NetworkType.notRequired,
         ),
+        // 🎯 FIX: Default one-off policy in workmanager is KEEP, which means a
+        // stale pending session_<goalId> task (e.g. left over after the app was
+        // killed mid-session) would be kept and this fresh, correctly-timed task
+        // silently ignored. The stale task could then fire seconds after the user
+        // re-activates the goal, flip isActive=false and stop the session. REPLACE
+        // guarantees the new schedule overwrites any leftover task.
+        existingWorkPolicy: ExistingWorkPolicy.replace,
       );
 
       print('[BackgroundTaskManager] ✅ Session completion scheduled for $completionTime');

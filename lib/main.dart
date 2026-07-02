@@ -8,6 +8,7 @@ import 'package:chrono/services/timer_service.dart';
 import 'package:chrono/services/app_lifecycle_service.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
+import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/services/routine_widget_service.dart';
@@ -62,6 +63,18 @@ Future<void> _deferredInitialization() async {
     await BackgroundTaskManager.initialize();
     await BackgroundTaskManager.scheduleDailyReset();
     await DailyResetService.instance.runDailyResetIfNeeded();
+
+    // Re-ensure todo reminders on every launch. Unlike the daily reset (which
+    // only reschedules when a new day is detected), this guards against the
+    // midnight WorkManager reset not firing on aggressive-battery OEMs and
+    // against alarms cleared by a device reboot.
+    try {
+      final todoNotificationService = TodoNotificationService();
+      await todoNotificationService.initialize();
+      await todoNotificationService.rescheduleAllReminders();
+    } catch (e) {
+      log('Warning: Could not reschedule todo reminders on startup: $e');
+    }
 
     // One-shot heal pass for routine streaks corrupted by the previous
     // non-idempotent daily-reset bug (calendar shows full history but streak=1).

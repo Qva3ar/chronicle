@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 import '../record.service.dart';
 import '../main.dart';
@@ -128,6 +129,117 @@ Future<void> _showBackgroundRunningNotification(
 }
 
 @pragma('vm:entry-point')
+// Ensure the background isolate has a valid local timezone before scheduling
+// exact alarms. The notification-action isolate is spawned fresh, so timezone
+// data may not be initialized here.
+void _ensureTimezoneInitialized() {
+  try {
+    tz.TZDateTime.now(tz.local);
+  } catch (_) {
+    try {
+      tz_data.initializeTimeZones();
+      final String localTimezoneName = DateTime.now().timeZoneName;
+      String tzLocation = 'Europe/Moscow';
+      if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
+        tzLocation = 'UTC';
+      }
+      tz.setLocalLocation(tz.getLocation(tzLocation));
+    } catch (e) {
+      try {
+        tz_data.initializeTimeZones();
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      } catch (_) {}
+    }
+  }
+}
+
+@pragma('vm:entry-point')
+// Backup exact local notification for a session/goal completion, scheduled from
+// a background isolate (e.g. the "Continue" notification action). This mirrors
+// TimerService._scheduleLocalNotification so that sessions resumed while the app
+// is in the background still get a reliable alarm-backed completion notification
+// instead of relying solely on WorkManager (which has no precise-timing guarantee).
+Future<void> _scheduleBackgroundCompletionNotification(
+  FlutterLocalNotificationsPlugin plugin,
+  Goal goal,
+  DateTime completionTime,
+  bool isGoalCompletion,
+  int sessionDuration,
+) async {
+  try {
+    _ensureTimezoneInitialized();
+
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(completionTime, tz.local);
+
+    final title =
+        isGoalCompletion ? 'Session Complete - Goal Achieved! 🎉' : 'Session Completed! 🎉';
+    final body = isGoalCompletion
+        ? '${goal.title} - ${_formatTimeStatic(sessionDuration)} session completed your goal!'
+        : '${goal.title} - ${_formatTimeStatic(sessionDuration)} session finished. Great work!';
+
+    final androidDetails = AndroidNotificationDetails(
+      'session_complete_channel',
+      'Session Completed',
+      channelDescription: 'Notifications when a session is completed',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      autoCancel: true,
+      actions: !isGoalCompletion
+          ? [
+              const AndroidNotificationAction(
+                CONTINUE_ACTION_ID,
+                'Continue',
+              ),
+            ]
+          : null,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'default',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    final payload =
+        isGoalCompletion ? 'goal_complete_${goal.id}' : 'session_complete_${goal.id}';
+
+    try {
+      await plugin.zonedSchedule(
+        2,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: payload,
+      );
+      print('✅ BACKGROUND ACTION: Backup exact notification scheduled for $scheduledDate');
+    } catch (exactError) {
+      print(
+          '⚠️ BACKGROUND ACTION: Exact backup schedule failed ($exactError). Falling back to inexact.');
+      await plugin.zonedSchedule(
+        2,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
+      print('✅ BACKGROUND ACTION: Inexact backup notification scheduled for $scheduledDate');
+    }
+  } catch (e) {
+    print('❌ BACKGROUND ACTION: Failed to schedule backup exact notification: $e');
+  }
+}
+
+@pragma('vm:entry-point')
 // NEW: Top-level function to handle notification actions when app is in background
 Future<void> backgroundNotificationActionHandler(NotificationResponse response) async {
   // Ensure Flutter bindings are initialized for background isolates.
@@ -140,11 +252,16 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
     final db = DatabaseHelper.instance;
     final notificationsPlugin = FlutterLocalNotificationsPlugin();
 
-    // Initialize notifications (needed to cancel one)
+    // Initialize notifications (needed to cancel/schedule). Register the
+    // background action handler so the "Continue" action on any notification
+    // we (re)schedule here keeps working when tapped from the background.
     const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
-    await notificationsPlugin.initialize(initSettings);
+    await notificationsPlugin.initialize(
+      initSettings,
+      onDidReceiveBackgroundNotificationResponse: backgroundNotificationActionHandler,
+    );
 
     final payloadParts = response.payload!.split('_');
     if (payloadParts.length >= 3 && payloadParts[0] == 'session' && payloadParts[1] == 'complete') {
@@ -217,9 +334,23 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
         print('❌ BACKGROUND ACTION: FAILED to schedule next session task: $e');
       }
 
-      // Cancel the "Session Completed" notification (ID 2) that was acted upon
+      // Cancel the "Session Completed" notification (ID 2) that was acted upon.
+      // Do this BEFORE scheduling the backup below, otherwise this cancel would
+      // also clear the freshly scheduled exact alarm (same notification ID 2).
       await notificationsPlugin.cancel(2);
       print('✅ BACKGROUND ACTION: Cleared session completion notification.');
+
+      // 🎯 FIX: Schedule a backup exact local notification as well. WorkManager
+      // alone does not guarantee precise timing (Doze / battery optimization /
+      // OEM killers), which caused occasional missed session-completion
+      // notifications after resuming via "Continue" while in the background.
+      await _scheduleBackgroundCompletionNotification(
+        notificationsPlugin,
+        updatedGoal,
+        completionTime,
+        willCompleteEarly,
+        nextSessionDuration,
+      );
     } else {
       print('⚠️ BACKGROUND ACTION: Unknown payload for CONTINUE_ACTION_ID: ${response.payload}');
     }
@@ -654,6 +785,17 @@ class TimerService extends ChangeNotifier {
       print(
           '🔄 RECOVER: Session was still running when app closed (${formatTime(sessionElapsed)} < ${formatTime(sessionDuration)})');
 
+      // 🎯 FIX: Cancel the leftover WorkManager session task. Otherwise it stays
+      // pending and, due to ExistingWorkPolicy, could fire shortly after the user
+      // re-activates this goal and immediately stop the new session.
+      if (activeGoal.id != null) {
+        try {
+          await BackgroundTaskManager.cancelSessionCompletion(activeGoal.id!);
+        } catch (e) {
+          print('⚠️ RECOVER: Failed to cancel stale session task: $e');
+        }
+      }
+
       // Save the elapsed time and mark as inactive
       final newTimeSpent = activeGoal.timeSpentSeconds + sessionElapsed;
       final goalTarget = activeGoal.totalSeconds;
@@ -741,6 +883,17 @@ class TimerService extends ChangeNotifier {
       clearSessionResumedTimestamp: true,
     );
     await _db.updateGoal(cleanedGoal);
+
+    // 🎯 FIX: Also cancel any pending session task so it can't fire later and
+    // interfere with a future session for this goal.
+    if (goal.id != null) {
+      try {
+        await BackgroundTaskManager.cancelSessionCompletion(goal.id!);
+      } catch (e) {
+        print('⚠️ CLEANUP: Failed to cancel stale session task: $e');
+      }
+    }
+
     print('🧩 CLEANUP: Cleaned up unrecoverable goal state for "${goal.title}"');
   }
 
@@ -771,6 +924,18 @@ class TimerService extends ChangeNotifier {
 
     // Stop current session if any
     await stopSession();
+
+    // 🎯 FIX: stopSession() early-returns when there is no in-memory active goal
+    // (e.g. right after app launch). A stale WorkManager session task for THIS
+    // goal could still be pending from a previous run and would otherwise fire a
+    // few seconds after we start, flipping isActive=false and stopping the new
+    // session. Explicitly cancel it before (re)scheduling a fresh one.
+    try {
+      await BackgroundTaskManager.cancelSessionCompletion(goal.id!);
+    } catch (e) {
+      print('⚠️ START SESSION: Failed to cancel any stale session task: $e');
+    }
+
     await _clearOldNotifications();
 
     var sessionGoal = await _db.getGoal(goal.id!);
@@ -1106,6 +1271,23 @@ class TimerService extends ChangeNotifier {
           print('   - CompletedAt: ${currentGoalInDb.completedAt}');
           await _handleBackgroundCompletion();
           return;
+        }
+
+        // 🎯 FIX: Detect a session that was resumed externally (e.g. the "Continue"
+        // notification action handled by the background isolate). In that case the
+        // DB's sessionResumedTimestampSeconds advances past our in-memory
+        // _sessionStartTime. If we don't realign, sessionTimeElapsed keeps counting
+        // from the previous (already-finished) session start and the timer inflates
+        // (e.g. a 15-min session showing 40+ min). Adopt the new start + baseline.
+        final int? dbResumeTs = currentGoalInDb.sessionResumedTimestampSeconds;
+        if (dbResumeTs != null && dbResumeTs > _sessionStartTime) {
+          print(
+              '🔄 TIMER SYNC: External resume detected - realigning session start ${_sessionStartTime} -> $dbResumeTs');
+          _sessionStartTime = dbResumeTs;
+          _baselineTimeSpent = currentGoalInDb.timeSpentSeconds;
+          _activeGoal = currentGoalInDb;
+          notifyListeners();
+          return; // Recompute cleanly on the next tick with corrected values
         }
 
         // 🎯 ENHANCED: Detect if time spent was updated by background
@@ -1472,12 +1654,14 @@ class TimerService extends ChangeNotifier {
           await _updateGoalProgressRecord(_activeGoal!, _activeGoal!.timeSpentSeconds);
         }
 
-        // Trigger immediate notification if goal was completed
-        if (_activeGoal!.completedAt != null &&
-            _activeGoal!.timeSpentSeconds >= _activeGoal!.totalSeconds) {
-          print('🎉 BG COMPLETION: Goal was completed by background! Showing notification...');
-          // Note: Background already showed notifications, but ensure UI reflects completion
-        }
+        // 🎯 FIX: The background isolate normally shows the completion
+        // notification (ID 2), but that show is wrapped in a silent try/catch
+        // and can fail. Guarantee the user is notified: if no completion
+        // notification is currently visible, show it now. Guarded by
+        // getActiveNotifications to avoid duplicating the background one.
+        final bool isGoalComplete = _activeGoal!.completedAt != null ||
+            _activeGoal!.timeSpentSeconds >= _activeGoal!.totalSeconds;
+        await _ensureCompletionNotificationShown(_activeGoal!, isGoalComplete);
       } else {
         print(
             '⚠️ BG COMPLETION UI: Goal $currentActiveGoalId not found in DB. Goal may have been deleted.');
@@ -1495,6 +1679,78 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
     print(
         '✅ BG COMPLETION UI: State synchronized. Previous session for "$previousTitle" handled by background.');
+  }
+
+  // 🎯 NEW: Show the completion notification (ID 2) only if it isn't already
+  // visible. Used as a safety net when the background isolate may have updated
+  // the DB but failed (silently) to display the completion notification.
+  Future<void> _ensureCompletionNotificationShown(Goal goal, bool isGoalComplete) async {
+    try {
+      // Only do the active-notification check on Android; iOS getActiveNotifications
+      // semantics differ and we prefer not to risk duplicates there.
+      if (Platform.isAndroid) {
+        try {
+          final active = await _notificationsPlugin.getActiveNotifications();
+          final alreadyShown = active.any((n) => n.id == 2);
+          if (alreadyShown) {
+            print('ℹ️ BG COMPLETION UI: Completion notification (ID 2) already visible - skipping');
+            return;
+          }
+        } catch (e) {
+          // If we cannot determine the active notifications, assume the
+          // background isolate already showed it to avoid double-notifying.
+          print('⚠️ BG COMPLETION UI: Could not query active notifications ($e) - skipping reshow');
+          return;
+        }
+      } else {
+        return;
+      }
+
+      print('🔔 BG COMPLETION UI: Completion notification missing - showing safety-net alert');
+
+      final sessionDuration = _getSessionDuration();
+      final actions = !isGoalComplete
+          ? [const AndroidNotificationAction(CONTINUE_ACTION_ID, 'Continue')]
+          : null;
+
+      final androidDetails = AndroidNotificationDetails(
+        'session_complete_channel',
+        'Session Completed',
+        channelDescription: 'Notifications when a session is completed',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+        actions: actions,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'default',
+      );
+
+      final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+      final title = isGoalComplete ? 'Session Complete - Goal Achieved! 🎉' : 'Session Completed! 🎉';
+      final body = isGoalComplete
+          ? '${goal.title} - ${formatTime(sessionDuration)} session completed your goal!'
+          : '${goal.title} - ${formatTime(sessionDuration)} session finished. Great work!';
+
+      await _notificationsPlugin.show(
+        2,
+        title,
+        body,
+        details,
+        payload:
+            isGoalComplete ? 'goal_complete_${goal.id}' : 'session_complete_${goal.id}',
+      );
+      print('✅ BG COMPLETION UI: Safety-net completion notification shown');
+    } catch (e) {
+      print('❌ BG COMPLETION UI: Failed to ensure completion notification: $e');
+    }
   }
 
   // 🎯 ENHANCED: Save current session progress with validation and robustness
@@ -1833,10 +2089,37 @@ class TimerService extends ChangeNotifier {
           await androidPlugin.createNotificationChannel(goalCompleteChannel);
 
           print('All notification channels created');
+
+          // 🎯 FIX: Ensure exact-alarm permission so scheduled (zonedSchedule)
+          // session-completion notifications fire on time. Without it, the
+          // exact-alarm backup silently degrades and we rely only on the
+          // (imprecise) WorkManager task, causing occasional missed alerts.
+          await _ensureExactAlarmPermission(androidPlugin);
         }
       }
     } catch (e) {
       print('Error initializing notifications: $e');
+    }
+  }
+
+  // 🎯 NEW: Check and request the exact-alarm permission (Android 12+).
+  Future<void> _ensureExactAlarmPermission(
+      AndroidFlutterLocalNotificationsPlugin androidPlugin) async {
+    try {
+      final bool? canSchedule = await androidPlugin.canScheduleExactNotifications();
+      print('🔔 EXACT ALARM: canScheduleExactNotifications = $canSchedule');
+
+      if (canSchedule == false) {
+        print('⚠️ EXACT ALARM: Permission NOT granted - requesting...');
+        final bool? granted = await androidPlugin.requestExactAlarmsPermission();
+        print('🔔 EXACT ALARM: requestExactAlarmsPermission result = $granted');
+        if (granted != true) {
+          print(
+              '⚠️ EXACT ALARM: Exact alarms still disabled. Scheduled session notifications may be delayed or dropped (relying on WorkManager only).');
+        }
+      }
+    } catch (e) {
+      print('❌ EXACT ALARM: Failed to check/request exact alarm permission: $e');
     }
   }
 
@@ -1950,6 +2233,25 @@ class TimerService extends ChangeNotifier {
   // 🎯 NEW: Sync currently running session
   Future<void> _syncRunningSession(Goal activeGoal) async {
     final oldTimeSpent = _activeGoal?.timeSpentSeconds ?? 0;
+
+    // 🎯 FIX: If the session was resumed externally while the app was in the
+    // background (e.g. via the "Continue" notification action), the DB's
+    // sessionResumedTimestampSeconds points at the NEW session start while our
+    // in-memory _sessionStartTime still points at the previous (finished)
+    // session. Without realigning, sessionTimeElapsed re-counts the old session
+    // and the timer inflates (a 15-min session could show 40+ min after resume).
+    final int? dbResumeTs = activeGoal.sessionResumedTimestampSeconds;
+    if (dbResumeTs != null && dbResumeTs > _sessionStartTime) {
+      print(
+          '🔄 SYNC: External resume detected - realigning session start ${_sessionStartTime} -> $dbResumeTs');
+      _sessionStartTime = dbResumeTs;
+      _baselineTimeSpent = activeGoal.timeSpentSeconds;
+      _activeGoal = activeGoal;
+      _startUpdateTimer();
+      notifyListeners();
+      return;
+    }
+
     _activeGoal = activeGoal;
 
     // If time spent changed externally, adjust baseline
@@ -2077,19 +2379,38 @@ class TimerService extends ChangeNotifier {
         iOS: iosDetails,
       );
 
-      await _notificationsPlugin.zonedSchedule(
-        notificationId,
-        title,
-        body,
-        scheduledDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: isGoalCompletion
-            ? 'goal_complete_${_activeGoal!.id}'
-            : 'session_complete_${_activeGoal!.id}',
-      );
+      final payload = isGoalCompletion
+          ? 'goal_complete_${_activeGoal!.id}'
+          : 'session_complete_${_activeGoal!.id}';
 
-      print('✅ SCHEDULE: Local notification scheduled for $scheduledDate');
+      try {
+        await _notificationsPlugin.zonedSchedule(
+          notificationId,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: payload,
+        );
+        print('✅ SCHEDULE: Exact local notification scheduled for $scheduledDate');
+      } catch (exactError) {
+        // 🎯 FIX: Don't silently lose the notification when exact alarms are
+        // unavailable (e.g. SCHEDULE_EXACT_ALARM revoked). Fall back to an
+        // inexact schedule so the user still gets the alert, just slightly late.
+        print(
+            '⚠️ SCHEDULE: Exact schedule failed ($exactError). Falling back to inexact schedule.');
+        await _notificationsPlugin.zonedSchedule(
+          notificationId,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: payload,
+        );
+        print('✅ SCHEDULE: Inexact local notification scheduled for $scheduledDate (fallback)');
+      }
     } catch (e) {
       print('❌ SCHEDULE: Failed to schedule local notification: $e');
     }

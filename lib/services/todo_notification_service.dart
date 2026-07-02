@@ -20,10 +20,18 @@ class TodoNotificationService {
   static const int _baseNotificationId = 5000;
   static const int _slotsPerTodo = 50;
 
+  // How many days ahead to pre-schedule deadline reminders. Kept small on
+  // purpose: rescheduleAllReminders() runs on every app launch and at the daily
+  // reset, so the window rolls forward automatically. Pre-scheduling further
+  // ahead wastes exact alarms and, on iOS, quickly exhausts the app-wide 64
+  // pending-notification limit (a few todos would silently drop reminders).
+  static const int _maxDaysAhead = 14;
+
   bool _isInitialized = false;
 
   /// Notification IDs: 5000 + (todoId * 50) + offset
-  /// Supports up to 50 notifications per todo (3 days × ~16 repeat slots).
+  /// Supports up to 50 notifications per todo, e.g. 50 daily deadline reminders
+  /// (no repeat) or fewer days when per-day repeat slots are used.
   static int _getNotificationId(int todoId, int offset) {
     return _baseNotificationId + (todoId * _slotsPerTodo) + offset;
   }
@@ -79,28 +87,58 @@ class TodoNotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
 
-    // How many days to schedule ahead
-    final daysAhead = todo.todoType == TodoType.tomorrow ? 1 : 3;
-
     // Calculate repeat offsets (minutes before the main time)
     final repeatOffsets = _computeRepeatOffsets(todo);
 
-    int slotIndex = 0;
-
-    for (int dayOffset = 0; dayOffset < daysAhead; dayOffset++) {
-      final day = now.add(Duration(days: dayOffset));
-
-      // For tomorrow type, only schedule on the actual tomorrow day
-      if (todo.todoType == TodoType.tomorrow && todo.targetDateTime != null) {
-        final targetDay = DateTime(
-          todo.targetDateTime!.year,
-          todo.targetDateTime!.month,
-          todo.targetDateTime!.day,
+    // Build the list of calendar days to schedule on.
+    //
+    // For **tomorrow** todos: schedule on the target day itself (defaults to
+    // tomorrow). Computing this from the target date — instead of iterating
+    // from "now" — fixes the bug where a tomorrow todo created today scheduled
+    // zero notifications because the only iterated day (today) never matched
+    // the target day.
+    //
+    // For **deadline** todos: schedule for the next few days (up to and
+    // including the deadline) so a daily reminder fires each day.
+    final daysToSchedule = <tz.TZDateTime>[];
+    if (todo.todoType == TodoType.tomorrow) {
+      final target =
+          todo.targetDateTime ?? now.add(const Duration(days: 1));
+      daysToSchedule.add(
+        tz.TZDateTime(tz.local, target.year, target.month, target.day),
+      );
+    } else {
+      // Deadline: schedule a reminder for EVERY day from today up to and
+      // including the deadline, so reminders fire daily without depending on
+      // the midnight daily reset (which is unreliable under Android Doze /
+      // aggressive battery optimization). Capped by both the notification slots
+      // available per todo AND a small rolling look-ahead window (_maxDaysAhead)
+      // to stay within platform limits (notably iOS's 64 pending-notification cap).
+      final slotCap = (_slotsPerTodo / repeatOffsets.length).floor();
+      final maxDays = slotCap < _maxDaysAhead ? slotCap : _maxDaysAhead;
+      for (int dayOffset = 0; dayOffset < maxDays; dayOffset++) {
+        final day = now.add(Duration(days: dayOffset));
+        // Stop once we pass the deadline date.
+        if (todo.targetDateTime != null) {
+          final deadlineDay = DateTime(
+            todo.targetDateTime!.year,
+            todo.targetDateTime!.month,
+            todo.targetDateTime!.day,
+          );
+          final scheduleDay = DateTime(day.year, day.month, day.day);
+          if (scheduleDay.isAfter(deadlineDay)) break;
+        }
+        daysToSchedule.add(
+          tz.TZDateTime(tz.local, day.year, day.month, day.day),
         );
-        final scheduleDay = DateTime(day.year, day.month, day.day);
-        if (scheduleDay != targetDay) continue;
       }
+    }
 
+    int slotIndex = 0;
+    tz.TZDateTime? firstScheduled;
+    tz.TZDateTime? lastScheduled;
+
+    for (final day in daysToSchedule) {
       for (final offsetMinutes in repeatOffsets) {
         final scheduledTime = tz.TZDateTime(
           tz.local,
@@ -159,12 +197,16 @@ class TodoNotificationService {
             );
           }
 
-          debugPrint('[TodoNotification] Scheduled "${todo.title}" at $scheduledTime (slot $slotIndex)');
+          firstScheduled ??= scheduledTime;
+          lastScheduled = scheduledTime;
         } catch (e) {
           debugPrint('[TodoNotification] Error scheduling: $e');
         }
       }
     }
+
+    debugPrint(
+        '[TodoNotification] Scheduled $slotIndex reminder(s) for "${todo.title}" from $firstScheduled to $lastScheduled');
   }
 
   /// Compute minute-offsets before the main reminder time.
