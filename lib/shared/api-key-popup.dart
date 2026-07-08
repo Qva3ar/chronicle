@@ -1,5 +1,6 @@
 // api_key_popup.dart
 import 'package:flutter/material.dart';
+import 'package:chrono/colors.dart';
 import 'package:chrono/helpers/api-key-options.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,9 +11,10 @@ class ApiKeyPopup extends StatefulWidget {
 }
 
 class _ApiKeyPopupState extends State<ApiKeyPopup> {
-  String apiKey = '';
-  String geminiKey = '';
-  String selectedModel = ''; // Default model
+  late final TextEditingController _openAiController;
+  late final TextEditingController _geminiController;
+
+  String selectedModel = '';
 
   String url1 = 'https://www.merge.dev/blog/chatgpt-api-key';
   String url2 = 'https://www.splendidfinancing.com/blog/how-to-get-an-openai-api-key-for-chatgpt';
@@ -23,9 +25,16 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
   @override
   void initState() {
     super.initState();
-    apiKey = gptNoteBindService.getKey;
-    geminiKey = gptNoteBindService.getGeminiKey;
+    _openAiController = TextEditingController(text: gptNoteBindService.getKey);
+    _geminiController = TextEditingController(text: gptNoteBindService.getGeminiKey);
     selectedModel = gptNoteBindService.getModel;
+  }
+
+  @override
+  void dispose() {
+    _openAiController.dispose();
+    _geminiController.dispose();
+    super.dispose();
   }
 
   Future<void> _launchUrl(_url) async {
@@ -44,25 +53,52 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
     // We can highlight the corresponding key field based on the selected model's provider
     final isGeminiModel = selectedOption.provider == 'gemini';
 
+    InputDecoration keyFieldDecoration({
+      required String label,
+      required bool isActive,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          color: isActive ? MyColors.orangeDivider : textSecondary,
+        ),
+      );
+    }
+
     return AlertDialog(
       title: Text('API Access Settings'),
       content: SingleChildScrollView(
         child: Column(
           children: [
             DropdownButtonFormField<String>(
+              isExpanded: true,
               value: selectedModel,
               items: apiKeyOptions
                   .map((item) => DropdownMenuItem<String>(
                         value: item.value,
-                        child: Text(item.displayLabel),
+                        child: Text(
+                          item.displayLabel,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ))
+                  .toList(),
+              selectedItemBuilder: (context) => apiKeyOptions
+                  .map(
+                    (item) => Text(
+                      item.label.isEmpty ? 'Select Model' : item.label,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  )
                   .toList(),
               onChanged: (value) {
                 setState(() {
                   selectedModel = value!;
                 });
               },
-              decoration: InputDecoration(labelText: 'Select Model'),
+              decoration: const InputDecoration(labelText: 'Select Model'),
             ),
             if (selectedOption.speedLabel != null &&
                 selectedOption.speedLabel!.isNotEmpty) ...[
@@ -95,33 +131,23 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
             SizedBox(height: 8),
             // OpenAI Key Field
             TextField(
-              controller: TextEditingController(text: apiKey),
+              controller: _openAiController,
               maxLines: null,
-              onChanged: (value) {
-                apiKey = value;
-              },
-              decoration: InputDecoration(
-                labelText: 'OpenAI API Key',
-                labelStyle: TextStyle(
-                  fontWeight: !isGeminiModel ? FontWeight.bold : FontWeight.normal,
-                  color: !isGeminiModel ? Theme.of(context).colorScheme.primary : null,
-                )
+              style: const TextStyle(color: textPrimary),
+              decoration: keyFieldDecoration(
+                label: 'OpenAI API Key',
+                isActive: !isGeminiModel,
               ),
             ),
             SizedBox(height: 16),
             // Gemini Key Field
             TextField(
-              controller: TextEditingController(text: geminiKey),
+              controller: _geminiController,
               maxLines: null,
-              onChanged: (value) {
-                geminiKey = value;
-              },
-              decoration: InputDecoration(
-                labelText: 'Gemini API Key',
-                labelStyle: TextStyle(
-                  fontWeight: isGeminiModel ? FontWeight.bold : FontWeight.normal,
-                  color: isGeminiModel ? Theme.of(context).colorScheme.primary : null,
-                )
+              style: const TextStyle(color: textPrimary),
+              decoration: keyFieldDecoration(
+                label: 'Gemini API Key',
+                isActive: isGeminiModel,
               ),
             ),
             SizedBox(height: 16),
@@ -154,8 +180,8 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
         ),
         TextButton(
           onPressed: () {
-            gptNoteBindService.setKey(apiKey);
-            gptNoteBindService.setGeminiKey(geminiKey);
+            gptNoteBindService.setKey(_openAiController.text);
+            gptNoteBindService.setGeminiKey(_geminiController.text);
             gptNoteBindService.setModel(selectedModel);
             Navigator.of(context).pop();
           },

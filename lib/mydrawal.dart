@@ -7,6 +7,7 @@ import 'colors.dart';
 import 'shared/chrono_ui.dart';
 import 'package:chrono/screens/paywall_screen.dart';
 import 'package:chrono/services/subscription_service.dart';
+import 'package:chrono/onboarding/onboarding_screen.dart';
 
 class MyDrawal extends StatelessWidget {
   const MyDrawal({
@@ -169,6 +170,15 @@ class MyDrawal extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => SettingsPage()),
+                    ),
+                  ),
+                  ChronoSettingsRow(
+                    icon: Icons.slideshow_outlined,
+                    iconColor: infoColor,
+                    label: 'Show Intro',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
                     ),
                   ),
                   ChronoSettingsRow(

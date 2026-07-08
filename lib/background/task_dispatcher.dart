@@ -7,13 +7,14 @@ import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
-import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:chrono/utils/timezone_helper.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:chrono/services/goals_widget_updater.dart';
 
 /// Unified background task dispatcher for WorkManager
 /// Handles all background tasks: session completion, daily reset, insights, and routine notifications
@@ -23,20 +24,9 @@ void backgroundTaskDispatcher() {
     final startTime = DateTime.now();
 
     try {
-      // Initialize timezone for all background tasks
-      tz_data.initializeTimeZones();
-      try {
-        final String localTimezoneName = DateTime.now().timeZoneName;
-        String tzLocation = 'Europe/Moscow';
-        if (localTimezoneName.contains('MSK')) {
-          tzLocation = 'Europe/Moscow';
-        } else if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
-          tzLocation = 'UTC';
-        }
-        tz.setLocalLocation(tz.getLocation(tzLocation));
-      } catch (e) {
-        tz.setLocalLocation(tz.getLocation('UTC'));
-      }
+      // Initialize timezone for all background tasks using the device's real
+      // IANA identifier so scheduled notifications fire at the correct wall time.
+      await TimezoneHelper.ensureInitialized();
 
       bool success = false;
 
@@ -127,6 +117,15 @@ Future<bool> _handleSessionCompletion(Map<String, dynamic>? inputData) async {
     );
 
     await db.updateGoal(updatedGoal);
+
+    // Refresh the goals home widget so the chronometer stops ticking once the
+    // session has ended in the background (otherwise the widget keeps running
+    // off the now-cleared session timestamp).
+    try {
+      await GoalsWidgetUpdater(db).update();
+    } catch (e) {
+      print('[SessionCompletion] ⚠️ Failed to update goals widget: $e');
+    }
 
     // Update daily progress record (for both completed and in-progress goals)
     if (updatedGoal.currentDayRecordId != null) {

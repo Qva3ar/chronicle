@@ -36,10 +36,13 @@ Future<void> goalWidgetCallback(Uri? uri) async {
         final allGoals = await db.getAllGoals();
         for (final g in allGoals) {
           if (g.isActive && g.id.toString() != goalId) {
-            // Save progress for other active goal if it was running
+            // Save progress for other active goal if it was running.
+            // Cap to one session length to avoid over-counting a stale session.
             if (g.sessionResumedTimestampSeconds != null) {
               final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-              final elapsed = now - g.sessionResumedTimestampSeconds!;
+              final sessionDuration = g.sessionMinutes * 60;
+              final elapsed =
+                  (now - g.sessionResumedTimestampSeconds!).clamp(0, sessionDuration);
               final newTimeSpent = (g.timeSpentSeconds + elapsed).clamp(0, g.totalSeconds);
               await db.updateGoal(g.copyWith(
                 isActive: false,
@@ -94,10 +97,16 @@ Future<void> goalWidgetCallback(Uri? uri) async {
         final goal = await db.getGoal(int.parse(goalId));
         if (goal != null) {
           // 1. Calculate elapsed time and save progress
+          // A single session can never contribute more than the goal's
+          // session length. Without this cap, a stale/uncompleted session
+          // (e.g. WorkManager failed to finalize on time) would add the full
+          // wall-clock time on STOP and could falsely complete the goal.
           int newTimeSpent = goal.timeSpentSeconds;
           if (goal.sessionResumedTimestampSeconds != null) {
             final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-            final elapsed = now - goal.sessionResumedTimestampSeconds!;
+            final sessionDuration = goal.sessionMinutes * 60;
+            final elapsed =
+                (now - goal.sessionResumedTimestampSeconds!).clamp(0, sessionDuration);
             newTimeSpent = (goal.timeSpentSeconds + elapsed).clamp(0, goal.totalSeconds);
           }
 

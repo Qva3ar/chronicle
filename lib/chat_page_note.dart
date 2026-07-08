@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
+import 'package:chrono/colors.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/message_bubble.dart';
 import 'package:chrono/message_composer.dart';
@@ -20,12 +21,20 @@ class ChatPageNote extends StatefulWidget {
   const ChatPageNote({
     required this.messageService,
     this.noteText,
+    this.linkedContext,
+    this.linkedCount = 0,
     this.initialDraftText,
     this.onDraftChanged,
     Key? key,
   }) : super(key: key);
 
   final String? noteText;
+
+  /// Full context including linked notes. When non-null and [linkedCount] > 0,
+  /// a selector is shown letting the user choose whether the AI sees only the
+  /// document ([noteText]) or the document plus linked notes ([linkedContext]).
+  final String? linkedContext;
+  final int linkedCount;
   final String? initialDraftText;
   final ValueChanged<String>? onDraftChanged;
 
@@ -39,7 +48,13 @@ class _ChatPageNoteState extends State<ChatPageNote> {
   ];
   var _awaitingResponse = false;
   var includeNoteText = true;
+
+  /// Whether linked notes are included in the AI context. Only relevant when
+  /// [widget.linkedContext] is available. Defaults to document-only.
+  bool _includeLinked = false;
   late StreamSubscription<String> stream;
+
+  bool get _hasLinkedOption => widget.linkedContext != null && widget.linkedCount > 0;
 
   late final TextEditingController _textController;
   GPTService gptService = GPTService();
@@ -54,8 +69,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
     if (widget.messageService.getLast20Messages().isNotEmpty) {
       _messages.addAll(widget.messageService.getLast20Messages());
     } else {
-      _messages.add(ChatMessage('Hello, how can I help?', false, false,
-          isMockMessage: true));
+      _messages.add(ChatMessage('Hello, how can I help?', false, false, isMockMessage: true));
     }
   }
 
@@ -72,11 +86,11 @@ class _ChatPageNoteState extends State<ChatPageNote> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_hasLinkedOption) _contextSelector(),
         Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Container(
-            constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.5),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
             // height: 200,
             child: ListView.builder(
               shrinkWrap: true,
@@ -100,27 +114,6 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           onSubmitted: _onSubmitted,
           textController: _textController,
         ),
-        // Padding(
-        //   padding: const EdgeInsets.symmetric(horizontal: 16),
-        //   child: Column(
-        //     children: [
-        //       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        //         Text(
-        //           "Include Note's data",
-        //           style: TextStyle(color: Colors.white),
-        //         ),
-        //         Switch(
-        //           value: includeNoteText,
-        //           onChanged: (newValue) {
-        //             setState(() {
-        //               includeNoteText = newValue;
-        //             });
-        //           },
-        //         ),
-        //       ]),
-        //     ],
-        //   ),
-        // ),
         MessageComposer(
           onSubmitted: _onSubmitted,
           onStop: _onStop,
@@ -128,6 +121,76 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           controller: _textController,
         ),
       ],
+    );
+  }
+
+  Widget _contextSelector() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome_outlined, size: 15, color: textMuted),
+          const SizedBox(width: 6),
+          Text(
+            'AI context',
+            style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: MyColors.primaryColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  _contextTab(
+                    label: 'Document',
+                    selected: !_includeLinked,
+                    onTap: () => setState(() => _includeLinked = false),
+                  ),
+                  _contextTab(
+                    label: '+ Notes (${widget.linkedCount})',
+                    selected: _includeLinked,
+                    onTap: () => setState(() => _includeLinked = true),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _contextTab({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? MyColors.orangeDivider : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? MyColors.primaryColor : textSecondary,
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -173,14 +236,14 @@ class _ChatPageNoteState extends State<ChatPageNote> {
     String accumulator = '';
     try {
       if (includeNoteText) {
-        _systemMessages.add(ChatMessage(
-            Instractions.useUserNoteText(widget.noteText ?? ''), false, true));
+        final noteContent = (_includeLinked && widget.linkedContext != null)
+            ? widget.linkedContext!
+            : (widget.noteText ?? '');
+        _systemMessages.add(ChatMessage(Instractions.useUserNoteText(noteContent), false, true));
       }
 
       _messages.insert(0, ChatMessage("", false, false));
-      stream = gptService
-          .completionStream(_messages, _systemMessages)
-          .listen((textChunk) {
+      stream = gptService.completionStream(_messages, _systemMessages).listen((textChunk) {
         accumulator += textChunk;
 
         setState(() {
@@ -188,8 +251,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           _awaitingResponse = false;
         });
       }, onDone: () {
-        widget.messageService
-            .addMessage(ChatMessage(accumulator, false, false));
+        widget.messageService.addMessage(ChatMessage(accumulator, false, false));
         setState(() {
           _awaitingResponse = false;
         });
@@ -208,9 +270,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           // Handle other exceptions
           //print('An unexpected error occurred: $err');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('An unexpected error occurred. Please try again.')),
+            const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
           );
         }
 

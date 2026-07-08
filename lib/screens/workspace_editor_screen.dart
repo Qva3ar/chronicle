@@ -4,6 +4,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/record.dart';
+import 'package:chrono/models/record_type.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:chrono/models/workspace_entry.dart';
 import 'package:chrono/chat_page_note.dart';
@@ -46,7 +47,7 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
   List<String> _redoStack = [];
   bool _showLinkedPanel = false;
   bool _previewMarkdown = false;
-  bool _includeLinkedInChat = false;
+  bool _includeLinkedInChat = true;
   double _splitRatio = 0.55;
 
   // Cached AI/Search results (persist while editor is open)
@@ -167,9 +168,11 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
 
   // ── AI Chat ──
 
-  String _chatNoteContext() {
+  /// Full AI context: the document plus every linked note. The choice of
+  /// whether to actually use this (vs. the document alone) is made inside the
+  /// chat sheet via its context selector.
+  String _linkedChatContext() {
     final doc = _markdownController.text;
-    if (!_includeLinkedInChat || _linked.isEmpty) return doc;
     final buf = StringBuffer(doc);
     buf.writeln('\n\n---\nLinked notes in workspace:');
     for (final r in _linked) {
@@ -194,7 +197,10 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: ChatPageNote(
             messageService: _messageService,
-            noteText: _chatNoteContext(),
+            noteText: _markdownController.text,
+            linkedContext:
+                (!_includeLinkedInChat || _linked.isEmpty) ? null : _linkedChatContext(),
+            linkedCount: _includeLinkedInChat ? _linked.length : 0,
             initialDraftText: _chatDraftText,
             onDraftChanged: (text) => _chatDraftText = text,
           ),
@@ -320,9 +326,7 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
       },
     );
     if (newColor == null) return; // cancelled
-    final updated = newColor.isEmpty
-        ? e.copyWith(clearColor: true)
-        : e.copyWith(color: newColor);
+    final updated = newColor.isEmpty ? e.copyWith(clearColor: true) : e.copyWith(color: newColor);
     setState(() => _entry = updated);
     await _service.persistNow(updated);
   }
@@ -449,42 +453,40 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
           shrinkWrap: true,
           config: MarkdownConfig(configs: [
             PConfig(textStyle: const TextStyle(color: textPrimary, height: 1.6, fontSize: 14)),
-            H1Config(style: const TextStyle(color: textPrimary, fontSize: 24, fontWeight: FontWeight.w700)),
-            H2Config(style: const TextStyle(color: textPrimary, fontSize: 20, fontWeight: FontWeight.w600)),
-            H3Config(style: const TextStyle(color: textSecondary, fontSize: 17, fontWeight: FontWeight.w600)),
+            H1Config(
+                style:
+                    const TextStyle(color: textPrimary, fontSize: 24, fontWeight: FontWeight.w700)),
+            H2Config(
+                style:
+                    const TextStyle(color: textPrimary, fontSize: 20, fontWeight: FontWeight.w600)),
+            H3Config(
+                style: const TextStyle(
+                    color: textSecondary, fontSize: 17, fontWeight: FontWeight.w600)),
           ]),
         ),
       );
     }
-    return GestureDetector(
-      onTap: () {
-        // Tapping empty area below text should place cursor at end
-        _markdownController.selection = TextSelection.collapsed(
-          offset: _markdownController.text.length,
-        );
-        FocusScope.of(context).requestFocus(_markdownFocus);
-      },
-      child: Container(
-        color: Colors.transparent,
-        child: SingleChildScrollView(
-          controller: _scrollMarkdown,
-          child: TextField(
-            controller: _markdownController,
-            focusNode: _markdownFocus,
-            maxLines: null,
-            textCapitalization: TextCapitalization.sentences,
-            style: const TextStyle(color: textPrimary, fontSize: 14, height: 1.6),
-            cursorColor: MyColors.orangeDivider,
-            cursorWidth: 2,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Write in Markdown…',
-              hintStyle: TextStyle(color: textHint),
-              contentPadding: EdgeInsets.all(16),
-            ),
-            onChanged: _onBodyChanged,
-          ),
+    return Container(
+      color: Colors.transparent,
+      child: TextField(
+        controller: _markdownController,
+        focusNode: _markdownFocus,
+        scrollController: _scrollMarkdown,
+        maxLines: null,
+        minLines: null,
+        expands: true,
+        textAlignVertical: TextAlignVertical.top,
+        textCapitalization: TextCapitalization.sentences,
+        style: const TextStyle(color: textPrimary, fontSize: 14, height: 1.6),
+        cursorColor: MyColors.orangeDivider,
+        cursorWidth: 2,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: 'Write in Markdown…',
+          hintStyle: TextStyle(color: textHint),
+          contentPadding: EdgeInsets.all(16),
         ),
+        onChanged: _onBodyChanged,
       ),
     );
   }
@@ -772,7 +774,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
                               child: Column(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                     child: Row(
                                       children: [
                                         Text(
@@ -785,8 +788,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
                                         ),
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding:
-                                              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: MyColors.orangeDivider.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(10),
@@ -846,8 +849,7 @@ class _LinkedNoteCard extends StatefulWidget {
   State<_LinkedNoteCard> createState() => _LinkedNoteCardState();
 }
 
-class _LinkedNoteCardState extends State<_LinkedNoteCard>
-    with SingleTickerProviderStateMixin {
+class _LinkedNoteCardState extends State<_LinkedNoteCard> with SingleTickerProviderStateMixin {
   bool _expanded = false;
   AnimationController? _hintAnim;
   Animation<Offset>? _hintSlide;
@@ -909,41 +911,43 @@ class _LinkedNoteCardState extends State<_LinkedNoteCard>
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
         ),
-        child: GestureDetector(
-          onTap: hasLongText ? () => setState(() => _expanded = !_expanded) : null,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AnimatedCrossFade(
-                  firstChild: Text(
-                    displayText,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: textSecondary, fontSize: 13, height: 1.5),
-                  ),
-                  secondChild: Text(
-                    displayText,
-                    style: const TextStyle(color: textSecondary, fontSize: 13, height: 1.5),
-                  ),
-                  crossFadeState:
-                      _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 200),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedCrossFade(
+                firstChild: SelectableText(
+                  displayText,
+                  maxLines: 4,
+                  style: const TextStyle(color: textSecondary, fontSize: 13, height: 1.5),
                 ),
-                if (hasLongText) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _expanded ? 'Show less' : 'Show more…',
-                    style: TextStyle(
-                      color: MyColors.orangeDivider.withValues(alpha: 0.8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                secondChild: SelectableText(
+                  displayText,
+                  style: const TextStyle(color: textSecondary, fontSize: 13, height: 1.5),
+                ),
+                crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+              if (hasLongText) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      _expanded ? 'Show less' : 'Show more…',
+                      style: TextStyle(
+                        color: MyColors.orangeDivider.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -1034,6 +1038,16 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
     super.dispose();
   }
 
+  // Records generated by routines, goals and productivity scoring should not be
+  // linkable into a workspace — they are system-generated, not real notes.
+  static const _excludedRecordTypes = {
+    RecordType.routine,
+    RecordType.goal,
+    RecordType.productivity,
+  };
+
+  bool _isSelectable(Record r) => !_excludedRecordTypes.contains(r.recordType);
+
   Future<void> _runSearch() async {
     setState(() => _searchLoading = true);
     final fs = _filterSettings ??
@@ -1062,7 +1076,13 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
       }
     }
 
-    if (mounted) setState(() { _searchResults = rows; _searchLoading = false; });
+    rows = rows.where(_isSelectable).toList();
+
+    if (mounted)
+      setState(() {
+        _searchResults = rows;
+        _searchLoading = false;
+      });
   }
 
   Future<void> _runAi() async {
@@ -1072,7 +1092,7 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
     if (_filterTagIds.isEmpty) {
       final all = await _db.getRecordsWithTag(null, 500, 0,
           showGoalRecords: fs.showGoalRecords, showRoutineRecords: fs.showRoutineRecords);
-      pool = all.where((r) => !r.isLocked).toList();
+      pool = all.where((r) => !r.isLocked && _isSelectable(r)).toList();
       if (pool.length > 80) {
         if (!mounted) return;
         final go = await showDialog<bool>(
@@ -1085,9 +1105,11 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               style: TextStyle(color: textMuted.withValues(alpha: 0.95)),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
                   child: const Text('Cancel', style: TextStyle(color: textMuted))),
-              TextButton(onPressed: () => Navigator.pop(ctx, true),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
                   child: const Text('Continue', style: TextStyle(color: MyColors.orangeDivider))),
             ],
           ),
@@ -1097,24 +1119,30 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
     } else if (_filterTagIds.length == 1) {
       pool = await _db.getRecordsWithTag(_filterTagIds.first, 500, 0,
           showGoalRecords: fs.showGoalRecords, showRoutineRecords: fs.showRoutineRecords);
-      pool = pool.where((r) => !r.isLocked).toList();
+      pool = pool.where((r) => !r.isLocked && _isSelectable(r)).toList();
     } else {
       pool = await _db.getRecordsByMultipleTags(_filterTagIds);
-      pool = pool.where((r) => !r.isLocked).toList();
+      pool = pool.where((r) => !r.isLocked && _isSelectable(r)).toList();
     }
 
-    setState(() { _aiLoading = true; _aiResults = []; });
+    setState(() {
+      _aiLoading = true;
+      _aiResults = [];
+    });
     try {
       final ids = await WorkspaceAiService.findRelatedNoteIds(
-        candidates: pool, allTags: _allTags, userPrompt: _aiPrompt.text);
+          candidates: pool, allTags: _allTags, userPrompt: _aiPrompt.text);
       final byId = {for (final r in pool) r.id: r};
       final list = ids.map((id) => byId[id]).whereType<Record>().toList();
-      if (mounted) setState(() { _aiResults = list; _aiLoading = false; });
+      if (mounted)
+        setState(() {
+          _aiResults = list;
+          _aiLoading = false;
+        });
     } catch (e) {
       if (mounted) {
         setState(() => _aiLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('AI search failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI search failed: $e')));
       }
     }
   }
@@ -1122,8 +1150,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
   Future<void> _pickTags() async {
     final result = await showDialog<List<int>?>(
       context: context,
-      builder: (ctx) => TagSelectionDialog(
-          availableTags: _allTags, initialSelectedTagIds: _filterTagIds),
+      builder: (ctx) =>
+          TagSelectionDialog(availableTags: _allTags, initialSelectedTagIds: _filterTagIds),
     );
     if (result != null) {
       setState(() => _filterTagIds = result);
@@ -1239,14 +1267,11 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: _filterTagIds.isEmpty
-              ? cardColor
-              : MyColors.orangeDivider.withValues(alpha: 0.12),
+          color: _filterTagIds.isEmpty ? cardColor : MyColors.orangeDivider.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: _filterTagIds.isEmpty
-                ? cardBorder
-                : MyColors.orangeDivider.withValues(alpha: 0.4),
+            color:
+                _filterTagIds.isEmpty ? cardBorder : MyColors.orangeDivider.withValues(alpha: 0.4),
           ),
         ),
         child: Row(
@@ -1307,7 +1332,10 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                 suffixIcon: _search.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, color: textMuted, size: 18),
-                        onPressed: () { _search.clear(); _runSearch(); })
+                        onPressed: () {
+                          _search.clear();
+                          _runSearch();
+                        })
                     : null,
               ),
               onSubmitted: (_) => _runSearch(),
@@ -1403,10 +1431,12 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(
-                                height: 18, width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: bgColor)),
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: bgColor)),
                               const SizedBox(width: 10),
-                              const Text('Searching…', style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Text('Searching…',
+                                  style: TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           )
                         : Row(
@@ -1414,7 +1444,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                             children: [
                               const Icon(Icons.auto_awesome, size: 18),
                               const SizedBox(width: 8),
-                              const Text('Find with AI', style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Text('Find with AI',
+                                  style: TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           ),
                   ),
@@ -1430,7 +1461,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_awesome_outlined, size: 48, color: textMuted.withValues(alpha: 0.3)),
+                  Icon(Icons.auto_awesome_outlined,
+                      size: 48, color: textMuted.withValues(alpha: 0.3)),
                   const SizedBox(height: 12),
                   const Text(
                     'Enter a prompt and tap Find',
@@ -1446,7 +1478,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 48, color: successColor.withValues(alpha: 0.5)),
+                  Icon(Icons.check_circle_outline,
+                      size: 48, color: successColor.withValues(alpha: 0.5)),
                   const SizedBox(height: 12),
                   const Text(
                     'All found notes already linked',

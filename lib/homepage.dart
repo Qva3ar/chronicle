@@ -25,6 +25,7 @@ import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/goal_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/screens/workspace_list_sheet.dart';
+import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/shared/instructions.dart';
 import 'package:chrono/tag_color_picker.dart';
 import 'package:chrono/widgets/record_list_item.dart';
@@ -84,8 +85,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     recordService.getCountOfRecords();
     getAllTags();
+    // Route notification taps through the Scaffold sheet so they open attached
+    // to the bottom nav bar, like tapping the nav menu.
+    NotificationService.openHomeSheet = _openSheetFromNotification;
     super.initState();
     _initializeApp();
+  }
+
+  /// Opens a nav-bar sheet in response to a notification tap. Returns true when
+  /// handled so [NotificationService] skips its root modal fallback.
+  bool _openSheetFromNotification(String sheetId, {int? highlightTodoId}) {
+    if (!mounted) return false;
+    // Already showing this sheet — treat the tap as a no-op rather than toggling
+    // it closed (which is what re-tapping the nav item would do).
+    if (_activeSheetId == sheetId) return true;
+
+    switch (sheetId) {
+      case 'goals':
+        _showDraggablePersistentSheet(
+          id: 'goals',
+          builder: (context, scrollController, _) =>
+              GoalsScreen(sheetScrollController: scrollController),
+        );
+        return true;
+      case 'routines':
+        _showDraggablePersistentSheet(
+          id: 'routines',
+          builder: (context, scrollController, _) =>
+              RoutineManagerScreen(sheetScrollController: scrollController),
+        );
+        return true;
+      case 'todos':
+        _showDraggablePersistentSheet(
+          id: 'todos',
+          builder: (context, scrollController, _) => TodoListScreen(
+            sheetScrollController: scrollController,
+            highlightTodoId: highlightTodoId,
+          ),
+        );
+        return true;
+    }
+    return false;
   }
 
   Future<void> _initializeApp() async {
@@ -181,6 +221,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    if (identical(NotificationService.openHomeSheet, _openSheetFromNotification)) {
+      NotificationService.openHomeSheet = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _recordCreatedSubscription?.cancel();

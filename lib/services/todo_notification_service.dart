@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:chrono/models/todo.model.dart';
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/utils/timezone_helper.dart';
 import 'package:flutter/material.dart';
 
 class TodoNotificationService {
@@ -40,6 +41,11 @@ class TodoNotificationService {
     if (_isInitialized) return;
 
     try {
+      // Ensure tz.local matches the device timezone. Required here because this
+      // service also runs in the WorkManager background isolate (daily reset),
+      // where the timezone database is not otherwise initialized.
+      await TimezoneHelper.ensureInitialized();
+
       if (Platform.isAndroid) {
         await _notifications
             .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()

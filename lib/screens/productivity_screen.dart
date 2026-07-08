@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/screens/productivity_history_screen.dart';
 
 enum _DateRange { week, month, all }
 
@@ -41,33 +42,6 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     }
   }
 
-  List<ProductivityScore> get _filteredHistory {
-    if (_history.isEmpty) return [];
-    final now = DateTime.now();
-    switch (_range) {
-      case _DateRange.week:
-        final cutoff = now.subtract(const Duration(days: 7));
-        return _history.where((s) {
-          final d = DateTime.tryParse(s.date);
-          return d != null && d.isAfter(cutoff);
-        }).toList();
-      case _DateRange.month:
-        final cutoff = now.subtract(const Duration(days: 30));
-        return _history.where((s) {
-          final d = DateTime.tryParse(s.date);
-          return d != null && d.isAfter(cutoff);
-        }).toList();
-      case _DateRange.all:
-        return _history;
-    }
-  }
-
-  double get _averageScore {
-    final data = _filteredHistory;
-    if (data.isEmpty) return 0;
-    return data.map((s) => s.score).reduce((a, b) => a + b) / data.length;
-  }
-
   Color _scoreColor(double score) {
     if (score >= 7) return Colors.greenAccent;
     if (score >= 4) return Colors.orangeAccent;
@@ -81,7 +55,6 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   int get _currentStreak {
     if (_history.isEmpty) return 0;
     int streak = 0;
-    // Walk backwards from most recent
     for (int i = _history.length - 1; i >= 0; i--) {
       if (_history[i].score >= _streakThreshold) {
         streak++;
@@ -107,46 +80,82 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     return best;
   }
 
-  // ── Trend calculation ──
+  // ── Aggregations for insights ──
 
-  double? get _trendDelta {
-    final data = _filteredHistory;
-    if (data.length < 2) return null;
+  double _avgOf(List<ProductivityScore> list) => list.isEmpty
+      ? 0
+      : list.map((s) => s.score).reduce((a, b) => a + b) / list.length;
 
-    int halfLen;
+  List<ProductivityScore> get _filteredHistory {
+    if (_history.isEmpty) return [];
+    final now = DateTime.now();
     switch (_range) {
       case _DateRange.week:
-        halfLen = 7;
+        final cutoff = now.subtract(const Duration(days: 7));
+        return _history.where((s) {
+          final d = DateTime.tryParse(s.date);
+          return d != null && d.isAfter(cutoff);
+        }).toList();
       case _DateRange.month:
-        halfLen = 15;
+        final cutoff = now.subtract(const Duration(days: 30));
+        return _history.where((s) {
+          final d = DateTime.tryParse(s.date);
+          return d != null && d.isAfter(cutoff);
+        }).toList();
       case _DateRange.all:
-        halfLen = (data.length / 2).ceil();
+        return _history;
     }
-
-    // Current period = last N entries, previous = the N before that
-    final currentPeriod = data.length > halfLen
-        ? data.sublist(data.length - halfLen)
-        : data;
-
-    final previousEnd = data.length - currentPeriod.length;
-    if (previousEnd <= 0) return null;
-
-    final previousPeriod = data.sublist(
-      (previousEnd - halfLen).clamp(0, previousEnd),
-      previousEnd,
-    );
-
-    if (previousPeriod.isEmpty) return null;
-
-    final currentAvg =
-        currentPeriod.map((s) => s.score).reduce((a, b) => a + b) / currentPeriod.length;
-    final previousAvg =
-        previousPeriod.map((s) => s.score).reduce((a, b) => a + b) / previousPeriod.length;
-
-    return currentAvg - previousAvg;
   }
 
-  // ── Weekday averages ──
+  String _rangeLabel(_DateRange range) {
+    switch (range) {
+      case _DateRange.week:
+        return 'Week';
+      case _DateRange.month:
+        return 'Month';
+      case _DateRange.all:
+        return 'All time';
+    }
+  }
+
+  /// Converts the filtered history into chart bars, aggregating days into
+  /// buckets when there are too many to render individually. This keeps the
+  /// "All time" view usable no matter how many days are tracked.
+  List<_ChartBar> _chartBars() {
+    final data = _filteredHistory;
+    if (data.isEmpty) return const [];
+
+    const maxBars = 35;
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    if (data.length <= maxBars) {
+      return data.map((s) {
+        final d = DateTime.tryParse(s.date);
+        final label = d != null ? DateFormat('E').format(d).substring(0, 2) : '';
+        return _ChartBar(
+          score: s.score,
+          label: label,
+          isToday: s.date == todayStr,
+        );
+      }).toList();
+    }
+
+    // Too many points: aggregate consecutive days into averaged buckets.
+    final groupSize = (data.length / maxBars).ceil();
+    final bars = <_ChartBar>[];
+    for (int i = 0; i < data.length; i += groupSize) {
+      final end = (i + groupSize) > data.length ? data.length : (i + groupSize);
+      final group = data.sublist(i, end);
+      final first = DateTime.tryParse(group.first.date);
+      final label = first != null ? DateFormat('d/M').format(first) : '';
+      bars.add(_ChartBar(
+        score: _avgOf(group),
+        label: label,
+        isToday: group.any((s) => s.date == todayStr),
+      ));
+    }
+    return bars;
+  }
 
   Map<int, double> get _weekdayAverages {
     final sums = <int, double>{};
@@ -163,6 +172,66 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
       avgs[wd] = sums[wd]! / counts[wd]!;
     }
     return avgs;
+  }
+
+  /// Builds up to two human-readable insights from the history, prioritising the
+  /// most actionable ones (trend > best weekday > overall average).
+  List<_Insight> get _insights {
+    final out = <_Insight>[];
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    // 1. Week-over-week trend
+    if (_history.length >= 4) {
+      final last = _history.length >= 7
+          ? _history.sublist(_history.length - 7)
+          : _history;
+      final prevEnd = _history.length - last.length;
+      if (prevEnd > 0) {
+        final prevStart = (prevEnd - 7).clamp(0, prevEnd);
+        final prev = _history.sublist(prevStart, prevEnd);
+        if (prev.isNotEmpty) {
+          final delta = _avgOf(last) - _avgOf(prev);
+          if (delta.abs() >= 0.2) {
+            final up = delta >= 0;
+            out.add(_Insight(
+              icon: up ? Icons.trending_up : Icons.trending_down,
+              color: up ? successColor : Colors.redAccent,
+              headline: up ? 'You\'re trending up' : 'Slipping a little',
+              subtext:
+                  '${up ? '+' : ''}${delta.toStringAsFixed(1)} avg vs the previous week',
+            ));
+          }
+        }
+      }
+    }
+
+    // 2. Best weekday
+    final wd = _weekdayAverages;
+    if (wd.length >= 3) {
+      final best = wd.entries.reduce((a, b) => a.value >= b.value ? a : b);
+      out.add(_Insight(
+        icon: Icons.star_rounded,
+        color: MyColors.orangeDivider,
+        headline: '${dayNames[best.key - 1]}s are your strongest',
+        subtext: '${best.value.toStringAsFixed(1)} average on that day',
+      ));
+    }
+
+    // 3. Fallback: overall average
+    if (out.isEmpty && _history.isNotEmpty) {
+      final recent = _history.length > 30
+          ? _history.sublist(_history.length - 30)
+          : _history;
+      final avg = _avgOf(recent);
+      out.add(_Insight(
+        icon: Icons.analytics_rounded,
+        color: _scoreColor(avg),
+        headline: '${avg.toStringAsFixed(1)} average score',
+        subtext: 'Across the last ${recent.length} tracked day${recent.length != 1 ? 's' : ''}',
+      ));
+    }
+
+    return out.take(2).toList();
   }
 
   @override
@@ -199,18 +268,11 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
                     _buildStreakRow(),
                     const SizedBox(height: 16),
                     _buildBreakdown(),
-                    const SizedBox(height: 20),
-                    _buildRangeSelector(),
-                    const SizedBox(height: 12),
-                    _buildTrendCard(),
-                    const SizedBox(height: 12),
-                    _buildBarChart(),
-                    const SizedBox(height: 12),
-                    _buildAverageCard(),
                     const SizedBox(height: 16),
-                    _buildWeekdayPatterns(),
-                    const SizedBox(height: 20),
-                    _buildHistoryList(),
+                    _buildInsightCard(),
+                    _buildChartCard(),
+                    _buildHeatmapCard(),
+                    _buildHistoryButton(),
                   ],
                 ),
               ),
@@ -332,7 +394,7 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  Icon(Icons.emoji_events_outlined,
+                  const Icon(Icons.emoji_events_outlined,
                       color: MyColors.orangeDivider, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
@@ -391,7 +453,94 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     );
   }
 
-  // ── Range selector ──
+  // ── Insight card ──
+
+  Widget _buildInsightCard() {
+    final insights = _insights;
+    if (insights.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _card(
+        child: Column(
+          children: [
+            for (int i = 0; i < insights.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  color: cardBorder.withValues(alpha: 0.3),
+                  height: 1,
+                  indent: 14,
+                  endIndent: 14,
+                ),
+              _insightRow(insights[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _insightRow(_Insight insight) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: insight.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(insight.icon, color: insight.color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  insight.headline,
+                  style: const TextStyle(
+                    color: textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  insight.subtext,
+                  style: const TextStyle(color: textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Trend chart (with range selector) ──
+
+  Widget _buildChartCard() {
+    if (_history.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        children: [
+          _buildRangeSelector(),
+          const SizedBox(height: 12),
+          _card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 16, 10, 8),
+              child: _buildBarChart(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRangeSelector() {
     return Container(
@@ -405,6 +554,7 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
           final isActive = _range == range;
           return Expanded(
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _range = range),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -431,494 +581,199 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     );
   }
 
-  String _rangeLabel(_DateRange range) {
-    switch (range) {
-      case _DateRange.week:
-        return 'Week';
-      case _DateRange.month:
-        return 'Month';
-      case _DateRange.all:
-        return 'All time';
-    }
-  }
-
-  // ── Trend card ──
-
-  Widget _buildTrendCard() {
-    final delta = _trendDelta;
-    if (delta == null) return const SizedBox.shrink();
-
-    final isUp = delta >= 0;
-    final color = isUp ? Colors.greenAccent : Colors.redAccent;
-    final icon = isUp ? Icons.trending_up : Icons.trending_down;
-    final avg = _averageScore;
-    final periodLabel = _range == _DateRange.week
-        ? 'vs last week'
-        : _range == _DateRange.month
-            ? 'vs previous month'
-            : 'vs first half';
-
-    return _card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${avg.toStringAsFixed(1)} avg',
-                    style: const TextStyle(
-                      color: textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    periodLabel,
-                    style: const TextStyle(color: textMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '${isUp ? '+' : ''}${delta.toStringAsFixed(1)}',
-              style: TextStyle(
-                color: color,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Bar chart ──
-
   Widget _buildBarChart() {
-    final data = _filteredHistory;
-    if (data.isEmpty) {
-      return _card(
-        child: const SizedBox(
-          height: 160,
-          child: Center(
-            child: Text(
-              'No data for this period yet',
-              style: TextStyle(color: textMuted),
-            ),
+    final bars = _chartBars();
+    if (bars.isEmpty) {
+      return const SizedBox(
+        height: 150,
+        child: Center(
+          child: Text(
+            'No data for this period yet',
+            style: TextStyle(color: textMuted),
           ),
         ),
       );
     }
 
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    const chartHeight = 130.0;
+    // Keep at most ~7 labels so they never collide, regardless of bar count.
+    final showEvery = (bars.length / 7).ceil().clamp(1, bars.length);
+    final gap = bars.length > 20 ? 0.75 : (bars.length > 10 ? 1.5 : 3.0);
 
-    return _card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-        child: SizedBox(
-          height: _barChartHeight(data.length),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: data.map((s) {
-              final isToday = s.date == todayStr;
-              return Expanded(
-                child: _BarColumn(
-                  score: s,
-                  isToday: isToday,
-                  maxHeight: _barChartHeight(data.length) - 24,
-                  showLabel: _shouldShowLabel(data, s),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _barChartHeight(int count) {
-    if (count <= 7) return 140;
-    if (count <= 14) return 140;
-    return 160;
-  }
-
-  bool _shouldShowLabel(List<ProductivityScore> data, ProductivityScore s) {
-    final count = data.length;
-    final idx = data.indexOf(s);
-    if (count <= 7) return true;
-    if (count <= 14) return idx % 2 == 0 || idx == count - 1;
-    if (count <= 31) return idx % 5 == 0 || idx == count - 1;
-    return idx % 7 == 0 || idx == count - 1;
-  }
-
-  // ── Average card ──
-
-  Widget _buildAverageCard() {
-    final avg = _averageScore;
-    final data = _filteredHistory;
-    if (data.isEmpty) return const SizedBox.shrink();
-
-    final color = _scoreColor(avg);
-
-    return _card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.analytics_rounded, color: color, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Average score',
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${data.length} day${data.length != 1 ? 's' : ''} tracked',
-                    style: const TextStyle(color: textMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              avg.toStringAsFixed(1),
-              style: TextStyle(
-                color: color,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Weekday patterns ──
-
-  Widget _buildWeekdayPatterns() {
-    final avgs = _weekdayAverages;
-    if (avgs.length < 3) return const SizedBox.shrink(); // need at least 3 days of data
-
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final sorted = avgs.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    final maxAvg = sorted.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: Text(
-            'By weekday',
-            style: TextStyle(
-              color: textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        _card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Column(
-              children: sorted.map((entry) {
-                final wd = entry.key;
-                final avg = entry.value;
-                final color = _scoreColor(avg);
-                final ratio = maxAvg > 0 ? avg / 10 : 0.0;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 32,
-                        child: Text(
-                          dayNames[wd - 1],
-                          style: const TextStyle(
-                            color: textMuted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: ratio,
-                            minHeight: 8,
-                            backgroundColor: Colors.white10,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              color.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 32,
-                        child: Text(
-                          avg.toStringAsFixed(1),
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: color,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── History list ──
-
-  Widget _buildHistoryList() {
-    final data = _filteredHistory.reversed.toList();
-    if (data.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: Text(
-            'History',
-            style: TextStyle(
-              color: textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        ...data.take(30).map((s) => _buildDayTile(s)),
-      ],
-    );
-  }
-
-  Widget _buildDayTile(ProductivityScore score) {
-    final date = DateTime.tryParse(score.date);
-    final dateStr = date != null ? DateFormat('dd MMM, EEE').format(date) : score.date;
-    final color = _scoreColor(score.score);
-    final routineProgress = score.routinesTotal > 0
-        ? score.routinesDone / score.routinesTotal
-        : 0.0;
-    final hasDetails =
-        score.routineDetails.isNotEmpty || score.goalDetails.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            expandedCrossAxisAlignment: CrossAxisAlignment.start,
-            trailing: const SizedBox.shrink(),
-            title: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Container(width: 4, color: color.withValues(alpha: 0.7)),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      dateStr,
-                                      style: const TextStyle(
-                                        color: textPrimary,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    if (hasDetails) ...[
-                                      const SizedBox(width: 6),
-                                      Icon(Icons.expand_more, size: 16, color: textHint),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    _MiniStat(
-                                      icon: Icons.check_circle_outline,
-                                      text: '${score.routinesDone}/${score.routinesTotal}',
-                                      color: const Color(0xFF66BB6A),
-                                      progress: routineProgress,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    _MiniStat(
-                                      icon: Icons.flag_outlined,
-                                      text: '${(score.goalsProgress * 100).round()}%',
-                                      color: const Color(0xFF42A5F5),
-                                      progress: score.goalsProgress.clamp(0.0, 1.0),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            score.score.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            children: hasDetails
-                ? [_buildDayDetails(score)]
-                : [],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDayDetails(ProductivityScore score) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: chartHeight + 20,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Divider(color: cardBorder.withValues(alpha: 0.3), height: 1),
-          const SizedBox(height: 10),
-          if (score.routineDetails.isNotEmpty) ...[
-            const Text('Routines',
-                style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            ...score.routineDetails.map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Icon(
-                        r.completed ? Icons.check_circle : Icons.radio_button_unchecked,
-                        size: 16,
-                        color: r.completed ? const Color(0xFF66BB6A) : textHint,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          r.name,
-                          style: TextStyle(
-                            color: r.completed ? textPrimary : textMuted,
-                            fontSize: 13,
-                            decoration: r.completed ? null : TextDecoration.lineThrough,
-                            decorationColor: textHint,
-                          ),
-                        ),
-                      ),
-                    ],
+          for (int i = 0; i < bars.length; i++)
+            _BarColumn(
+              bar: bars[i],
+              maxHeight: chartHeight,
+              gap: gap,
+              showLabel: i % showEvery == 0 || i == bars.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Heatmap ──
+
+  Widget _buildHeatmapCard() {
+    if (_history.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: _card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Activity',
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ProductivityHeatmap(
+                history: _history,
+                onTapDay: _showDayDetail,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDayDetail(ProductivityScore score) {
+    final date = DateTime.tryParse(score.date);
+    final dateStr =
+        date != null ? DateFormat('EEEE, dd MMM').format(date) : score.date;
+    final color = _scoreColor(score.score);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cardBorder,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                )),
-          ],
-          if (score.goalDetails.isNotEmpty) ...[
-            if (score.routineDetails.isNotEmpty) const SizedBox(height: 10),
-            const Text('Goals',
-                style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            ...score.goalDetails.map((g) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          value: g.progress.clamp(0.0, 1.0),
-                          strokeWidth: 2.5,
-                          strokeCap: StrokeCap.round,
-                          backgroundColor: Colors.white10,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            g.progress >= 1.0
-                                ? const Color(0xFF66BB6A)
-                                : const Color(0xFF42A5F5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          g.name,
-                          style: const TextStyle(color: textPrimary, fontSize: 13),
-                        ),
-                      ),
-                      Text(
-                        '${(g.progress * 100).round()}%',
-                        style: TextStyle(
-                          color: g.progress >= 1.0
-                              ? const Color(0xFF66BB6A)
-                              : const Color(0xFF42A5F5),
-                          fontSize: 12,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dateStr,
+                        style: const TextStyle(
+                          color: textPrimary,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    ),
+                    Text(
+                      score.score.toStringAsFixed(1),
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FutureBuilder<ProductivityScore>(
+                future: ProductivityService.instance.recalculateForDate(score.date),
+                builder: (c, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(18, 4, 18, 24),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+                  final detail = snap.data ?? score;
+                  return productivityDayBreakdown(detail);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── History button ──
+
+  Widget _buildHistoryButton() {
+    if (_history.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: _card(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProductivityHistoryScreen(history: _history),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(Icons.history_rounded, color: textMuted, size: 20),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'View full history',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                )),
-          ],
-        ],
+                ),
+                Text(
+                  '${_history.length} day${_history.length != 1 ? 's' : ''}',
+                  style: const TextStyle(color: textMuted, fontSize: 12),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: textHint, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -933,6 +788,104 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
         border: Border.all(color: cardBorder.withValues(alpha: 0.3)),
       ),
       child: child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Insight model
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _Insight {
+  final IconData icon;
+  final Color color;
+  final String headline;
+  final String subtext;
+
+  const _Insight({
+    required this.icon,
+    required this.color,
+    required this.headline,
+    required this.subtext,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Trend chart bar
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ChartBar {
+  final double score;
+  final String label;
+  final bool isToday;
+
+  const _ChartBar({
+    required this.score,
+    required this.label,
+    this.isToday = false,
+  });
+}
+
+class _BarColumn extends StatelessWidget {
+  final _ChartBar bar;
+  final double maxHeight;
+  final double gap;
+  final bool showLabel;
+
+  const _BarColumn({
+    required this.bar,
+    required this.maxHeight,
+    required this.gap,
+    required this.showLabel,
+  });
+
+  Color _barColor(double s) {
+    if (s >= 7) return Colors.greenAccent;
+    if (s >= 4) return Colors.orangeAccent;
+    return Colors.redAccent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _barColor(bar.score);
+    final barHeight = ((bar.score / 10) * maxHeight).clamp(2.0, maxHeight);
+
+    return Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: gap),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              width: double.infinity,
+              height: barHeight,
+              decoration: BoxDecoration(
+                color: bar.isToday ? color : color.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(3),
+                border: bar.isToday ? Border.all(color: color, width: 1.5) : null,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 14,
+              child: showLabel
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        bar.label,
+                        style: TextStyle(
+                          color: bar.isToday ? textPrimary : textMuted,
+                          fontSize: 10,
+                          fontWeight:
+                              bar.isToday ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -965,7 +918,6 @@ class _BreakdownRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Mini circular indicator
           Container(
             width: 40,
             height: 40,
@@ -1013,113 +965,175 @@ class _BreakdownRow extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Bar Column (chart)
+// Heatmap (GitHub-style contribution grid)
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _BarColumn extends StatelessWidget {
-  final ProductivityScore score;
-  final bool isToday;
-  final double maxHeight;
-  final bool showLabel;
+class _ProductivityHeatmap extends StatelessWidget {
+  final List<ProductivityScore> history;
+  final void Function(ProductivityScore) onTapDay;
 
-  const _BarColumn({
-    required this.score,
-    required this.isToday,
-    required this.maxHeight,
-    required this.showLabel,
+  const _ProductivityHeatmap({
+    required this.history,
+    required this.onTapDay,
   });
 
-  Color _barColor(double s) {
-    if (s >= 7) return Colors.greenAccent;
-    if (s >= 4) return Colors.orangeAccent;
-    return Colors.redAccent;
+  static const int _weeksToShow = 15;
+
+  Color _cellColor(double score) {
+    if (score >= 7) return const Color(0xFF66BB6A);
+    if (score >= 4) return const Color(0xFFFFA726);
+    return const Color(0xFFEF5350);
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _barColor(score.score);
-    final barHeight = (score.score / 10) * maxHeight;
-    final date = DateTime.tryParse(score.date);
-    final label = date != null ? DateFormat('E').format(date).substring(0, 2) : '';
+    final scoreByDate = <String, ProductivityScore>{
+      for (final s in history) s.date: s,
+    };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 1.5),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            width: 16,
-            height: barHeight.clamp(2.0, maxHeight),
-            decoration: BoxDecoration(
-              color: isToday ? color : color.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(4),
-              border: isToday
-                  ? Border.all(color: color, width: 1.5)
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 14,
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayStr = DateFormat('yyyy-MM-dd').format(today);
+    final todayIdx = today.weekday - 1; // 0=Mon
+    final lastMonday = today.subtract(Duration(days: todayIdx));
+    final firstMonday =
+        lastMonday.subtract(const Duration(days: (_weeksToShow - 1) * 7));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 3.0;
+        const leftLabel = 22.0;
+        final avail = constraints.maxWidth - leftLabel;
+        final cell = (avail / _weeksToShow - gap).clamp(8.0, 18.0).toDouble();
+        final rowHeight = cell + gap;
+
+        // Month labels aligned to the first column of each month.
+        final monthLabels = <Widget>[const SizedBox(width: leftLabel)];
+        int? prevMonth;
+        for (int w = 0; w < _weeksToShow; w++) {
+          final colDate = firstMonday.add(Duration(days: w * 7));
+          final showLabel = prevMonth != colDate.month;
+          prevMonth = colDate.month;
+          monthLabels.add(SizedBox(
+            width: cell + gap,
             child: showLabel
                 ? Text(
-                    label,
-                    style: TextStyle(
-                      color: isToday ? textPrimary : textMuted,
-                      fontSize: 10,
-                      fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
-                    ),
+                    DateFormat('MMM').format(colDate),
+                    style: const TextStyle(color: textMuted, fontSize: 9),
                   )
                 : const SizedBox.shrink(),
+          ));
+        }
+
+        // Weekday labels column (Mon / Wed / Fri).
+        const wdLabels = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+        final weekdayColumn = SizedBox(
+          width: leftLabel,
+          child: Column(
+            children: List.generate(7, (d) {
+              return SizedBox(
+                height: rowHeight,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    wdLabels[d],
+                    style: const TextStyle(color: textMuted, fontSize: 8),
+                  ),
+                ),
+              );
+            }),
           ),
-        ],
-      ),
+        );
+
+        final weekColumns = <Widget>[weekdayColumn];
+        for (int w = 0; w < _weeksToShow; w++) {
+          weekColumns.add(Padding(
+            padding: const EdgeInsets.only(right: gap),
+            child: Column(
+              children: List.generate(7, (d) {
+                final date = firstMonday.add(Duration(days: w * 7 + d));
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: gap),
+                  child: _buildCell(date, today, todayStr, scoreByDate, cell),
+                );
+              }),
+            ),
+          ));
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: monthLabels),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: weekColumns,
+            ),
+            const SizedBox(height: 12),
+            _buildLegend(),
+          ],
+        );
+      },
     );
   }
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Mini stat (for history tiles)
-// ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildCell(
+    DateTime date,
+    DateTime today,
+    String todayStr,
+    Map<String, ProductivityScore> scoreByDate,
+    double cell,
+  ) {
+    if (date.isAfter(today)) {
+      return SizedBox(width: cell, height: cell);
+    }
+    final ds = DateFormat('yyyy-MM-dd').format(date);
+    final score = scoreByDate[ds];
+    final color = score != null
+        ? _cellColor(score.score)
+        : Colors.white.withValues(alpha: 0.05);
 
-class _MiniStat extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color color;
-  final double progress;
+    final box = Container(
+      width: cell,
+      height: cell,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(3),
+        border: ds == todayStr
+            ? Border.all(color: textPrimary, width: 1)
+            : null,
+      ),
+    );
 
-  const _MiniStat({
-    required this.icon,
-    required this.text,
-    required this.color,
-    required this.progress,
-  });
+    if (score == null) return box;
+    return GestureDetector(
+      onTap: () => onTapDay(score),
+      child: box,
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLegend() {
+    Widget swatch(Color c) => Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: c,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            value: progress,
-            strokeWidth: 2,
-            strokeCap: StrokeCap.round,
-            backgroundColor: Colors.white10,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
+        const Text('Low', style: TextStyle(color: textMuted, fontSize: 10)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        swatch(const Color(0xFFEF5350)),
+        const SizedBox(width: 3),
+        swatch(const Color(0xFFFFA726)),
+        const SizedBox(width: 3),
+        swatch(const Color(0xFF66BB6A)),
+        const SizedBox(width: 6),
+        const Text('High', style: TextStyle(color: textMuted, fontSize: 10)),
       ],
     );
   }

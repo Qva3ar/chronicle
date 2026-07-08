@@ -70,8 +70,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void getAllTags() async {
-    allTags = await recordService.queryAllTagsJust();
-    // allTags = await recordService.queryAllTagsJust();
+    final tags = await recordService.queryAllTagsJust();
+    if (!mounted) return;
+    allTags = tags;
   }
 
   getUserNotes() async {
@@ -91,6 +92,7 @@ class _ChatPageState extends State<ChatPage> {
       allRecords.addAll(unlockedRecords);
     }
 
+    if (!mounted) return;
     final count = await processMessages(allRecords);
     //find model from apitokenoptions and get price
     final model =
@@ -98,6 +100,7 @@ class _ChatPageState extends State<ChatPage> {
     //round to 2 digits
     String inString = (count / 1000 * model.price).toStringAsFixed(8);
 
+    if (!mounted) return;
     setState(() {
       isTokenCounting = false;
       tokenCount = double.parse(inString);
@@ -115,22 +118,32 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _removeEmptyAssistantBubble() {
+    if (_messages.isNotEmpty &&
+        !_messages.first.isUserMessage &&
+        !_messages.first.isSystemMessage &&
+        _messages.first.content.trim().isEmpty) {
+      _messages.removeAt(0);
+    }
+  }
+
   showErrorDialog(String errorMessage) {
     showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Unexpected Error'),
+            backgroundColor: cardColor,
+            title: const Text('Unexpected Error', style: TextStyle(color: textPrimary)),
             content: Text(
               'Error: $errorMessage',
-              style: TextStyle(color: Colors.black),
+              style: const TextStyle(color: textPrimary),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: Text('OK'),
+                child: const Text('OK', style: TextStyle(color: MyColors.orangeDivider)),
               ),
             ],
           );
@@ -302,9 +315,13 @@ class _ChatPageState extends State<ChatPage> {
           }, onError: (err) {
             completer.completeError(err);
           }, onDone: () {
-            final ids = extractValue(accumulator);
-            _messages.first.recordIds = ids;
-            widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+            if (accumulator.trim().isEmpty) {
+              _removeEmptyAssistantBubble();
+            } else {
+              final ids = extractValue(accumulator);
+              _messages.first.recordIds = ids;
+              widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+            }
             completer.complete();
           });
 
@@ -334,6 +351,7 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (err) {
       log('Error during chunked submission: $err');
+      _removeEmptyAssistantBubble();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error during chunked processing: $err')),
@@ -796,12 +814,25 @@ class _ChatPageState extends State<ChatPage> {
 
   onStop() {
     stream.cancel();
+    if (_messages.isNotEmpty &&
+        !_messages.first.isUserMessage &&
+        !_messages.first.isSystemMessage) {
+      final pending = _messages.first;
+      if (pending.content.trim().isEmpty) {
+        _messages.removeAt(0);
+      } else {
+        widget.messageService.addMessage(
+          ChatMessage(pending.content, false, false),
+        );
+      }
+    }
     setState(() {
       _awaitingResponse = false;
     });
   }
 
   Future<double> processMessages(List<Record> messages) async {
+    if (!mounted) return 0;
     setState(() {
       isTokenCounting = true;
     });
@@ -813,6 +844,13 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _onSubmitted(String message) async {
+    // Игнорируем пустые/пробельные сообщения и повторную отправку во время ответа
+    final trimmedMessage = message.trim();
+    if (trimmedMessage.isEmpty || _awaitingResponse) {
+      return;
+    }
+    message = trimmedMessage;
+
     List<ChatMessage> _systemMessages = [];
     final userMessage = ChatMessage(message, true, false);
     setState(() {
@@ -862,9 +900,7 @@ class _ChatPageState extends State<ChatPage> {
             });
 
             // Remove the empty message we inserted
-            if (_messages.isNotEmpty && _messages.first.content.isEmpty) {
-              _messages.removeAt(0);
-            }
+            _removeEmptyAssistantBubble();
 
             // Estimate number of chunks
             final chunks = _splitRecordsIntoChunks(allRecords);
@@ -886,6 +922,7 @@ class _ChatPageState extends State<ChatPage> {
             }
           } else {
             // Other API error
+            _removeEmptyAssistantBubble();
             showErrorDialog(errorMessage);
             setState(() {
               _awaitingResponse = false;
@@ -894,6 +931,7 @@ class _ChatPageState extends State<ChatPage> {
         } else {
           // Handle other exceptions
           log('Unexpected error: $err');
+          _removeEmptyAssistantBubble();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
@@ -904,14 +942,19 @@ class _ChatPageState extends State<ChatPage> {
           });
         }
       }, onDone: () {
-        final ids = extractValue(accumulator);
-        _messages.first.recordIds = ids;
-        widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+        if (_messages.first.content.trim().isEmpty) {
+          _messages.removeAt(0);
+        } else {
+          final ids = extractValue(accumulator);
+          _messages.first.recordIds = ids;
+          widget.messageService.addMessage(ChatMessage(accumulator, false, false));
+        }
         setState(() {
           _awaitingResponse = false;
         });
       });
     } catch (err) {
+      _removeEmptyAssistantBubble();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An error occurred. Please try again.')),

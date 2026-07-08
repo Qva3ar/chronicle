@@ -295,6 +295,9 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
       await db.updateGoal(updatedGoal);
       print('✅ BACKGROUND ACTION: Goal "${updatedGoal.title}" reactivated at $resumeTimestamp.');
 
+      // Refresh the goals widget so its chronometer restarts with the session.
+      await GoalsWidgetUpdater(db).update();
+
       // Show running notification from background
       await _showBackgroundRunningNotification(notificationsPlugin, updatedGoal);
 
@@ -1420,6 +1423,9 @@ class TimerService extends ChangeNotifier {
     print('✅ Goal completed exactly: ${formatTime(exactGoalTime)}');
     print('✅ Session time to complete: ${formatTime(sessionTimeToComplete)}');
 
+    // Refresh the goals widget so its chronometer stops on completion.
+    await GoalsWidgetUpdater(_db).update();
+
     // Stop the timer
     _isRunning = false;
     _updateTimer?.cancel();
@@ -1544,6 +1550,9 @@ class TimerService extends ChangeNotifier {
 
     await _db.updateGoal(updatedGoal);
     print('✅ SESSION COMPLETION: Goal updated successfully');
+
+    // Refresh the goals widget so its chronometer stops when the session ends.
+    await GoalsWidgetUpdater(_db).update();
 
     // Stop the timer
     _isRunning = false;
@@ -1675,6 +1684,9 @@ class TimerService extends ChangeNotifier {
     // Clear session-specific running state variables
     _sessionStartTime = 0;
     _baselineTimeSpent = 0;
+
+    // Refresh the goals widget so its chronometer reflects the ended session.
+    await GoalsWidgetUpdater(_db).update();
 
     notifyListeners();
     print(

@@ -39,6 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _PageData(
       title: 'Your Data. Your Device.',
+      titleFontSize: 22,
       subtitle:
           'Chrono works 100% offline.\nAll your data stays on your phone —\nprivate and always available.',
       footnote: 'AI features may send your data to third-party services.',
@@ -83,10 +84,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
-  static const _totalPages = 9; // 8 features + 1 paywall
+  // Skip the paywall page entirely if the user already has a subscription.
+  late final bool _showPaywall =
+      !SubscriptionService.instance.hasSubscription.value;
+
+  int get _totalPages => _featurePages.length + (_showPaywall ? 1 : 0);
 
   bool get _isLastFeaturePage => _currentPage == _featurePages.length - 1;
-  bool get _isPaywallPage => _currentPage == _totalPages - 1;
+  bool get _isPaywallPage => _showPaywall && _currentPage == _totalPages - 1;
 
   @override
   void dispose() {
@@ -105,6 +110,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
+    // On the last feature page with no paywall, finish onboarding directly.
+    if (!_showPaywall && _isLastFeaturePage) {
+      _finishOnboarding();
+      return;
+    }
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
@@ -114,6 +124,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _skip() {
+    // No paywall to jump to — finish onboarding right away.
+    if (!_showPaywall) {
+      _finishOnboarding();
+      return;
+    }
     // Jump to paywall
     _pageController.animateToPage(
       _totalPages - 1,
@@ -197,7 +212,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     // Next button
                     _NextButton(
                       onPressed: _nextPage,
-                      label: _isLastFeaturePage ? 'Continue' : 'Next',
+                      label: _isLastFeaturePage
+                          ? (_showPaywall ? 'Continue' : 'Get Started')
+                          : 'Next',
                     ),
                   ],
                 ),
@@ -218,12 +235,14 @@ class _PageData {
   final String subtitle;
   final String? footnote;
   final int animationIndex;
+  final double? titleFontSize;
 
   const _PageData({
     required this.title,
     required this.subtitle,
     this.footnote,
     required this.animationIndex,
+    this.titleFontSize,
   });
 }
 
@@ -304,17 +323,34 @@ class _FeaturePage extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          data.title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Montserrat',
-            height: 1.2,
+        if (data.titleFontSize != null)
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              data.title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                color: textPrimary,
+                fontSize: data.titleFontSize,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Montserrat',
+                height: 1.2,
+              ),
+            ),
+          )
+        else
+          Text(
+            data.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: textPrimary,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Montserrat',
+              height: 1.2,
+            ),
           ),
-        ),
         const SizedBox(height: 16),
         Text(
           data.subtitle,

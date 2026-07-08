@@ -18,8 +18,8 @@ class OfflineDataMockup extends StatelessWidget {
           children: [
             // Phone icon with shield
             SizedBox(
-              width: 120,
-              height: 120,
+              width: 100,
+              height: 100,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -77,7 +77,7 @@ class OfflineDataMockup extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
             // Info cards
             _OfflineInfoCard(
@@ -86,21 +86,21 @@ class OfflineDataMockup extends StatelessWidget {
               subtitle: 'No internet connection required',
               color: const Color(0xFF42A5F5),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _OfflineInfoCard(
               icon: Icons.storage_rounded,
               title: 'Local Storage',
               subtitle: 'All data stays on your device',
               color: MyColors.orangeDivider,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _OfflineInfoCard(
               icon: Icons.visibility_off_rounded,
               title: 'No Tracking',
               subtitle: 'We never see your notes or data',
               color: successColor,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _OfflineInfoCard(
               icon: Icons.import_export_rounded,
               title: 'Export / Import',
@@ -130,7 +130,7 @@ class _OfflineInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),

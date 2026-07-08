@@ -63,6 +63,13 @@ class ProductivityScore {
     this.goalDetails = const [],
   });
 
+  /// Serialized form stored in the productivity Record.
+  ///
+  /// Only the aggregate snapshot is persisted. Per-item breakdown
+  /// (`routineDetails`/`goalDetails`) is intentionally NOT stored — it would
+  /// duplicate data already held in the routine-completion and goal records.
+  /// The history screen recomputes the breakdown on demand via
+  /// [ProductivityService.recalculateForDate].
   Map<String, dynamic> toJson() => {
         'score': double.parse(score.toStringAsFixed(1)),
         'date': date,
@@ -71,8 +78,6 @@ class ProductivityScore {
         'routines_done': routinesDone,
         'routines_total': routinesTotal,
         'goals_progress': double.parse(goalsProgress.toStringAsFixed(2)),
-        'routines': routineDetails.map((r) => r.toJson()).toList(),
-        'goals': goalDetails.map((g) => g.toJson()).toList(),
       };
 
   factory ProductivityScore.fromJson(Map<String, dynamic> json) {
@@ -112,6 +117,12 @@ class ProductivityService {
     final dateStr = DateFormat('yyyy-MM-dd').format(now);
     return _calculateScoreForDate(dateStr);
   }
+
+  /// Recompute the full score (including per-item routine/goal breakdown) for a
+  /// given date. Used by the history screen to fill in details on demand,
+  /// since the stored record only keeps the aggregate snapshot.
+  Future<ProductivityScore> recalculateForDate(String date) =>
+      _calculateScoreForDate(date);
 
   static final _productivityUpdatedController =
       StreamController<int>.broadcast(sync: true);

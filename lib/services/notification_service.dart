@@ -4,9 +4,9 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:chrono/utils/timezone_helper.dart';
 // Assuming these are your project's files
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/routine_service.dart';
@@ -43,6 +43,15 @@ class NotificationService {
   bool _isInitializing = false; // Guard against re-entrant initialization
   bool _isBottomSheetOpen = false; // Track if bottom sheet is currently open
 
+  /// Registered by [HomePage] so a notification tap opens the corresponding
+  /// sheet attached to the home Scaffold (respecting the bottom nav bar), just
+  /// like tapping the nav bar menu, instead of a root modal sheet drawn over it.
+  ///
+  /// [sheetId] is one of 'goals', 'routines', 'todos'. Returns true if the
+  /// request was handled; when null or returning false the service falls back to
+  /// a root modal bottom sheet.
+  static bool Function(String sheetId, {int? highlightTodoId})? openHomeSheet;
+
   // Constants for notification IDs
   static const int _baseNotificationId = 1000;
   static const int _baseRetryId = 2000;
@@ -68,31 +77,9 @@ class NotificationService {
     _isInitializing = true;
 
     try {
-      tz.initializeTimeZones();
-      // Set local timezone - this is critical for daily reset scheduling
-      // Try to detect local timezone from system, fallback to common timezones
-      try {
-        final String localTimezoneName = DateTime.now().timeZoneName;
-        debugPrint('📍 Device timezone: $localTimezoneName');
-
-        // Try common timezone mappings
-        String tzLocation = 'Europe/Moscow'; // Default fallback
-        if (localTimezoneName.contains('MSK')) {
-          tzLocation = 'Europe/Moscow';
-        } else if (localTimezoneName.contains('GMT') || localTimezoneName.contains('UTC')) {
-          tzLocation = 'UTC';
-        } else if (localTimezoneName.contains('EST') || localTimezoneName.contains('EDT')) {
-          tzLocation = 'America/New_York';
-        } else if (localTimezoneName.contains('PST') || localTimezoneName.contains('PDT')) {
-          tzLocation = 'America/Los_Angeles';
-        }
-
-        tz.setLocalLocation(tz.getLocation(tzLocation));
-        debugPrint('✅ Timezone set to: $tzLocation (from $localTimezoneName)');
-      } catch (e) {
-        debugPrint('⚠️ Failed to set timezone: $e, using UTC');
-        tz.setLocalLocation(tz.getLocation('UTC'));
-      }
+      // Set local timezone from the device's real IANA identifier.
+      // Critical for daily reset scheduling and all zonedSchedule calls.
+      await TimezoneHelper.ensureInitialized();
 
       if (Platform.isAndroid) {
         if (!calledFromBackgroundTask) {
@@ -223,10 +210,14 @@ class NotificationService {
         return;
       }
 
-      // Navigate based on notification type
+      // Navigate based on notification type. Prefer the home Scaffold sheet
+      // (attached to the bottom nav bar) when HomePage is active; fall back to a
+      // root modal sheet only when it isn't registered/handled.
       if (type == 'routine') {
+        if (openHomeSheet?.call('routines') == true) return;
         _showRoutineBottomSheet(context);
       } else if (type == 'goal' || type == 'running' || type == 'session') {
+        if (openHomeSheet?.call('goals') == true) return;
         _showGoalBottomSheet(context);
       } else if (type == 'checkin') {
         // payload format: "checkin_morning" or "checkin_evening"
@@ -241,9 +232,9 @@ class NotificationService {
       } else if (type == 'todo') {
         // payload format: "todo_<id>"
         final todoIdStr = parts.length > 1 ? parts[1] : null;
-        if (todoIdStr != null) {
-          _showTodoBottomSheet(context, int.tryParse(todoIdStr));
-        }
+        final todoId = todoIdStr != null ? int.tryParse(todoIdStr) : null;
+        if (openHomeSheet?.call('todos', highlightTodoId: todoId) == true) return;
+        _showTodoBottomSheet(context, todoId);
       } else {
         debugPrint('⚠️ Unknown notification type: $type');
       }
