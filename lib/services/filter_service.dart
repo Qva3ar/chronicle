@@ -77,7 +77,7 @@ class FilterService {
 
   Future<bool> getShowProductivityRecords() async {
     await _initPrefs();
-    return _prefs!.getBool(_showProductivityRecordsKey) ?? true;
+    return _prefs!.getBool(_showProductivityRecordsKey) ?? false;
   }
 
   Future<void> setShowProductivityRecords(bool value) async {
@@ -122,7 +122,7 @@ class FilterSettings {
     required this.showRoutineRecords,
     this.showTodoRecords = false,
     required this.showCompletedTodos,
-    this.showProductivityRecords = true,
+    this.showProductivityRecords = false,
   });
 
   FilterSettings copyWith({
