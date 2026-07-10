@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 56;
+  static const int databaseVersion = 57;
   static const int pageSize = 20;
 }
 
@@ -93,6 +93,7 @@ class DatabaseColumns {
   static const String goalCurrentDayRecordId = 'current_day_record_id';
   static const String goalArchivedAt = 'archived_at';
   static const String goalPriority = 'priority';
+  static const String goalDaysOfWeek = 'days_of_week';
 
   // AI interest signals columns
   static const String aiSource = 'source';
@@ -425,7 +426,8 @@ class DatabaseHelper {
           ${DatabaseColumns.goalCreatedFromOnboarding} INTEGER NOT NULL DEFAULT 0,
           ${DatabaseColumns.goalCurrentDayRecordId} INTEGER,
           ${DatabaseColumns.goalArchivedAt} INTEGER,
-          ${DatabaseColumns.goalPriority} INTEGER NOT NULL DEFAULT 2
+          ${DatabaseColumns.goalPriority} INTEGER NOT NULL DEFAULT 2,
+          ${DatabaseColumns.goalDaysOfWeek} TEXT NOT NULL DEFAULT '1,1,1,1,1,1,1'
         )
       ''');
 
@@ -1676,6 +1678,23 @@ class DatabaseHelper {
         log('Starting migration to v56: Fix Chrono tag color (was purple, now proper dark gray)...');
         await _insertChronoTag(db);
         log('Upgraded database to v56: Fixed Chrono tag color to proper dark gray.');
+      }
+
+      if (oldVersion < 57) {
+        log('Starting migration to v57: Add days_of_week to goals...');
+        final goalColumns =
+            await db.rawQuery('PRAGMA table_info(${DatabaseTables.goals})');
+        final hasDaysOfWeek =
+            goalColumns.any((c) => c['name'] == DatabaseColumns.goalDaysOfWeek);
+        if (!hasDaysOfWeek) {
+          // Existing goals default to every day, preserving prior behavior
+          // where all active goals counted toward the productivity index daily.
+          await db.execute('''
+            ALTER TABLE ${DatabaseTables.goals}
+            ADD COLUMN ${DatabaseColumns.goalDaysOfWeek} TEXT NOT NULL DEFAULT '1,1,1,1,1,1,1'
+          ''');
+        }
+        log('Upgraded database to v57: Added days_of_week column to goals table.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');

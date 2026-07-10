@@ -26,9 +26,16 @@ class GoalsWidgetUpdater {
 
       final goals = await _db.getAllGoals();
 
-      // Filter out completed (today) and archived (manual) goals and sort by primary status
-      final activeGoals =
-          goals.where((g) => g.completedAt == null && g.archivedAt == null).toList();
+      // Filter out completed (today), archived (manual) and off-schedule goals,
+      // then sort by primary status. Only goals scheduled for today are shown,
+      // matching the "today" section of the in-app goals list.
+      final todayIndex = DateTime.now().weekday - 1;
+      final activeGoals = goals
+          .where((g) =>
+              g.completedAt == null &&
+              g.archivedAt == null &&
+              g.isActiveOnDay(todayIndex))
+          .toList();
       activeGoals.sort((a, b) {
         if (a.isPrimary && !b.isPrimary) return -1;
         if (!a.isPrimary && b.isPrimary) return 1;

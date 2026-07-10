@@ -27,6 +27,10 @@ class GoalsScreen extends StatefulWidget {
 class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   List<Goal> _activeGoals = [];
   List<Goal> _archivedGoals = [];
+  // Active goals scheduled for today (reorderable, timer-enabled).
+  List<Goal> _todayGoals = [];
+  // Active goals not scheduled for today (dimmed, non-reorderable section).
+  List<Goal> _otherDayGoals = [];
   bool _showArchived = false;
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
@@ -132,6 +136,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
             _activeGoals = active;
           }
 
+          _splitByDay();
           _archivedGoals = goals.where((g) => g.isArchived).toList();
           _isLoading = false;
         });
@@ -247,13 +252,26 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Partition [_activeGoals] into today's scheduled goals and the rest,
+  /// preserving the saved global order within each group.
+  void _splitByDay() {
+    final todayIndex = DateTime.now().weekday - 1;
+    _todayGoals =
+        _activeGoals.where((g) => g.isActiveOnDay(todayIndex)).toList();
+    _otherDayGoals =
+        _activeGoals.where((g) => !g.isActiveOnDay(todayIndex)).toList();
+  }
+
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
       if (oldIndex < newIndex) {
         newIndex -= 1;
       }
-      final Goal item = _activeGoals.removeAt(oldIndex);
-      _activeGoals.insert(newIndex, item);
+      // Reordering only affects today's goals; other-day goals keep their
+      // relative order and are appended after them in the saved order.
+      final Goal item = _todayGoals.removeAt(oldIndex);
+      _todayGoals.insert(newIndex, item);
+      _activeGoals = [..._todayGoals, ..._otherDayGoals];
     });
 
     // Save the new order
@@ -330,46 +348,9 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             onReorder: _onReorder,
-                            footer: (_showArchived && _archivedGoals.isNotEmpty)
-                                ? Column(
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                                        child: Text(
-                                          AppLocalizations.of(context).goalCompleted,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: MyColors.fivyColor,
-                                          ),
-                                        ),
-                                      ),
-                                      ..._archivedGoals.map(
-                                        (goal) => GoalCard(
-                                          key: ValueKey(goal.id),
-                                          goal: goal,
-                                          onTap: () => _toggleGoalSession(goal),
-                                          onDelete: _deleteGoal,
-                                          onEdit: _showEditGoalForm,
-                                          onCalendar: () => _openCalendar(goal),
-                                          onToggleArchived: () => _toggleArchived(goal),
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : null,
+                            footer: _buildListFooter(),
                             children: [
-                              ..._activeGoals.map(
-                                (goal) => GoalCard(
-                                  key: ValueKey(goal.id),
-                                  goal: goal,
-                                  onTap: () => _toggleGoalSession(goal),
-                                  onDelete: _deleteGoal,
-                                  onEdit: _showEditGoalForm,
-                                  onCalendar: () => _openCalendar(goal),
-                                  onToggleArchived: () => _toggleArchived(goal),
-                                ),
-                              ),
+                              ..._todayGoals.map((goal) => _goalCard(goal)),
                             ],
                           ),
               ),
@@ -396,51 +377,62 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                       : ReorderableListView(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           onReorder: _onReorder,
-                          footer: (_showArchived && _archivedGoals.isNotEmpty)
-                              ? Column(
-                                  children: [
-                                    const Padding(
-                                      padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-                                      child: Text(
-                                        'Completed',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: MyColors.fivyColor,
-                                        ),
-                                      ),
-                                    ),
-                                    ..._archivedGoals.map(
-                                      (goal) => GoalCard(
-                                        key: ValueKey(goal.id),
-                                        goal: goal,
-                                        onTap: () => _toggleGoalSession(goal),
-                                        onDelete: _deleteGoal,
-                                        onEdit: _showEditGoalForm,
-                                        onCalendar: () => _openCalendar(goal),
-                                        onToggleArchived: () => _toggleArchived(goal),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : null,
+                          footer: _buildListFooter(),
                           children: [
-                            ..._activeGoals.map(
-                              (goal) => GoalCard(
-                                key: ValueKey(goal.id),
-                                goal: goal,
-                                onTap: () => _toggleGoalSession(goal),
-                                onDelete: _deleteGoal,
-                                onEdit: _showEditGoalForm,
-                                onCalendar: () => _openCalendar(goal),
-                                onToggleArchived: () => _toggleArchived(goal),
-                              ),
-                            ),
+                            ..._todayGoals.map((goal) => _goalCard(goal)),
                           ],
                         ),
                 ),
         ],
       ),
+    );
+  }
+
+  Widget _goalCard(Goal goal, {bool scheduledToday = true}) {
+    return GoalCard(
+      key: ValueKey(goal.id),
+      goal: goal,
+      scheduledToday: scheduledToday,
+      onTap: () => _toggleGoalSession(goal),
+      onDelete: _deleteGoal,
+      onEdit: _showEditGoalForm,
+      onCalendar: () => _openCalendar(goal),
+      onToggleArchived: () => _toggleArchived(goal),
+    );
+  }
+
+  Widget _sectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: MyColors.fivyColor,
+        ),
+      ),
+    );
+  }
+
+  /// Footer for the reorderable list: dimmed other-day goals section followed
+  /// by the (optional) archived/completed section.
+  Widget? _buildListFooter() {
+    final showOther = _otherDayGoals.isNotEmpty;
+    final showArchived = _showArchived && _archivedGoals.isNotEmpty;
+    if (!showOther && !showArchived) return null;
+
+    return Column(
+      children: [
+        if (showOther) ...[
+          _sectionHeader(AppLocalizations.of(context).routineOtherDays),
+          ..._otherDayGoals.map((g) => _goalCard(g, scheduledToday: false)),
+        ],
+        if (showArchived) ...[
+          _sectionHeader(AppLocalizations.of(context).goalCompleted),
+          ..._archivedGoals.map((g) => _goalCard(g)),
+        ],
+      ],
     );
   }
 

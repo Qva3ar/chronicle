@@ -163,7 +163,9 @@ class ProductivityService {
         allRoutines.where((r) => !r.isArchived && r.isActiveOnDay(currentDayIndex)).toList();
 
     final allGoals = await _db.getAllGoals();
-    final activeGoals = allGoals.where((g) => !g.isArchived).toList();
+    final activeGoals = allGoals
+        .where((g) => !g.isArchived && g.isActiveOnDay(currentDayIndex))
+        .toList();
 
     if (dayRoutines.isEmpty && activeGoals.isEmpty) {
       return ProductivityScore(

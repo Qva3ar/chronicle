@@ -14,6 +14,11 @@ class GoalCard extends StatelessWidget {
   final VoidCallback? onCalendar;
   final VoidCallback? onToggleArchived;
 
+  /// Whether the goal is scheduled for the current weekday. When false the
+  /// card is dimmed and the start-session tap is disabled (edit/delete/menu
+  /// still work), mirroring how the routine manager treats other-day items.
+  final bool scheduledToday;
+
   const GoalCard({
     Key? key,
     required this.goal,
@@ -22,6 +27,7 @@ class GoalCard extends StatelessWidget {
     this.onEdit,
     this.onCalendar,
     this.onToggleArchived,
+    this.scheduledToday = true,
   }) : super(key: key);
 
   // Calculate real-time progress including current session time
@@ -163,8 +169,14 @@ class GoalCard extends StatelessWidget {
     final progressColor = _getProgressColor(realtimeProgress);
     final accent = _iconAccent(isRunning);
 
-    return GestureDetector(
-      onTap: (goal.isArchived || goal.isCompleted) ? null : onTap,
+    return Opacity(
+      opacity: scheduledToday ? 1.0 : 0.5,
+      child: GestureDetector(
+      // Make the whole card tappable, including padding/gaps between widgets.
+      // Without this the default deferToChild behavior only registers taps that
+      // land exactly on an opaque child, so the goal feels unresponsive.
+      behavior: HitTestBehavior.opaque,
+      onTap: (goal.isArchived || goal.isCompleted || !scheduledToday) ? null : onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -386,6 +398,7 @@ class GoalCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -1231,6 +1231,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Рутина не запланирована на этот день недели';
 
   @override
+  String get goalNotScheduled => 'Цель не запланирована на этот день недели';
+
+  @override
   String get routineAlreadyCompleted =>
       'Рутина уже отмечена выполненной в этот день';
 

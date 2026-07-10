@@ -16,6 +16,7 @@ class Goal {
   final bool createdFromOnboarding;
   final int? currentDayRecordId; // ID of the record created for today's work
   final int priority;
+  final List<bool> daysOfWeek; // 7 flags, Monday-first (index 0 = Monday)
 
   Goal({
     this.id,
@@ -32,7 +33,15 @@ class Goal {
     this.createdFromOnboarding = false,
     this.currentDayRecordId,
     this.priority = 2,
+    this.daysOfWeek = const [true, true, true, true, true, true, true],
   });
+
+  /// Whether this goal is scheduled for the given weekday.
+  /// [dayIndex] is 0-based, Monday = 0 (matches `DateTime.weekday - 1`).
+  bool isActiveOnDay(int dayIndex) {
+    if (dayIndex < 0 || dayIndex >= daysOfWeek.length) return true;
+    return daysOfWeek[dayIndex];
+  }
 
   // Total goal time in seconds
   int get totalSeconds => (hours * 3600) + (minutes * 60);
@@ -92,7 +101,21 @@ class Goal {
           (map[DatabaseColumns.goalCreatedFromOnboarding] ?? 0) == 1,
       currentDayRecordId: map[DatabaseColumns.goalCurrentDayRecordId],
       priority: map[DatabaseColumns.goalPriority] as int? ?? 2,
+      daysOfWeek: _parseDaysOfWeek(map[DatabaseColumns.goalDaysOfWeek]),
     );
+  }
+
+  /// Parse the `days_of_week` string ("1,0,1,...") into 7 flags.
+  /// Defaults to every day when missing or malformed (backward compatible
+  /// with goals created before day-of-week scheduling existed).
+  static List<bool> _parseDaysOfWeek(dynamic raw) {
+    if (raw is String && raw.isNotEmpty) {
+      final parts = raw.split(',');
+      if (parts.length == 7) {
+        return parts.map((p) => p == '1').toList();
+      }
+    }
+    return const [true, true, true, true, true, true, true];
   }
 
   // Convert to database map
@@ -113,6 +136,8 @@ class Goal {
       DatabaseColumns.goalCreatedFromOnboarding: createdFromOnboarding ? 1 : 0,
       DatabaseColumns.goalCurrentDayRecordId: currentDayRecordId,
       DatabaseColumns.goalPriority: priority,
+      DatabaseColumns.goalDaysOfWeek:
+          daysOfWeek.map((day) => day ? '1' : '0').join(','),
     };
   }
 
@@ -135,6 +160,7 @@ class Goal {
     int? currentDayRecordId,
     bool clearCurrentDayRecordId = false,
     int? priority,
+    List<bool>? daysOfWeek,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -157,6 +183,7 @@ class Goal {
           ? null
           : (currentDayRecordId ?? this.currentDayRecordId),
       priority: priority ?? this.priority,
+      daysOfWeek: daysOfWeek ?? this.daysOfWeek,
     );
   }
 

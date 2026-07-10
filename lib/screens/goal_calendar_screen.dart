@@ -93,6 +93,26 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
     return _minutesByDay.containsKey(key);
   }
 
+  /// Whether the goal is scheduled for the given calendar day's weekday.
+  bool _isScheduledDay(DateTime day) {
+    return widget.goal.isActiveOnDay(day.weekday - 1);
+  }
+
+  /// Dimmed cell for days the goal isn't scheduled on (no work recorded).
+  Widget _buildOffScheduleCell(DateTime day, {bool isOutside = false}) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      alignment: Alignment.center,
+      child: Text(
+        '${day.day}',
+        style: TextStyle(
+          color: (isOutside ? textMuted : textSecondary).withAlpha(90),
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+
   Widget _buildWorkDayCell(
     DateTime day, {
     bool isOutside = false,
@@ -160,6 +180,18 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
 
     // Can't backdate today or future days (same behavior as routines)
     if (!selected.isBefore(today)) return;
+
+    // Can't log work on days the goal isn't scheduled for (same as routines)
+    if (!_isScheduledDay(selectedDay)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).goalNotScheduled),
+          backgroundColor: MyColors.remove,
+        ),
+      );
+      return;
+    }
 
     // If already has work recorded, do nothing (avoid duplicates)
     if (_hasWork(selectedDay)) return;
@@ -428,11 +460,17 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                             if (_hasWork(day)) {
                               return _buildWorkDayCell(day);
                             }
+                            if (!_isScheduledDay(day)) {
+                              return _buildOffScheduleCell(day);
+                            }
                             return null;
                           },
                           outsideBuilder: (context, day, focused) {
                             if (_hasWork(day)) {
                               return _buildWorkDayCell(day, isOutside: true);
+                            }
+                            if (!_isScheduledDay(day)) {
+                              return _buildOffScheduleCell(day, isOutside: true);
                             }
                             return null;
                           },

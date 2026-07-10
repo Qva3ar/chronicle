@@ -565,6 +565,7 @@
   "@calendarMarkCompleted": { "placeholders": { "name": { "type": "String" }, "date": { "type": "String" } } },
   "routineCompletionAdded": "Routine completion added successfully",
   "routineNotScheduled": "Routine is not scheduled for this day of the week",
+  "goalNotScheduled": "Goal is not scheduled for this day of the week",
   "routineAlreadyCompleted": "Routine already completed on this date",
   "calendarMarkAsComplete": "Mark as Complete",
   "calendarTitleHistory": "{name} - History",

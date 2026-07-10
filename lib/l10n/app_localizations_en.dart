@@ -1221,6 +1221,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Routine is not scheduled for this day of the week';
 
   @override
+  String get goalNotScheduled =>
+      'Goal is not scheduled for this day of the week';
+
+  @override
   String get routineAlreadyCompleted =>
       'Routine already completed on this date';
 

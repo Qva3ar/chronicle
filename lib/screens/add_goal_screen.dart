@@ -25,6 +25,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   late TextEditingController _minutesController;
   late TextEditingController _sessionMinutesController;
   int _priority = 2;
+  final List<bool> _daysOfWeek = List.filled(7, true);
   bool get _isEditing => widget.existingGoal != null;
 
   @override
@@ -36,6 +37,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     _sessionMinutesController =
         TextEditingController(text: widget.existingGoal?.sessionMinutes.toString() ?? '');
     _priority = widget.existingGoal?.priority ?? 2;
+    if (widget.existingGoal != null) {
+      _daysOfWeek.setAll(0, widget.existingGoal!.daysOfWeek);
+    }
   }
 
   @override
@@ -199,6 +203,19 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
 
             const SizedBox(height: 24),
 
+            // ── Days of week ──
+            ChronoSettingsGroup(
+              title: AppLocalizations.of(context).routineDaysOfWeek,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: _buildDaysOfWeekPicker(),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
             // ── Priority ──
             ChronoSettingsGroup(
               title: AppLocalizations.of(context).goalImportance,
@@ -255,6 +272,64 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     3: 'Важно выполнить для продуктивности',
     4: 'Критически важно, сильно влияет на индекс',
   };
+
+  Widget _buildDaysOfWeekPicker() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 4.0;
+        const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+        final raw = (constraints.maxWidth - 6 * gap) / 7;
+        final diameter = raw.clamp(32.0, 44.0);
+        final fontSize = (diameter * 0.38).clamp(12.0, 15.0);
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(7, (i) {
+            final isSelected = _daysOfWeek[i];
+            return Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : gap),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _daysOfWeek[i] = !isSelected;
+                    });
+                  },
+                  customBorder: const CircleBorder(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: diameter,
+                    height: diameter,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected
+                          ? MyColors.orangeDivider.withValues(alpha: 0.15)
+                          : cardColor3,
+                      border: Border.all(
+                        color: isSelected
+                            ? MyColors.orangeDivider.withValues(alpha: 0.5)
+                            : cardBorder.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      dayLetters[i],
+                      style: TextStyle(
+                        color: isSelected ? MyColors.orangeDivider : textMuted,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: fontSize,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
 
   Widget _buildPrioritySlider() {
     return Column(
@@ -345,6 +420,17 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       return;
     }
 
+    // Require at least one scheduled day of week
+    if (!_daysOfWeek.contains(true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).routineSelectDay),
+          backgroundColor: MyColors.remove,
+        ),
+      );
+      return;
+    }
+
     final db = DatabaseHelper.instance;
 
     try {
@@ -355,6 +441,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           minutes: minutes,
           sessionMinutes: sessionMinutes,
           priority: _priority,
+          daysOfWeek: List<bool>.from(_daysOfWeek),
         );
         await db.updateGoal(updatedGoal);
       } else {
@@ -366,6 +453,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           timeSpentSeconds: 0,
           isActive: false,
           priority: _priority,
+          daysOfWeek: List<bool>.from(_daysOfWeek),
         );
         await db.insertGoal(newGoal);
       }

@@ -2264,6 +2264,12 @@ abstract class AppLocalizations {
   /// **'Routine is not scheduled for this day of the week'**
   String get routineNotScheduled;
 
+  /// No description provided for @goalNotScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Goal is not scheduled for this day of the week'**
+  String get goalNotScheduled;
+
   /// No description provided for @routineAlreadyCompleted.
   ///
   /// In en, this message translates to:
