@@ -194,6 +194,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     _recordCreatedSubscription = recordService.recordCreatedStream.listen((record) {
       if (mounted) {
+        // Respect the active filters. Otherwise a goal/routine/todo note would
+        // flash into the list and then vanish on the next refresh.
+        if (!_passesCurrentFilter(record)) return;
         setState(() {
           allRecords.insert(0, record);
         });
@@ -208,11 +211,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (updated.isEmpty) return;
         final newRecord = updated.first;
         if (!mounted) return;
+        final passesFilter = _passesCurrentFilter(newRecord);
         setState(() {
           final idx = allRecords.indexWhere((r) => r.id == recordId);
           if (idx >= 0) {
-            allRecords[idx] = newRecord;
-          } else {
+            if (passesFilter) {
+              allRecords[idx] = newRecord;
+            } else {
+              // Filter now excludes this record (e.g. productivity records
+              // hidden) — remove it instead of leaving a stale entry.
+              allRecords.removeAt(idx);
+            }
+          } else if (passesFilter) {
             allRecords.insert(0, newRecord);
           }
         });
@@ -266,6 +276,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final newRecords = await dbHelper.getRecordsByIds(recordIds);
     allRecords.addAll(newRecords);
     setState(() {});
+  }
+
+  /// Returns true if [record] should be visible under the current filter
+  /// settings. Mirrors the type filtering done by [getRecordsWithTag] so that
+  /// records inserted optimistically via streams (goal/routine/todo/
+  /// productivity notes) respect the same rules and don't flash into view only
+  /// to disappear on the next refresh.
+  bool _passesCurrentFilter(Record record) {
+    final settings = currentFilterSettings;
+    if (settings == null) return true;
+
+    if (settings.showGoalRecords == false && record.goalId != null) {
+      return false;
+    }
+    if (settings.showRoutineRecords == false && record.routineId != null) {
+      return false;
+    }
+    if (settings.showTodoRecords == false && record.todoId != null) {
+      return false;
+    }
+    if (settings.showProductivityRecords == false &&
+        record.recordType == RecordType.productivity) {
+      return false;
+    }
+    return true;
   }
 
   Future<void> loadRecords({bool refresh = false}) async {
