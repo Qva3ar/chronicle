@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../colors.dart';
@@ -145,8 +146,8 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
     if (widget.goal.isArchived) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This goal is completed and cannot be edited'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).goalCompletedCannotEdit),
             backgroundColor: MyColors.remove,
           ),
       );
@@ -172,12 +173,16 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Add work session', style: TextStyle(color: textPrimary)),
+        title: Text(AppLocalizations.of(context).goalAddWorkSession,
+            style: const TextStyle(color: textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Add "${widget.goal.title}" work for ${selected.day}/${selected.month}/${selected.year}',
+              AppLocalizations.of(context).goalAddWorkFor(
+                widget.goal.title,
+                '${selected.day}/${selected.month}/${selected.year}',
+              ),
               style: const TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 12),
@@ -186,7 +191,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
               keyboardType: TextInputType.number,
               style: const TextStyle(color: textPrimary),
               decoration: InputDecoration(
-                labelText: 'Minutes',
+                labelText: AppLocalizations.of(context).goalMinutes,
                 labelStyle: const TextStyle(color: MyColors.orangeDivider),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
@@ -200,7 +205,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Daily target: $targetMinutes min',
+              AppLocalizations.of(context).goalDailyTarget(targetMinutes),
               style: const TextStyle(color: MyColors.orangeDivider, fontSize: 12),
             ),
           ],
@@ -208,13 +213,13 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child:
-                const Text('Cancel', style: TextStyle(color: textMuted)),
+            child: Text(AppLocalizations.of(context).commonCancel,
+                style: const TextStyle(color: textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child:
-                const Text('Confirm', style: TextStyle(color: MyColors.orangeDivider)),
+            child: Text(AppLocalizations.of(context).commonConfirm,
+                style: const TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -226,8 +231,8 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
     if (minutes == null || minutes <= 0) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid number of minutes'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).goalEnterValidMinutes),
           backgroundColor: MyColors.remove,
         ),
       );
@@ -274,8 +279,8 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Added successfully'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).commonAddedSuccess),
           backgroundColor: MyColors.orangeDivider,
         ),
       );
@@ -284,7 +289,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text(AppLocalizations.of(context).errorWithMessage(e.toString())),
           backgroundColor: MyColors.remove,
         ),
       );
@@ -306,7 +311,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
-          title: Text('${widget.goal.title} - History'),
+          title: Text(AppLocalizations.of(context).calendarTitleHistory(widget.goal.title)),
           backgroundColor: bgColor,
           foregroundColor: textPrimary,
           elevation: 0,
@@ -334,18 +339,18 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                     width: 1,
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.info_outline,
                       color: MyColors.orangeDivider,
                       size: 20,
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Tap any past date to add a work session',
-                        style: TextStyle(
+                        AppLocalizations.of(context).goalTapPastDate,
+                        style: const TextStyle(
                           color: MyColors.orangeDivider,
                           fontSize: 13,
                         ),
@@ -458,7 +463,7 @@ class _GoalCalendarScreenState extends State<GoalCalendarScreen> {
                           ),
                           child: Text(
                             selectedMinutes == null
-                                ? 'No data'
+                                ? AppLocalizations.of(context).commonNoData
                                 : 'Time on this day: ${_formatMinutes(selectedMinutes)}',
                             style: const TextStyle(color: textPrimary),
                           ),

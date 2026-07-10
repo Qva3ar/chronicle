@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/services/productivity_service.dart';
@@ -11,13 +12,13 @@ Color productivityScoreColor(double score) {
 
 /// Shared routines/goals breakdown for a single day. Used by both the history
 /// tiles and the heatmap day-detail bottom sheet.
-Widget productivityDayBreakdown(ProductivityScore score) {
+Widget productivityDayBreakdown(BuildContext context, ProductivityScore score) {
   if (score.routineDetails.isEmpty && score.goalDetails.isEmpty) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(18, 0, 18, 14),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
       child: Text(
-        'No breakdown available',
-        style: TextStyle(color: textHint, fontSize: 12),
+        AppLocalizations.of(context).productivityNoBreakdown,
+        style: const TextStyle(color: textHint, fontSize: 12),
       ),
     );
   }
@@ -29,8 +30,8 @@ Widget productivityDayBreakdown(ProductivityScore score) {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (score.routineDetails.isNotEmpty) ...[
-          const Text('Routines',
-              style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(AppLocalizations.of(context).navRoutines,
+              style: const TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           ...score.routineDetails.map((r) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -59,8 +60,8 @@ Widget productivityDayBreakdown(ProductivityScore score) {
         ],
         if (score.goalDetails.isNotEmpty) ...[
           if (score.routineDetails.isNotEmpty) const SizedBox(height: 10),
-          const Text('Goals',
-              style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(AppLocalizations.of(context).navGoals,
+              style: const TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           ...score.goalDetails.map((g) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -145,9 +146,9 @@ class _ProductivityHistoryScreenState extends State<ProductivityHistoryScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
-          'History',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).productivityHistory,
+          style: const TextStyle(
             color: textPrimary,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
@@ -156,8 +157,9 @@ class _ProductivityHistoryScreenState extends State<ProductivityHistoryScreen> {
         iconTheme: const IconThemeData(color: textPrimary),
       ),
       body: data.isEmpty
-          ? const Center(
-              child: Text('No history yet', style: TextStyle(color: textMuted)),
+          ? Center(
+              child: Text(AppLocalizations.of(context).productivityNoHistory,
+                  style: const TextStyle(color: textMuted)),
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -286,7 +288,7 @@ class _ProductivityHistoryScreenState extends State<ProductivityHistoryScreen> {
           endIndent: 18,
         ),
         const SizedBox(height: 10),
-        productivityDayBreakdown(detail),
+        productivityDayBreakdown(context, detail),
       ],
     );
   }

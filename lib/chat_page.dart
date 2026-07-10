@@ -5,6 +5,7 @@ import 'package:chrono/models/tag.dart';
 import 'package:chrono/record.service.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/helpers/token.helper.dart';
 import 'package:chrono/message_bubble.dart';
@@ -133,9 +134,9 @@ class _ChatPageState extends State<ChatPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             backgroundColor: cardColor,
-            title: const Text('Unexpected Error', style: TextStyle(color: textPrimary)),
+            title: Text(AppLocalizations.of(context).chatUnexpectedError, style: const TextStyle(color: textPrimary)),
             content: Text(
-              'Error: $errorMessage',
+              AppLocalizations.of(context).errorWithMessage(errorMessage),
               style: const TextStyle(color: textPrimary),
             ),
             actions: <Widget>[
@@ -143,7 +144,7 @@ class _ChatPageState extends State<ChatPage> {
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: const Text('OK', style: TextStyle(color: MyColors.orangeDivider)),
+                child: Text(AppLocalizations.of(context).commonOk, style: const TextStyle(color: MyColors.orangeDivider)),
               ),
             ],
           );
@@ -157,26 +158,26 @@ class _ChatPageState extends State<ChatPage> {
         return AlertDialog(
           backgroundColor: cardColor,
           title: Text(
-            'Context Too Large',
-            style: TextStyle(color: textPrimary),
+            AppLocalizations.of(context).chatContextTooLarge,
+            style: const TextStyle(color: textPrimary),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Your selected context exceeds the model\'s limit.',
-                style: TextStyle(color: textPrimary),
+                AppLocalizations.of(context).chatContextExceedsLimit,
+                style: const TextStyle(color: textPrimary),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'We can split it into approximately $estimatedChunks chunks and process them sequentially. The AI will receive all context before responding.',
+                AppLocalizations.of(context).chatSplitInfo(estimatedChunks),
                 style: TextStyle(color: textPrimary.withOpacity(0.8)),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'Note: This may take longer and cost more.',
-                style: TextStyle(
+                AppLocalizations.of(context).chatChunkingNote,
+                style: const TextStyle(
                   color: Colors.orange,
                   fontWeight: FontWeight.w500,
                 ),
@@ -188,7 +189,7 @@ class _ChatPageState extends State<ChatPage> {
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: Text('Cancel', style: TextStyle(color: textPrimary)),
+              child: Text(AppLocalizations.of(context).commonCancel, style: const TextStyle(color: textPrimary)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -197,7 +198,7 @@ class _ChatPageState extends State<ChatPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: MyColors.orangeDivider,
               ),
-              child: Text('Continue with Chunking', style: TextStyle(color: bgColor)),
+              child: Text(AppLocalizations.of(context).chatContinueChunking, style: const TextStyle(color: bgColor)),
             ),
           ],
         );
@@ -354,7 +355,7 @@ class _ChatPageState extends State<ChatPage> {
       _removeEmptyAssistantBubble();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error during chunked processing: $err')),
+          SnackBar(content: Text(AppLocalizations.of(context).chatChunkedError(err.toString()))),
         );
       }
     } finally {
@@ -485,7 +486,7 @@ class _ChatPageState extends State<ChatPage> {
                       });
                     },
                     leading: const Icon(Icons.key, color: textPrimary),
-                    title: const Text("API Keys Settings", style: TextStyle(color: textPrimary)),
+                    title: Text(AppLocalizations.of(context).chatApiKeysSettings, style: const TextStyle(color: textPrimary)),
                     trailing: const Icon(Icons.chevron_right, color: textMuted),
                   ),
                 ),
@@ -516,7 +517,7 @@ class _ChatPageState extends State<ChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('AI Coach', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  Text(AppLocalizations.of(context).chatAiCoach, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   Row(
                     children: [
                       Text(
@@ -589,9 +590,9 @@ class _ChatPageState extends State<ChatPage> {
                             children: [
                               const Icon(Icons.psychology, color: MyColors.orangeDivider, size: 20),
                               const SizedBox(width: 8),
-                              const Text(
-                                "AI Context",
-                                style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+                              Text(
+                                AppLocalizations.of(context).chatAiContext,
+                                style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
                               ),
                               if (includeAllNote && selectedTagIds.isNotEmpty)
                                 Padding(
@@ -638,7 +639,7 @@ class _ChatPageState extends State<ChatPage> {
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           backgroundColor: cardColor,
-                                          title: const Text('AI Context Preview', style: TextStyle(color: textPrimary, fontSize: 16)),
+                                          title: Text(AppLocalizations.of(context).chatAiContextPreview, style: const TextStyle(color: textPrimary, fontSize: 16)),
                                           content: SingleChildScrollView(
                                             child: Text(
                                               rawText,
@@ -648,7 +649,7 @@ class _ChatPageState extends State<ChatPage> {
                                           actions: [
                                             TextButton(
                                               onPressed: () => Navigator.of(ctx).pop(),
-                                              child: const Text('Close', style: TextStyle(color: MyColors.orangeDivider)),
+                                              child: Text(AppLocalizations.of(ctx).commonClose, style: const TextStyle(color: MyColors.orangeDivider)),
                                             )
                                           ],
                                         ),
@@ -916,7 +917,7 @@ class _ChatPageState extends State<ChatPage> {
               // User cancelled
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Request cancelled.')),
+                  SnackBar(content: Text(AppLocalizations.of(context).chatRequestCancelled)),
                 );
               }
             }
@@ -934,7 +935,7 @@ class _ChatPageState extends State<ChatPage> {
           _removeEmptyAssistantBubble();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+              SnackBar(content: Text(AppLocalizations.of(context).chatUnexpectedErrorRetry)),
             );
           }
           setState(() {
@@ -957,7 +958,7 @@ class _ChatPageState extends State<ChatPage> {
       _removeEmptyAssistantBubble();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred. Please try again.')),
+          SnackBar(content: Text(AppLocalizations.of(context).chatErrorRetry)),
         );
       }
       setState(() {

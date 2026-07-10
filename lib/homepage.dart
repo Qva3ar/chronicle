@@ -11,6 +11,7 @@ import 'package:chrono/tags_manager.dart';
 import 'package:chrono/card_details.dart';
 import 'package:chrono/chat_page.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/models/record_type.dart';
 import 'package:chrono/record.service.dart';
@@ -392,9 +393,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> sendEmailWithAttachment(File file) async {
+    final l = AppLocalizations.of(context);
     final Email email = Email(
-      body: 'Here is the backup of all notes and tags.',
-      subject: 'Backup of Notes',
+      body: l.backupEmailBody,
+      subject: l.backupEmailSubject,
       recipients: [], // Optionally add default recipient email addresses
       attachmentPaths: [file.path],
       isHTML: false,
@@ -447,18 +449,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return showDialog(
       context: context,
       builder: (BuildContext context) {
+        final l = AppLocalizations.of(context);
         return AlertDialog(
-          title: const Text("Delete record"),
-          content: const Text("Are you sure you want to delete this record?"),
+          title: Text(l.homeDeleteRecordTitle),
+          content: Text(l.homeDeleteRecordMessage),
           actions: [
             TextButton(
-              child: const Text("Cancel"),
+              child: Text(l.commonCancel),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: const Text("Delete"),
+              child: Text(l.commonDelete),
               onPressed: () {
                 _delete(id);
 
@@ -613,8 +616,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (chronoId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Chrono tag not found. Please restart the app.'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).homeChronoTagMissing),
               backgroundColor: Colors.red,
             ),
           );
@@ -640,9 +643,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (selectedChipIndex != null && selectedChipIndex != chronoId) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Chrono note added'),
+            content: Text(AppLocalizations.of(context).homeChronoNoteAdded),
             action: SnackBarAction(
-              label: 'Show',
+              label: AppLocalizations.of(context).commonShow,
               onPressed: () => onTagSelected(chronoId),
             ),
           ),
@@ -652,7 +655,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create Chrono note: $e'),
+            content: Text(
+                AppLocalizations.of(context).homeChronoNoteFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -670,17 +674,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
+        final l = AppLocalizations.of(context);
         return AlertDialog(
           backgroundColor: cardColor2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
-            children: const [
-              Icon(Icons.access_time_rounded, color: MyColors.orangeDivider, size: 20),
-              SizedBox(width: 8),
+            children: [
+              const Icon(Icons.access_time_rounded, color: MyColors.orangeDivider, size: 20),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Chronological notes',
-                  style: TextStyle(
+                  l.homeChronoInfoTitle,
+                  style: const TextStyle(
                     color: textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
@@ -689,21 +694,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ],
           ),
-          content: const Text(
-            'The Chrono tag is for timeline notes — quick logs of what happens during your day:\n\n'
-            '• visited a place\n'
-            '• something happened\n'
-            '• currently at a location\n'
-            '• met someone\n\n'
-            'Use the quick input to capture moments as they happen.',
-            style: TextStyle(color: textSecondary, fontSize: 14, height: 1.5),
+          content: Text(
+            l.homeChronoInfoBody,
+            style: const TextStyle(color: textSecondary, fontSize: 14, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Got it',
-                style: TextStyle(color: MyColors.orangeDivider, fontWeight: FontWeight.w600),
+              child: Text(
+                l.commonGotIt,
+                style: const TextStyle(color: MyColors.orangeDivider, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -784,9 +784,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               maxLines: 4,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submitChronoQuickNote(),
-              decoration: const InputDecoration(
-                hintText: 'Quick chrono note...',
-                hintStyle: TextStyle(color: textHint),
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context).homeChronoQuickHint,
+                hintStyle: const TextStyle(color: textHint),
                 border: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -818,7 +818,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color:
                         _chronoQuickController.text.isNotEmpty ? MyColors.orangeDivider : textMuted,
                   ),
-                  tooltip: 'Send',
+                  tooltip: AppLocalizations.of(context).commonSend,
                 ),
         ],
       ),
@@ -828,15 +828,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildNavItem({
     required Widget icon,
     required String label,
+    String? sheetId,
     required VoidCallback onTap,
   }) {
     // Determine if active based on current sheet (for visual feedback)
-    bool isActive = false;
-    if (label == 'Goals' && _activeSheetId == 'goals') isActive = true;
-    if (label == 'Routines' && _activeSheetId == 'routines') isActive = true;
-    if (label == 'Todo' && _activeSheetId == 'todos') isActive = true;
-    if (label == 'Tags' && _activeSheetId == 'tags') isActive = true;
-    if (label == 'Workspace' && _activeSheetId == 'workspaces') isActive = true;
+    final bool isActive = sheetId != null && _activeSheetId == sheetId;
 
     return InkWell(
       onTap: onTap,
@@ -873,6 +869,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SafeArea(
         child: Scaffold(
       key: _scaffoldKey,
@@ -936,7 +933,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
                     child: IconButton(
-                      tooltip: 'Tags',
+                      tooltip: l.navTags,
                       icon: Icon(
                         Icons.grid_view_rounded,
                         color: _activeSheetId == 'tags' ? MyColors.orangeDivider : textSecondary,
@@ -1000,7 +997,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: _activeSheetId == 'goals' ? MyColors.orangeDivider : textSecondary,
                     size: 26,
                   ),
-                  label: 'Goals',
+                  label: l.navGoals,
+                  sheetId: 'goals',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
@@ -1016,7 +1014,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: _activeSheetId == 'routines' ? MyColors.orangeDivider : textSecondary,
                     size: 26,
                   ),
-                  label: 'Routines',
+                  label: l.navRoutines,
+                  sheetId: 'routines',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
@@ -1032,7 +1031,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: _activeSheetId == 'todos' ? MyColors.orangeDivider : textSecondary,
                     size: 26,
                   ),
-                  label: 'Todo',
+                  label: l.navTodo,
+                  sheetId: 'todos',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
@@ -1048,7 +1048,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     color: _activeSheetId == 'workspaces' ? MyColors.orangeDivider : textSecondary,
                     size: 26,
                   ),
-                  label: 'Workspace',
+                  label: l.navWorkspace,
+                  sheetId: 'workspaces',
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     _showDraggablePersistentSheet(
@@ -1069,7 +1070,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       BlendMode.srcIn,
                     ),
                   ),
-                  label: 'AI Chat',
+                  label: l.navAiChat,
                   onTap: () {
                     FocusManager.instance.primaryFocus?.unfocus();
                     if (gptNoteBindService.isKeyProvided()) {
@@ -1110,7 +1111,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           controller: searchController,
                           style: const TextStyle(color: textPrimary, fontSize: 15),
                           decoration: InputDecoration(
-                            hintText: 'Search records...',
+                            hintText: l.homeSearchHint,
                             hintStyle: const TextStyle(color: textHint),
                             border: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -1131,7 +1132,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       icon: const Icon(Icons.tune_rounded,
                                           color: textSecondary, size: 20),
                                       onPressed: _showFilterDialog,
-                                      tooltip: 'Filter records',
+                                      tooltip: l.homeFilterTooltip,
                                       padding: EdgeInsets.zero,
                                       constraints:
                                           const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1342,29 +1343,30 @@ class _FilterDialogState extends State<FilterDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: cardColor,
-      title: const Text(
-        'Filter Records',
-        style: TextStyle(color: Colors.white),
+      title: Text(
+        l.filterTitle,
+        style: const TextStyle(color: Colors.white),
       ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Select which types of records to show:',
-              style: TextStyle(color: Colors.white70),
+            Text(
+              l.filterSubtitle,
+              style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
           SwitchListTile(
-            title: const Text(
-              'Show records from Goals',
-              style: TextStyle(color: Colors.white),
+            title: Text(
+              l.filterShowGoals,
+              style: const TextStyle(color: Colors.white),
             ),
-            subtitle: const Text(
-              'Include records created from goal sessions',
-              style: TextStyle(color: Colors.white60),
+            subtitle: Text(
+              l.filterShowGoalsSubtitle,
+              style: const TextStyle(color: Colors.white60),
             ),
             value: settings.showGoalRecords,
             onChanged: (value) {
@@ -1375,13 +1377,13 @@ class _FilterDialogState extends State<FilterDialog> {
           ),
           const SizedBox(height: 8),
           SwitchListTile(
-            title: const Text(
-              'Show records from Routines',
-              style: TextStyle(color: Colors.white),
+            title: Text(
+              l.filterShowRoutines,
+              style: const TextStyle(color: Colors.white),
             ),
-            subtitle: const Text(
-              'Include records created from completed routines',
-              style: TextStyle(color: Colors.white60),
+            subtitle: Text(
+              l.filterShowRoutinesSubtitle,
+              style: const TextStyle(color: Colors.white60),
             ),
             value: settings.showRoutineRecords,
             onChanged: (value) {
@@ -1392,13 +1394,13 @@ class _FilterDialogState extends State<FilterDialog> {
           ),
           const SizedBox(height: 8),
           SwitchListTile(
-            title: const Text(
-              'Show records from Todos',
-              style: TextStyle(color: Colors.white),
+            title: Text(
+              l.filterShowTodos,
+              style: const TextStyle(color: Colors.white),
             ),
-            subtitle: const Text(
-              'Include records created from completed todos',
-              style: TextStyle(color: Colors.white60),
+            subtitle: Text(
+              l.filterShowTodosSubtitle,
+              style: const TextStyle(color: Colors.white60),
             ),
             value: settings.showTodoRecords,
             onChanged: (value) {
@@ -1409,13 +1411,13 @@ class _FilterDialogState extends State<FilterDialog> {
           ),
           const SizedBox(height: 8),
           SwitchListTile(
-            title: const Text(
-              'Show Productivity Index',
-              style: TextStyle(color: Colors.white),
+            title: Text(
+              l.filterShowProductivity,
+              style: const TextStyle(color: Colors.white),
             ),
-            subtitle: const Text(
-              'Include daily productivity score records',
-              style: TextStyle(color: Colors.white60),
+            subtitle: Text(
+              l.filterShowProductivitySubtitle,
+              style: const TextStyle(color: Colors.white60),
             ),
             value: settings.showProductivityRecords,
             onChanged: (value) {
@@ -1429,13 +1431,13 @@ class _FilterDialogState extends State<FilterDialog> {
       ),
       actions: [
         TextButton(
-          child: const Text('Cancel'),
+          child: Text(l.commonCancel),
           onPressed: () {
             Navigator.of(context).pop();
           },
         ),
         TextButton(
-          child: const Text('Apply'),
+          child: Text(l.commonApply),
           onPressed: () {
             Navigator.of(context).pop(settings);
           },

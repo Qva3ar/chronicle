@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/homepage.dart';
 import 'package:chrono/onboarding/onboarding_animations.dart';
 import 'package:chrono/onboarding/onboarding_mockups.dart';
@@ -31,66 +32,66 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
 
-  static const _featurePages = [
-    _PageData(
-      title: 'Time is the only\nnon-renewable resource',
-      subtitle: 'Stop spending it.\nStart investing it.',
-      animationIndex: 0,
-    ),
-    _PageData(
-      title: 'Your Data. Your Device.',
-      titleFontSize: 22,
-      subtitle:
-          'Chrono works 100% offline.\nAll your data stays on your phone —\nprivate and always available.',
-      footnote: 'AI features may send your data to third-party services.',
-      animationIndex: 1,
-    ),
-    _PageData(
-      title: 'Your External Brain',
-      subtitle:
-          'Writing isn\'t just recording — it\'s thinking.\nMaking notes has never been this easy.',
-      animationIndex: 2,
-    ),
-    _PageData(
-      title: 'Unbreakable Discipline',
-      subtitle:
-          'Routine is what makes us better every day.\nDaily reset. Persistent notifications.\nNo room for procrastination.',
-      animationIndex: 3,
-    ),
-    _PageData(
-      title: 'Invest Your Time',
-      subtitle:
-          'What gets measured, gets managed.\nDaily goals for deep work — see where your time goes\nand what still needs your attention.',
-      animationIndex: 4,
-    ),
-    _PageData(
-      title: 'Your Notes Are\na Knowledge Base',
-      subtitle:
-          'Chat with AI for free — bring your own API key.\nFeed your notes as context to get insights\nbuilt on your own data.',
-      footnote: 'Requires your own API key.',
-      animationIndex: 5,
-    ),
-    _PageData(
-      title: 'Your Thinking Space',
-      subtitle:
-          'Great ideas need room to develop.\nCollect materials, shape thoughts, analyze —\neach workspace is a dedicated lab for your ideas.',
-      animationIndex: 6,
-    ),
-    _PageData(
-      title: 'Measure Your Growth',
-      subtitle:
-          'What you track, you improve.\nDaily score from your routines and goals.\nSpot trends, find patterns, keep rising.',
-      animationIndex: 7,
-    ),
-  ];
+  static const _featurePageCount = 8;
+
+  /// Builds the localized feature pages. Kept as a method (not a const list)
+  /// so the slide copy can be resolved from [AppLocalizations] at build time.
+  List<_PageData> _featurePagesFor(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return [
+      _PageData(
+        title: l.ob1Title,
+        subtitle: l.ob1Subtitle,
+        animationIndex: 0,
+      ),
+      _PageData(
+        title: l.ob2Title,
+        titleFontSize: 22,
+        subtitle: l.ob2Subtitle,
+        footnote: l.ob2Footnote,
+        animationIndex: 1,
+      ),
+      _PageData(
+        title: l.ob3Title,
+        subtitle: l.ob3Subtitle,
+        animationIndex: 2,
+      ),
+      _PageData(
+        title: l.ob4Title,
+        subtitle: l.ob4Subtitle,
+        animationIndex: 3,
+      ),
+      _PageData(
+        title: l.ob5Title,
+        subtitle: l.ob5Subtitle,
+        animationIndex: 4,
+      ),
+      _PageData(
+        title: l.ob6Title,
+        subtitle: l.ob6Subtitle,
+        footnote: l.ob6Footnote,
+        animationIndex: 5,
+      ),
+      _PageData(
+        title: l.ob7Title,
+        subtitle: l.ob7Subtitle,
+        animationIndex: 6,
+      ),
+      _PageData(
+        title: l.ob8Title,
+        subtitle: l.ob8Subtitle,
+        animationIndex: 7,
+      ),
+    ];
+  }
 
   // Skip the paywall page entirely if the user already has a subscription.
   late final bool _showPaywall =
       !SubscriptionService.instance.hasSubscription.value;
 
-  int get _totalPages => _featurePages.length + (_showPaywall ? 1 : 0);
+  int get _totalPages => _featurePageCount + (_showPaywall ? 1 : 0);
 
-  bool get _isLastFeaturePage => _currentPage == _featurePages.length - 1;
+  bool get _isLastFeaturePage => _currentPage == _featurePageCount - 1;
   bool get _isPaywallPage => _showPaywall && _currentPage == _totalPages - 1;
 
   @override
@@ -154,8 +155,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     TextButton(
                       onPressed: _skip,
                       child: Text(
-                        'Skip',
-                        style: TextStyle(
+                        AppLocalizations.of(context).onbSkip,
+                        style: const TextStyle(
                           color: textMuted,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -173,9 +174,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemCount: _totalPages,
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 itemBuilder: (context, index) {
-                  if (index < _featurePages.length) {
+                  if (index < _featurePageCount) {
                     return _FeaturePage(
-                      data: _featurePages[index],
+                      data: _featurePagesFor(context)[index],
                       isActive: _currentPage == index,
                     );
                   }
@@ -213,8 +214,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     _NextButton(
                       onPressed: _nextPage,
                       label: _isLastFeaturePage
-                          ? (_showPaywall ? 'Continue' : 'Get Started')
-                          : 'Next',
+                          ? (_showPaywall
+                              ? AppLocalizations.of(context).commonContinue
+                              : AppLocalizations.of(context).onbGetStarted)
+                          : AppLocalizations.of(context).onbNext,
                     ),
                   ],
                 ),
@@ -526,14 +529,15 @@ class _PaywallContentState extends State<PaywallContent> {
   }
 
   String _planLabel(dynamic product) {
+    final l = AppLocalizations.of(context);
     final sub = product.subscription;
-    if (sub == null) return 'Lifetime';
+    if (sub == null) return l.planLifetime;
     final units = sub.period.numberOfUnits as int;
     final unit = sub.period.unit.toString();
-    if (unit.contains('year')) return units == 1 ? '1 Year' : '$units Years';
-    if (unit.contains('month')) return units == 1 ? '1 Month' : '$units Months';
-    if (unit.contains('week')) return units == 1 ? '1 Week' : '$units Weeks';
-    return 'Plan';
+    if (unit.contains('year')) return l.planYears(units);
+    if (unit.contains('month')) return l.planMonths(units);
+    if (unit.contains('week')) return l.planWeeks(units);
+    return l.planGeneric;
   }
 
   Future<void> _onButtonTap() async {
@@ -592,10 +596,10 @@ class _PaywallContentState extends State<PaywallContent> {
 
 
                 // Title
-                const Text(
-                  'Chrono Premium',
+                Text(
+                  AppLocalizations.of(context).drawerPremium,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: MyColors.orangeDivider,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -603,8 +607,8 @@ class _PaywallContentState extends State<PaywallContent> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Unlock Your\nFull Potential',
+                Text(
+                  AppLocalizations.of(context).paywallUnlock,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: textPrimary,
@@ -617,7 +621,7 @@ class _PaywallContentState extends State<PaywallContent> {
                 const SizedBox(height: 24),
 
                 // Features list
-                ...paywallProFeatures.map((f) => PaywallFeatureRow(
+                ...paywallProFeaturesFor(context).map((f) => PaywallFeatureRow(
                       icon: f.$1,
                       title: f.$2,
                       subtitle: f.$3,
@@ -689,8 +693,8 @@ class _PaywallContentState extends State<PaywallContent> {
                                         ),
                                         if (isLifetime)
                                           Text(
-                                            'One-time purchase',
-                                            style: TextStyle(
+                                            AppLocalizations.of(context).paywallOneTime,
+                                            style: const TextStyle(
                                               fontSize: 11,
                                               color: textMuted,
                                             ),
@@ -721,7 +725,7 @@ class _PaywallContentState extends State<PaywallContent> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    'Save $savings%',
+                                    AppLocalizations.of(context).paywallSave(savings),
                                     style: const TextStyle(
                                       color: Colors.black,
                                       fontSize: 10,
@@ -791,7 +795,9 @@ class _PaywallContentState extends State<PaywallContent> {
                             ),
                           )
                         : Text(
-                            _plansVisible ? 'Start Growing' : 'See Plans',
+                            _plansVisible
+                                ? AppLocalizations.of(context).paywallStartGrowing
+                                : AppLocalizations.of(context).paywallSeePlans,
                             style: const TextStyle(
                               color: Color(0xFF1A1B1F),
                               fontSize: 17,
@@ -811,16 +817,16 @@ class _PaywallContentState extends State<PaywallContent> {
                   TextButton(
                     onPressed: _purchasing ? null : _restore,
                     child: Text(
-                      'Restore Purchases',
-                      style: TextStyle(color: textMuted, fontSize: 13),
+                      AppLocalizations.of(context).paywallRestore,
+                      style: const TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ),
                   Text('  |  ', style: TextStyle(color: textMuted.withValues(alpha: 0.3))),
                   TextButton(
                     onPressed: widget.onFinish,
                     child: Text(
-                      'Continue Free',
-                      style: TextStyle(color: textMuted, fontSize: 13),
+                      AppLocalizations.of(context).paywallContinueFree,
+                      style: const TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ),
                 ],
@@ -837,8 +843,8 @@ class _PaywallContentState extends State<PaywallContent> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Text(
-                      'Terms of Use (EULA)',
-                      style: TextStyle(
+                      AppLocalizations.of(context).drawerTermsOfUse,
+                      style: const TextStyle(
                         color: textMuted,
                         fontSize: 12,
                         decoration: TextDecoration.underline,
@@ -856,8 +862,8 @@ class _PaywallContentState extends State<PaywallContent> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Text(
-                      'Privacy Policy',
-                      style: TextStyle(
+                      AppLocalizations.of(context).drawerPrivacyPolicy,
+                      style: const TextStyle(
                         color: textMuted,
                         fontSize: 12,
                         decoration: TextDecoration.underline,
@@ -871,7 +877,7 @@ class _PaywallContentState extends State<PaywallContent> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. Manage or cancel subscriptions in your App Store account settings.',
+                  AppLocalizations.of(context).paywallSubscriptionTerms,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: textMuted.withValues(alpha: 0.7),
@@ -888,44 +894,20 @@ class _PaywallContentState extends State<PaywallContent> {
   }
 }
 
-const paywallProFeatures = [
-  (
-    Icons.schedule_rounded,
-    'Routine Manager',
-    'Build unbreakable daily habits',
-    null,
-  ),
-  (
-    Icons.track_changes_rounded,
-    'Goal Manager',
-    'Track deep work sessions with timers',
-    null,
-  ),
-  (
-    Icons.checklist_rounded,
-    'Todo Manager',
-    'Deadlines with daily reminders',
-    null,
-  ),
-  (
-    Icons.workspaces_rounded,
-    'Workspaces',
-    'Organize ideas into focused labs',
-    null,
-  ),
-  (
-    Icons.analytics_rounded,
-    'Productivity Index',
-    'Daily score from your progress',
-    null,
-  ),
-  (
-    Icons.psychology_rounded,
-    'AI Context',
-    'Feed your notes to AI for deeper insights',
-    'Requires your own API key',
-  ),
-];
+/// Localized paywall feature rows, resolved from [AppLocalizations] at build
+/// time (kept as a function rather than a const list for that reason).
+List<(IconData, String, String, String?)> paywallProFeaturesFor(
+    BuildContext context) {
+  final l = AppLocalizations.of(context);
+  return [
+    (Icons.schedule_rounded, l.pfRoutineTitle, l.pfRoutineSub, null),
+    (Icons.track_changes_rounded, l.pfGoalTitle, l.pfGoalSub, null),
+    (Icons.checklist_rounded, l.pfTodoTitle, l.pfTodoSub, null),
+    (Icons.workspaces_rounded, l.pfWorkspacesTitle, l.pfWorkspacesSub, null),
+    (Icons.analytics_rounded, l.pfProductivityTitle, l.pfProductivitySub, null),
+    (Icons.psychology_rounded, l.pfAiTitle, l.pfAiSub, l.pfAiNote),
+  ];
+}
 
 class PaywallFeatureRow extends StatelessWidget {
   final IconData icon;

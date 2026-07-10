@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 
 class UndoRedoTextFieldWidget extends StatefulWidget {
   final TextEditingController? controller; // Начальный текст для TextField
@@ -79,7 +80,7 @@ class _UndoRedoTextFieldWidgetState extends State<UndoRedoTextFieldWidget> {
             controller: _internalController,
             maxLines: null,
             decoration: widget.inputDecoration ??
-                InputDecoration(hintText: 'Enter some text...'),
+                InputDecoration(hintText: AppLocalizations.of(context).undoRedoHint),
             style: widget.textStyle,
           ),
         ),

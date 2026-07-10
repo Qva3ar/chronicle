@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/tag.dart';
 import 'package:chrono/tag_color_picker.dart';
 
@@ -41,7 +42,7 @@ class TagsEditWidget extends StatelessWidget {
                   borderSide:
                       BorderSide(color: MyColors.primaryColor, width: 1.0),
                 ),
-                hintText: 'Tag Name',
+                hintText: AppLocalizations.of(context).tagNameLabel,
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               ),
@@ -73,8 +74,8 @@ class TagsEditWidget extends StatelessWidget {
                       }
                     },
                     child: Text(
-                      "Save",
-                      style: TextStyle(color: Colors.white),
+                      AppLocalizations.of(context).commonSave,
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                 ),

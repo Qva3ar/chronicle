@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
@@ -102,8 +103,8 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
     if (!_isScheduledDay(selectedDay)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Routine is not scheduled for this day of the week'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).routineNotScheduled),
             backgroundColor: MyColors.remove,
           ),
         );
@@ -115,8 +116,8 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
     if (_isCompletionDate(selectedDay)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Routine already completed on this date'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).routineAlreadyCompleted),
             backgroundColor: MyColors.orangeDivider,
           ),
         );
@@ -129,19 +130,25 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Mark as Complete', style: TextStyle(color: textPrimary)),
+        title: Text(AppLocalizations.of(context).calendarMarkAsComplete,
+            style: const TextStyle(color: textPrimary)),
         content: Text(
-          'Mark "${widget.routine.name}" as completed on ${selectedDay.day}/${selectedDay.month}/${selectedDay.year}?\n\nThis will update your streak accordingly.',
+          AppLocalizations.of(context).calendarMarkCompleted(
+            widget.routine.name,
+            '${selectedDay.day}/${selectedDay.month}/${selectedDay.year}',
+          ),
           style: const TextStyle(color: textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: textMuted)),
+            child: Text(AppLocalizations.of(context).commonCancel,
+                style: const TextStyle(color: textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm', style: TextStyle(color: MyColors.orangeDivider)),
+            child: Text(AppLocalizations.of(context).commonConfirm,
+                style: const TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -162,8 +169,8 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Routine completion added successfully'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).routineCompletionAdded),
               backgroundColor: MyColors.orangeDivider,
             ),
           );
@@ -173,7 +180,8 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+              content: Text(AppLocalizations.of(context)
+                  .errorWithMessage(e.toString().replaceAll('Exception: ', ''))),
               backgroundColor: MyColors.remove,
             ),
           );
@@ -195,7 +203,7 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
-          title: Text('${widget.routine.name} - History'),
+          title: Text(AppLocalizations.of(context).calendarTitleHistory(widget.routine.name)),
           backgroundColor: bgColor,
           foregroundColor: textPrimary,
           elevation: 0,
@@ -223,14 +231,14 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                 children: [
                   _buildStatItem(
                     icon: Icons.check_circle_outline,
-                    label: 'Total Completions',
+                    label: AppLocalizations.of(context).calendarTotalCompletions,
                     value: '${_completionDates.length}',
                   ),
                   if (_currentRoutine?.showStreak == true && (_currentRoutine?.streak ?? 0) > 0)
                     _buildStatItem(
                       icon: null,
                       emoji: '🔥',
-                      label: 'Current Streak',
+                      label: AppLocalizations.of(context).calendarCurrentStreak,
                       value: '${_currentRoutine?.streak ?? 0}',
                     ),
                 ],
@@ -251,18 +259,18 @@ class _RoutineCalendarScreenState extends State<RoutineCalendarScreen> {
                   width: 1,
                 ),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.info_outline,
                     color: MyColors.orangeDivider,
                     size: 20,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Tap any past date to mark as complete', // TODO: Add "(within 14 days)" when limit enabled
-                      style: TextStyle(
+                      AppLocalizations.of(context).calendarTapPastDate,
+                      style: const TextStyle(
                         color: MyColors.orangeDivider,
                         fontSize: 13,
                       ),

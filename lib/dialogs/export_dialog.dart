@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/services/data-exporter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
@@ -19,7 +20,8 @@ class _ExportDialogState extends State<ExportDialog> {
   bool _includeWorkspaces = true;
   bool _isExporting = false;
   bool _exportCompleted = false;
-  String _statusMessage = 'Select data to include in your backup';
+  // Empty means "show the default localized prompt" (resolved in build with context).
+  String _statusMessage = '';
   File? _exportedFile;
 
   bool get _hasSelection =>
@@ -33,14 +35,14 @@ class _ExportDialogState extends State<ExportDialog> {
   Future<void> _exportData() async {
     if (!_hasSelection) {
       setState(() {
-        _statusMessage = 'Please select at least one data type.';
+        _statusMessage = AppLocalizations.of(context).exportSelectAtLeastOne;
       });
       return;
     }
 
     setState(() {
       _isExporting = true;
-      _statusMessage = 'Exporting data...';
+      _statusMessage = AppLocalizations.of(context).exportExporting;
     });
 
     try {
@@ -57,11 +59,12 @@ class _ExportDialogState extends State<ExportDialog> {
       setState(() {
         _exportedFile = file;
         _exportCompleted = true;
-        _statusMessage = 'Backup ready! Choose how to save it.';
+        _statusMessage = AppLocalizations.of(context).exportReady;
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Export failed: ${e.toString()}';
+        _statusMessage =
+            AppLocalizations.of(context).exportFailed(e.toString());
       });
     } finally {
       setState(() {
@@ -82,21 +85,22 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeWorkspaces) dataTypes.add('workspaces');
       if (_includeInstructions) dataTypes.add('instructions');
 
+      final l = AppLocalizations.of(context);
       final result = await Share.shareXFiles(
         [XFile(_exportedFile!.path)],
-        subject: 'Chrono Data Backup',
-        text:
-            'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
+        subject: l.exportBackupSubject,
+        text: l.exportBackupBody(dataTypes.join(', ')),
       );
 
       if (result.status == ShareResultStatus.success) {
         setState(() {
-          _statusMessage = 'Backup shared successfully!';
+          _statusMessage = AppLocalizations.of(context).exportSharedSuccess;
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Share failed: ${e.toString()}';
+        _statusMessage =
+            AppLocalizations.of(context).exportShareFailed(e.toString());
       });
     }
   }
@@ -113,10 +117,10 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_includeWorkspaces) dataTypes.add('workspaces');
       if (_includeInstructions) dataTypes.add('instructions');
 
+      final l = AppLocalizations.of(context);
       final Email email = Email(
-        body:
-            'Here is the backup of your Chrono data including: ${dataTypes.join(', ')}.',
-        subject: 'Chrono Data Backup',
+        body: l.exportBackupBody(dataTypes.join(', ')),
+        subject: l.exportBackupSubject,
         recipients: [],
         attachmentPaths: [_exportedFile!.path],
         isHTML: false,
@@ -124,17 +128,18 @@ class _ExportDialogState extends State<ExportDialog> {
 
       await FlutterEmailSender.send(email);
       setState(() {
-        _statusMessage = 'Email composer opened!';
+        _statusMessage = AppLocalizations.of(context).exportEmailOpened;
       });
     } catch (e) {
       if (e.toString().contains('not_available') ||
           e.toString().contains('No email clients')) {
         setState(() {
-          _statusMessage = "No email app found. Please use 'Share' instead.";
+          _statusMessage = AppLocalizations.of(context).exportNoEmailApp;
         });
       } else {
         setState(() {
-          _statusMessage = 'Email failed: ${e.toString()}';
+          _statusMessage =
+              AppLocalizations.of(context).exportEmailFailed(e.toString());
         });
       }
     }
@@ -165,10 +170,10 @@ class _ExportDialogState extends State<ExportDialog> {
                       size: 18, color: infoColor),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Export Backup',
-                    style: TextStyle(
+                    AppLocalizations.of(context).exportTitle,
+                    style: const TextStyle(
                       color: textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -179,8 +184,10 @@ class _ExportDialogState extends State<ExportDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              _statusMessage,
-              style: TextStyle(
+              _statusMessage.isEmpty
+                  ? AppLocalizations.of(context).exportSelectData
+                  : _statusMessage,
+              style: const TextStyle(
                 color: textMuted,
                 fontSize: 13,
               ),
@@ -190,38 +197,38 @@ class _ExportDialogState extends State<ExportDialog> {
             if (!_isExporting && !_exportCompleted) ...[
               // Checkboxes
               _ExportCheckbox(
-                label: 'Notes & Tags',
+                label: AppLocalizations.of(context).exportLabelNotes,
                 icon: Icons.note_rounded,
                 value: _includeNotes,
                 onChanged: (v) => setState(() => _includeNotes = v ?? false),
               ),
               _ExportCheckbox(
-                label: 'Routines',
+                label: AppLocalizations.of(context).navRoutines,
                 icon: Icons.schedule_rounded,
                 value: _includeRoutines,
                 onChanged: (v) => setState(() => _includeRoutines = v ?? false),
               ),
               _ExportCheckbox(
-                label: 'Goals',
+                label: AppLocalizations.of(context).navGoals,
                 icon: Icons.track_changes_rounded,
                 value: _includeGoals,
                 onChanged: (v) => setState(() => _includeGoals = v ?? false),
               ),
               _ExportCheckbox(
-                label: 'Todos',
+                label: AppLocalizations.of(context).exportLabelTodos,
                 icon: Icons.checklist_rounded,
                 value: _includeTodos,
                 onChanged: (v) => setState(() => _includeTodos = v ?? false),
               ),
               _ExportCheckbox(
-                label: 'Workspaces',
+                label: AppLocalizations.of(context).workspacesTitle,
                 icon: Icons.workspaces_rounded,
                 value: _includeWorkspaces,
                 onChanged: (v) =>
                     setState(() => _includeWorkspaces = v ?? false),
               ),
               _ExportCheckbox(
-                label: 'AI Instructions',
+                label: AppLocalizations.of(context).exportLabelInstructions,
                 icon: Icons.psychology_rounded,
                 value: _includeInstructions,
                 onChanged: (v) =>
@@ -243,9 +250,9 @@ class _ExportDialogState extends State<ExportDialog> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Create Backup',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  child: Text(
+                    AppLocalizations.of(context).exportCreateBackup,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                 ),
               ),
@@ -253,8 +260,8 @@ class _ExportDialogState extends State<ExportDialog> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel',
-                      style: TextStyle(color: textMuted, fontSize: 13)),
+                  child: Text(AppLocalizations.of(context).commonCancel,
+                      style: const TextStyle(color: textMuted, fontSize: 13)),
                 ),
               ),
             ],
@@ -277,7 +284,7 @@ class _ExportDialogState extends State<ExportDialog> {
                     child: OutlinedButton.icon(
                       onPressed: _sendEmailWithAttachment,
                       icon: const Icon(Icons.email_outlined, size: 18),
-                      label: const Text('Email'),
+                      label: Text(AppLocalizations.of(context).exportEmailButton),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: textPrimary,
                         side: BorderSide(
@@ -294,7 +301,7 @@ class _ExportDialogState extends State<ExportDialog> {
                     child: ElevatedButton.icon(
                       onPressed: _shareFile,
                       icon: const Icon(Icons.share_rounded, size: 18),
-                      label: const Text('Share'),
+                      label: Text(AppLocalizations.of(context).exportShareButton),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: infoColor,
                         foregroundColor: Colors.white,
@@ -311,8 +318,8 @@ class _ExportDialogState extends State<ExportDialog> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Done',
-                      style: TextStyle(color: textMuted, fontSize: 13)),
+                  child: Text(AppLocalizations.of(context).commonDone,
+                      style: const TextStyle(color: textMuted, fontSize: 13)),
                 ),
               ),
             ],

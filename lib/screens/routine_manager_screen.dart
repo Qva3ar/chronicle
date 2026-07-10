@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
@@ -153,7 +154,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
         // Show error to user
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating routine record: $e')),
+            SnackBar(content: Text(AppLocalizations.of(context).routineErrorCreating(e.toString()))),
           );
         }
       }
@@ -247,7 +248,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
 
   Widget _buildHeader() {
     return ChronoSheetHeader(
-      title: 'Routines',
+      title: AppLocalizations.of(context).navRoutines,
       titleIcon: Icons.arrow_upward_rounded,
       itemCount: _routines.length,
       actions: [
@@ -262,7 +263,9 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
               setState(() => _showOtherDays = !_showOtherDays);
               FilterService.instance.setShowOtherDayRoutines(_showOtherDays);
             },
-            tooltip: _showOtherDays ? 'Hide other days' : 'Show other days',
+            tooltip: _showOtherDays
+                ? AppLocalizations.of(context).routineHideOtherDays
+                : AppLocalizations.of(context).routineShowOtherDays,
           ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
@@ -315,13 +318,13 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     return [
       ..._routines.map((r) => _buildRoutineTile(r, isOtherDay: false)),
       if (_showOtherDays && _otherDayRoutines.isNotEmpty) ...[
-        _buildSectionHeader(icon: Icons.calendar_month, label: 'Other days'),
+        _buildSectionHeader(icon: Icons.calendar_month, label: AppLocalizations.of(context).routineOtherDays),
         ..._otherDayRoutines.map((r) => _buildRoutineTile(r, isOtherDay: true)),
       ],
       if (_archivedRoutines.isNotEmpty) ...[
         _buildSectionHeader(
           icon: Icons.archive_outlined,
-          label: 'Archived (${_archivedRoutines.length})',
+          label: AppLocalizations.of(context).routineArchived(_archivedRoutines.length),
           color: textHint,
           onTap: () => setState(() => _showArchived = !_showArchived),
           expanded: _showArchived,
@@ -545,7 +548,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                 IconButton(
                   icon: Icon(Icons.calendar_today, color: textMuted, size: 18),
                   onPressed: () => _showCalendarHistory(routine),
-                  tooltip: 'View completion history',
+                  tooltip: AppLocalizations.of(context).routineViewHistory,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 ),
@@ -561,19 +564,22 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Delete Routine', style: TextStyle(color: textPrimary)),
+        title: Text(AppLocalizations.of(context).routineDeleteTitle,
+            style: const TextStyle(color: textPrimary)),
         content: Text(
-          'Are you sure you want to delete "${routine.name}"?',
+          AppLocalizations.of(context).routineDeleteMessage(routine.name),
           style: const TextStyle(color: textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+            child: Text(AppLocalizations.of(context).commonCancel,
+                style: const TextStyle(color: textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+            child: Text(AppLocalizations.of(context).commonDelete,
+                style: const TextStyle(color: MyColors.remove)),
           ),
         ],
       ),
@@ -581,7 +587,8 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   }
 
   String _formatDaysOfWeek(List<bool> days) {
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final l = AppLocalizations.of(context);
+    final dayNames = [l.dayMon, l.dayTue, l.dayWed, l.dayThu, l.dayFri, l.daySat, l.daySun];
     final activeDays = <String>[];
     for (var i = 0; i < days.length; i++) {
       if (days[i]) {
@@ -594,9 +601,9 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
   Widget _buildEmptyState() {
     return ChronoEmptyState(
       icon: Icons.schedule_outlined,
-      title: 'No Routines Yet',
-      subtitle: 'Create your first routine to build consistent daily habits and stay organized.',
-      buttonLabel: 'Create Your First Routine',
+      title: AppLocalizations.of(context).routinesEmptyTitle,
+      subtitle: AppLocalizations.of(context).routinesEmptyDesc,
+      buttonLabel: AppLocalizations.of(context).routinesCreateFirst,
       onButton: () => _showRoutineForm(),
     );
   }
@@ -666,7 +673,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
     if (!_daysOfWeek.contains(true)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one day')),
+        SnackBar(content: Text(AppLocalizations.of(context).routineSelectDay)),
       );
       return;
     }
@@ -837,7 +844,9 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         title: Text(
-          isEditing ? 'Edit Routine' : 'New Routine',
+          isEditing
+              ? AppLocalizations.of(context).routineEditTitle
+              : AppLocalizations.of(context).routineNewTitle,
           style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         ),
         iconTheme: const IconThemeData(color: textPrimary),
@@ -847,7 +856,9 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
           TextButton(
             onPressed: _saveRoutine,
             child: Text(
-              isEditing ? 'Save' : 'Create',
+              isEditing
+                  ? AppLocalizations.of(context).commonSave
+                  : AppLocalizations.of(context).commonCreate,
               style: const TextStyle(
                 color: MyColors.orangeDivider,
                 fontWeight: FontWeight.w600,
@@ -866,10 +877,10 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
             TextFormField(
               controller: _nameController,
               style: const TextStyle(color: textPrimary, fontSize: 16),
-              decoration: _inputDecoration('Routine Name'),
+              decoration: _inputDecoration(AppLocalizations.of(context).routineNameLabel),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a name';
+                  return AppLocalizations.of(context).routineNameRequired;
                 }
                 return null;
               },
@@ -880,11 +891,11 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
             // ── Schedule ──
             ChronoSettingsGroup(
-              title: 'Schedule',
+              title: AppLocalizations.of(context).routineSchedule,
               children: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  title: const Text('Time', style: TextStyle(color: textPrimary, fontSize: 16)),
+                  title: Text(AppLocalizations.of(context).routineTime, style: const TextStyle(color: textPrimary, fontSize: 16)),
                   subtitle: Text(_time.format(context), style: const TextStyle(color: textMuted)),
                   trailing: const Icon(Icons.access_time_rounded, color: textSecondary),
                   onTap: _selectTime,
@@ -895,7 +906,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Days of Week', style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+                      Text(AppLocalizations.of(context).routineDaysOfWeek, style: const TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 12),
                       LayoutBuilder(
                         builder: (context, constraints) {
@@ -957,7 +968,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
             // ── Reminders & Persistence ──
             ChronoSettingsGroup(
-              title: 'Reminders & Persistence',
+              title: AppLocalizations.of(context).routineRemindersPersistence,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -967,7 +978,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                         child: TextFormField(
                           controller: _periodController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Duration', suffixText: 'min'),
+                          decoration: _inputDecoration(AppLocalizations.of(context).routineDuration, suffixText: AppLocalizations.of(context).commonMin),
                           keyboardType: TextInputType.number,
                           onChanged: (value) {
                             setState(() {
@@ -981,7 +992,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                         child: TextFormField(
                           controller: _intervalController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Interval', suffixText: 'min'),
+                          decoration: _inputDecoration(AppLocalizations.of(context).routineInterval, suffixText: AppLocalizations.of(context).commonMin),
                           keyboardType: TextInputType.number,
                           onChanged: (value) {
                             setState(() {
@@ -1020,12 +1031,12 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
             // ── Extras & Importance ──
             ChronoSettingsGroup(
-              title: 'Additional',
+              title: AppLocalizations.of(context).routineAdditional,
               children: [
                 SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  title: const Text('Track streak', style: TextStyle(color: textPrimary, fontSize: 15)),
-                  subtitle: const Text('Display streak count when completing this routine', style: TextStyle(color: textMuted, fontSize: 13)),
+                  title: Text(AppLocalizations.of(context).routineTrackStreak, style: const TextStyle(color: textPrimary, fontSize: 15)),
+                  subtitle: Text(AppLocalizations.of(context).routineTrackStreakDesc, style: const TextStyle(color: textMuted, fontSize: 13)),
                   activeColor: MyColors.orangeDivider,
                   value: _showStreak,
                   onChanged: (value) {

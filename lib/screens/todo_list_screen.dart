@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/todo.model.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/todo_service.dart';
@@ -91,7 +92,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ChronoSectionHeader(
           icon: Icons.wb_sunny_outlined,
           iconColor: MyColors.orangeDivider,
-          label: 'TOMORROW',
+          label: AppLocalizations.of(context).todoSectionTomorrow,
           count: tomorrow.length,
           countColor: MyColors.orangeDivider,
         ),
@@ -108,7 +109,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ChronoSectionHeader(
           icon: Icons.flag_outlined,
           iconColor: infoColor,
-          label: 'DEADLINE',
+          label: AppLocalizations.of(context).todoSectionDeadline,
           count: deadline.length,
           countColor: infoColor,
         ),
@@ -125,7 +126,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ChronoSectionHeader(
           icon: Icons.inbox_outlined,
           iconColor: textMuted,
-          label: 'NO DATE',
+          label: AppLocalizations.of(context).todoListNoDateSection,
           count: noDate.length,
           countColor: textMuted,
         ),
@@ -142,7 +143,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ChronoSectionHeader(
           icon: Icons.warning_amber_rounded,
           iconColor: MyColors.remove,
-          label: 'OVERDUE',
+          label: AppLocalizations.of(context).todoSectionOverdue,
           count: overdue.length,
           countColor: MyColors.remove,
         ),
@@ -195,40 +196,40 @@ class _TodoListScreenState extends State<TodoListScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Todo Types',
-          style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+        title: Text(
+          AppLocalizations.of(context).todoTypesTitle,
+          style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _InfoRow(
               icon: Icons.wb_sunny_outlined,
               color: MyColors.orangeDivider,
-              title: 'Tomorrow',
-              description: 'Tasks you plan to do tomorrow. Moves to overdue if not completed.',
+              title: AppLocalizations.of(context).todoTypeTomorrow,
+              description: AppLocalizations.of(context).todoTypeTomorrowDesc,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _InfoRow(
               icon: Icons.flag_outlined,
               color: infoColor,
-              title: 'Deadline',
-              description: 'Tasks with a specific due date. Enable daily reminders to get notified every day.',
+              title: AppLocalizations.of(context).todoTypeDeadline,
+              description: AppLocalizations.of(context).todoTypeDeadlineDesc,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _InfoRow(
               icon: Icons.inbox_outlined,
               color: textMuted,
-              title: 'No Date',
-              description: 'Backlog tasks without a specific timeframe.',
+              title: AppLocalizations.of(context).todoTypeNoDateTitle,
+              description: AppLocalizations.of(context).todoTypeNoDateDesc,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it', style: TextStyle(color: MyColors.orangeDivider)),
+            child: Text(AppLocalizations.of(context).commonGotIt, style: const TextStyle(color: MyColors.orangeDivider)),
           ),
         ],
       ),
@@ -237,14 +238,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
   Widget _buildHeader() {
     return ChronoSheetHeader(
-      title: 'Todo',
+      title: AppLocalizations.of(context).navTodo,
       titleIcon: Icons.checklist_rounded,
       itemCount: _activeTodos.length,
       actions: [
         IconButton(
           icon: const Icon(Icons.info_outline, color: textMuted, size: 20),
           onPressed: _showInfoDialog,
-          tooltip: 'About todo types',
+          tooltip: AppLocalizations.of(context).todoAboutTypes,
         ),
         IconButton(
           icon: Icon(
@@ -279,7 +280,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         ChronoSectionHeader(
           icon: Icons.check_circle_outline,
           iconColor: successColor,
-          label: 'COMPLETED',
+          label: AppLocalizations.of(context).todoSectionCompleted,
           count: _completedTodos.length,
           countColor: successColor,
         ),
@@ -311,9 +312,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                         children: [
                           ChronoEmptyState(
                             icon: Icons.checklist_outlined,
-                            title: 'No Todos Yet',
-                            subtitle: 'Tap + to create your first todo',
-                            buttonLabel: 'Add Todo',
+                            title: AppLocalizations.of(context).todoListEmptyTitle,
+                            subtitle: AppLocalizations.of(context).todoListEmptyDesc,
+                            buttonLabel: AppLocalizations.of(context).todoListAddButton,
                             onButton: () => _showTodoForm(),
                           ),
                         ],
@@ -342,11 +343,11 @@ class _TodoListScreenState extends State<TodoListScreen> {
           _buildHeader(),
           Expanded(
             child: _activeTodos.isEmpty && _completedTodos.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No todos yet\nTap + to create one',
+                      AppLocalizations.of(context).todoListEmptyShort,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: MyColors.fivyColor,
                         fontSize: 16,
                       ),

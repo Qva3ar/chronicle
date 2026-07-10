@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/record.dart';
 import 'package:chrono/models/record_type.dart';
@@ -262,7 +263,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         final c = TextEditingController(text: e.name);
         return AlertDialog(
           backgroundColor: cardColor,
-          title: const Text('Rename workspace', style: TextStyle(color: textPrimary)),
+          title: Text(AppLocalizations.of(ctx).editorRenameWorkspace,
+              style: const TextStyle(color: textPrimary)),
           content: TextField(
             controller: c,
             autofocus: true,
@@ -280,11 +282,13 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: textMuted)),
+              child: Text(AppLocalizations.of(ctx).commonCancel,
+                  style: const TextStyle(color: textMuted)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+              child: Text(AppLocalizations.of(ctx).commonSave,
+                  style: const TextStyle(color: MyColors.orangeDivider)),
             ),
           ],
         );
@@ -306,7 +310,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
             backgroundColor: cardColor,
-            title: const Text('Workspace color', style: TextStyle(color: textPrimary)),
+            title: Text(AppLocalizations.of(ctx).editorWorkspaceColor,
+                style: const TextStyle(color: textPrimary)),
             content: WorkspaceColorPicker(
               selectedColorHex: selected,
               onColorSelected: (hex) => setDialogState(() => selected = hex),
@@ -314,11 +319,13 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel', style: TextStyle(color: textMuted)),
+                child: Text(AppLocalizations.of(ctx).commonCancel,
+                    style: const TextStyle(color: textMuted)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, selected ?? ''),
-                child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+                child: Text(AppLocalizations.of(ctx).commonSave,
+                    style: const TextStyle(color: MyColors.orangeDivider)),
               ),
             ],
           ),
@@ -480,11 +487,11 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         style: const TextStyle(color: textPrimary, fontSize: 14, height: 1.6),
         cursorColor: MyColors.orangeDivider,
         cursorWidth: 2,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           border: InputBorder.none,
-          hintText: 'Write in Markdown…',
-          hintStyle: TextStyle(color: textHint),
-          contentPadding: EdgeInsets.all(16),
+          hintText: AppLocalizations.of(context).editorWriteMarkdownHint,
+          hintStyle: const TextStyle(color: textHint),
+          contentPadding: const EdgeInsets.all(16),
         ),
         onChanged: _onBodyChanged,
       ),
@@ -504,13 +511,13 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
               Icon(Icons.link_off_rounded, size: 40, color: textMuted.withValues(alpha: 0.4)),
               const SizedBox(height: 12),
               Text(
-                'No linked notes yet',
-                style: TextStyle(color: textMuted, fontSize: 15, fontWeight: FontWeight.w500),
+                AppLocalizations.of(context).editorNoLinkedNotes,
+                style: const TextStyle(color: textMuted, fontSize: 15, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Text(
-                'Tap "Add" to search or use AI',
-                style: TextStyle(color: textHint, fontSize: 13),
+                AppLocalizations.of(context).editorTapAddHint,
+                style: const TextStyle(color: textHint, fontSize: 13),
               ),
             ],
           ),
@@ -580,26 +587,30 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
         child: Row(
           children: [
             _toolBtn(
-              tooltip: 'Linked notes',
+              tooltip: AppLocalizations.of(context).editorLinkedNotesTooltip,
               icon: _showLinkedPanel ? Icons.vertical_align_center : Icons.vertical_split_rounded,
               active: _showLinkedPanel,
               badge: _linked.isNotEmpty ? _linked.length.toString() : null,
               onTap: () => setState(() => _showLinkedPanel = !_showLinkedPanel),
             ),
             _toolBtn(
-              tooltip: 'Add notes',
+              tooltip: AppLocalizations.of(context).editorAddNotesTooltip,
               icon: Icons.playlist_add_rounded,
               onTap: _openAddSheet,
             ),
             _toolBtn(
-              tooltip: _previewMarkdown ? 'Edit' : 'Preview',
+              tooltip: _previewMarkdown
+                  ? AppLocalizations.of(context).commonEdit
+                  : AppLocalizations.of(context).commonPreview,
               icon: _previewMarkdown ? Icons.edit_note_rounded : Icons.visibility_outlined,
               active: _previewMarkdown,
               onTap: () => setState(() => _previewMarkdown = !_previewMarkdown),
             ),
             const Spacer(),
             _toolBtn(
-              tooltip: _includeLinkedInChat ? 'Chat: doc + notes' : 'Chat: doc only',
+              tooltip: _includeLinkedInChat
+                  ? AppLocalizations.of(context).editorChatDocNotes
+                  : AppLocalizations.of(context).editorChatDocOnly,
               icon: _includeLinkedInChat ? Icons.link_rounded : Icons.link_off_rounded,
               active: _includeLinkedInChat,
               onTap: () {
@@ -608,8 +619,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
                   SnackBar(
                     content: Text(
                       _includeLinkedInChat
-                          ? 'AI Chat will include linked notes'
-                          : 'AI Chat: document only',
+                          ? AppLocalizations.of(context).editorChatIncludeNotes
+                          : AppLocalizations.of(context).editorChatDocumentOnly,
                     ),
                     duration: const Duration(seconds: 2),
                     behavior: SnackBarBehavior.floating,
@@ -618,7 +629,7 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
               },
             ),
             _toolBtn(
-              tooltip: 'AI Chat',
+              tooltip: AppLocalizations.of(context).navAiChat,
               icon: null,
               svgAsset: 'assets/icons/chat.svg',
               onTap: _showGptSheet,
@@ -702,7 +713,9 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
       return Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(backgroundColor: bgColor, foregroundColor: textPrimary),
-        body: const Center(child: Text('Workspace not found', style: TextStyle(color: textMuted))),
+        body: Center(
+            child: Text(AppLocalizations.of(context).editorWorkspaceNotFound,
+                style: const TextStyle(color: textMuted))),
       );
     }
 
@@ -779,8 +792,8 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
                                     child: Row(
                                       children: [
                                         Text(
-                                          'Linked Notes',
-                                          style: TextStyle(
+                                          AppLocalizations.of(context).editorLinkedNotesTitle,
+                                          style: const TextStyle(
                                             color: textPrimary,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -807,7 +820,7 @@ class _WorkspaceEditorScreenState extends State<WorkspaceEditorScreen> {
                                         TextButton.icon(
                                           onPressed: _openAddSheet,
                                           icon: const Icon(Icons.add, size: 18),
-                                          label: const Text('Add'),
+                                          label: Text(AppLocalizations.of(context).commonAdd),
                                           style: TextButton.styleFrom(
                                             foregroundColor: MyColors.orangeDivider,
                                             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -937,7 +950,9 @@ class _LinkedNoteCardState extends State<_LinkedNoteCard> with SingleTickerProvi
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(
-                      _expanded ? 'Show less' : 'Show more…',
+                      _expanded
+                          ? AppLocalizations.of(context).editorShowLess
+                          : AppLocalizations.of(context).editorShowMore,
                       style: TextStyle(
                         color: MyColors.orangeDivider.withValues(alpha: 0.8),
                         fontSize: 12,
@@ -1099,18 +1114,21 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: cardColor,
-            title: const Text('Large search', style: TextStyle(color: textPrimary)),
+            title: Text(AppLocalizations.of(ctx).editorLargeSearchTitle,
+                style: const TextStyle(color: textPrimary)),
             content: Text(
-              'No tags selected — AI will scan ${pool.length} notes.\nPick tags to narrow scope.',
+              AppLocalizations.of(ctx).editorNoTagsSelected(pool.length),
               style: TextStyle(color: textMuted.withValues(alpha: 0.95)),
             ),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel', style: TextStyle(color: textMuted))),
+                  child: Text(AppLocalizations.of(ctx).commonCancel,
+                      style: const TextStyle(color: textMuted))),
               TextButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Continue', style: TextStyle(color: MyColors.orangeDivider))),
+                  child: Text(AppLocalizations.of(ctx).commonContinue,
+                      style: const TextStyle(color: MyColors.orangeDivider))),
             ],
           ),
         );
@@ -1142,7 +1160,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
     } catch (e) {
       if (mounted) {
         setState(() => _aiLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI search failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(AppLocalizations.of(context).editorAiSearchFailed(e.toString()))));
       }
     }
   }
@@ -1166,7 +1185,7 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
     widget.onAdded();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Note added to workspace'),
+        content: Text(AppLocalizations.of(context).editorNoteAdded),
         duration: const Duration(milliseconds: 800),
         behavior: SnackBarBehavior.floating,
         backgroundColor: surfaceElevated,
@@ -1205,9 +1224,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Row(
               children: [
-                const Text(
-                  'Find Notes',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).editorFindNotes,
+                  style: const TextStyle(
                     color: textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -1240,9 +1259,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Search', height: 38),
-                Tab(text: 'AI Find', height: 38),
+              tabs: [
+                Tab(text: AppLocalizations.of(context).editorTabSearch, height: 38),
+                Tab(text: AppLocalizations.of(context).editorTabAiFind, height: 38),
               ],
             ),
           ),
@@ -1284,7 +1303,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
             ),
             const SizedBox(width: 4),
             Text(
-              _filterTagIds.isEmpty ? 'Filter' : '${_filterTagIds.length}',
+              _filterTagIds.isEmpty
+                  ? AppLocalizations.of(context).commonFilter
+                  : '${_filterTagIds.length}',
               style: TextStyle(
                 color: _filterTagIds.isEmpty ? textMuted : MyColors.orangeDivider,
                 fontSize: 13,
@@ -1321,7 +1342,7 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               controller: _search,
               style: const TextStyle(color: textPrimary, fontSize: 15),
               decoration: InputDecoration(
-                hintText: 'Search notes…',
+                hintText: AppLocalizations.of(context).editorSearchNotesHint,
                 hintStyle: const TextStyle(color: textHint),
                 filled: true,
                 fillColor: cardColor,
@@ -1360,7 +1381,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                   Icon(Icons.search_off_rounded, size: 48, color: textMuted.withValues(alpha: 0.3)),
                   const SizedBox(height: 12),
                   Text(
-                    _searchResults.isEmpty ? 'No notes found' : 'All matching notes already linked',
+                    _searchResults.isEmpty
+                        ? AppLocalizations.of(context).editorNoNotesFound
+                        : AppLocalizations.of(context).editorAllLinked,
                     style: const TextStyle(color: textMuted, fontSize: 14),
                   ),
                 ],
@@ -1395,8 +1418,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Describe what you\'re looking for',
-                  style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                  AppLocalizations.of(context).editorDescribeLooking,
+                  style: const TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1404,7 +1427,7 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                   maxLines: 2,
                   style: const TextStyle(color: textPrimary, fontSize: 15),
                   decoration: InputDecoration(
-                    hintText: 'e.g. Notes about productivity techniques',
+                    hintText: AppLocalizations.of(context).editorAiPromptHint,
                     hintStyle: const TextStyle(color: textHint),
                     filled: true,
                     fillColor: cardColor,
@@ -1435,8 +1458,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                                   width: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: bgColor)),
                               const SizedBox(width: 10),
-                              const Text('Searching…',
-                                  style: TextStyle(fontWeight: FontWeight.w600)),
+                              Text(AppLocalizations.of(context).editorSearching,
+                                  style: const TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           )
                         : Row(
@@ -1444,8 +1467,8 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                             children: [
                               const Icon(Icons.auto_awesome, size: 18),
                               const SizedBox(width: 8),
-                              const Text('Find with AI',
-                                  style: TextStyle(fontWeight: FontWeight.w600)),
+                              Text(AppLocalizations.of(context).editorFindWithAi,
+                                  style: const TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           ),
                   ),
@@ -1464,9 +1487,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                   Icon(Icons.auto_awesome_outlined,
                       size: 48, color: textMuted.withValues(alpha: 0.3)),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Enter a prompt and tap Find',
-                    style: TextStyle(color: textMuted, fontSize: 14),
+                  Text(
+                    AppLocalizations.of(context).editorEnterPromptHint,
+                    style: const TextStyle(color: textMuted, fontSize: 14),
                   ),
                 ],
               ),
@@ -1481,9 +1504,9 @@ class _WorkspaceAddNotesPanelState extends State<_WorkspaceAddNotesPanel>
                   Icon(Icons.check_circle_outline,
                       size: 48, color: successColor.withValues(alpha: 0.5)),
                   const SizedBox(height: 12),
-                  const Text(
-                    'All found notes already linked',
-                    style: TextStyle(color: textMuted, fontSize: 14),
+                  Text(
+                    AppLocalizations.of(context).editorAllFoundLinked,
+                    style: const TextStyle(color: textMuted, fontSize: 14),
                   ),
                 ],
               ),

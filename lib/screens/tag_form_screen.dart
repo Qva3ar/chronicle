@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/tag_color_picker.dart';
@@ -81,7 +82,7 @@ class _TagFormScreenState extends State<TagFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving tag: $e'),
+            content: Text(AppLocalizations.of(context).tagErrorSaving(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -96,8 +97,8 @@ class _TagFormScreenState extends State<TagFormScreen> {
     if (widget.existingTag!.isSystem) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('System tags cannot be deleted'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).tagSystemCannotDelete),
             backgroundColor: Colors.orange,
           ),
         );
@@ -109,8 +110,8 @@ class _TagFormScreenState extends State<TagFormScreen> {
       context: context,
       builder: (BuildContext context) {
         return ConfirmDialog(
-          title: "Tag deletion",
-          message: "Are you sure you want to delete this tag?",
+          title: AppLocalizations.of(context).tagDeleteTitle,
+          message: AppLocalizations.of(context).tagDeleteMessage,
           onConfirm: (confirmed) async {
             if (confirmed) {
               final success = await recordService.deleteTag(widget.existingTag!.id);
@@ -131,7 +132,9 @@ class _TagFormScreenState extends State<TagFormScreen> {
       appBar: AppBar(
         backgroundColor: MyColors.primaryColor,
         title: Text(
-          isEditing ? 'Edit Tag' : 'Create Tag',
+          isEditing
+              ? AppLocalizations.of(context).tagEditTitle
+              : AppLocalizations.of(context).tagCreateTitle,
           style: const TextStyle(color: white),
         ),
         leading: IconButton(
@@ -146,9 +149,9 @@ class _TagFormScreenState extends State<TagFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Tag Name',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context).tagNameLabel,
+                style: const TextStyle(
                   color: white,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -174,8 +177,8 @@ class _TagFormScreenState extends State<TagFormScreen> {
                     ),
                   ),
                   hintText: widget.existingTag?.isSystem ?? false
-                      ? 'System tag name cannot be changed'
-                      : 'Enter tag name',
+                      ? AppLocalizations.of(context).tagSystemNameCannotChange
+                      : AppLocalizations.of(context).tagEnterName,
                   hintStyle: TextStyle(color: Colors.grey[600]),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -185,16 +188,16 @@ class _TagFormScreenState extends State<TagFormScreen> {
                 controller: _tagNameController,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a tag name';
+                    return AppLocalizations.of(context).tagNameRequired;
                   }
                   return null;
                 },
                 autofocus: !isEditing,
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Tag Color',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context).tagColorLabel,
+                style: const TextStyle(
                   color: white,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -217,7 +220,9 @@ class _TagFormScreenState extends State<TagFormScreen> {
                       ),
                       onPressed: saveTag,
                       child: Text(
-                        isEditing ? 'Update' : 'Create',
+                        isEditing
+                            ? AppLocalizations.of(context).commonUpdate
+                            : AppLocalizations.of(context).commonCreate,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -235,9 +240,9 @@ class _TagFormScreenState extends State<TagFormScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         onPressed: removeTag,
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context).commonDelete,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

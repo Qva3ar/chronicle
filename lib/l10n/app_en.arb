@@ -1,0 +1,714 @@
+{
+  "@@locale": "en",
+  "appTitle": "Goal Manager",
+  "language": "Language",
+  "languageSystem": "System",
+  "languageEnglish": "English",
+  "languageRussian": "Russian",
+
+  "commonOk": "OK",
+  "commonCancel": "Cancel",
+  "commonSave": "Save",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "commonClose": "Close",
+  "commonExit": "Exit",
+  "commonDone": "Done",
+  "commonYes": "Yes",
+  "commonNo": "No",
+  "commonAdd": "Add",
+  "commonError": "Error",
+  "commonSettings": "Settings",
+  "commonReset": "Reset",
+
+  "errorWithMessage": "Error: {message}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+
+  "settingsTitle": "Settings",
+  "settingsMainIntentionUpdated": "Main intention updated successfully",
+  "settingsBackupRestore": "Backup & Restore",
+  "settingsExportBackup": "Export Backup",
+  "settingsExportBackupSubtitle": "Save your data as JSON file",
+  "settingsImportBackup": "Import Backup",
+  "settingsImportBackupSubtitle": "Restore from a backup file",
+  "settingsTroubleshooting": "Troubleshooting",
+  "settingsResetRoutines": "Reset Routines",
+  "settingsResetRoutinesSubtitle": "Mark all as not done, reschedule notifications",
+  "settingsResetRoutinesMessage": "This will mark all routines as not done and reschedule notifications.\n\nStreak data will be preserved.",
+  "settingsRoutinesResetSuccess": "Routines reset successfully",
+  "settingsResetGoals": "Reset Goals",
+  "settingsResetGoalsSubtitle": "Reset completion status and time spent",
+  "settingsResetGoalsMessage": "This will reset all goal completion status, time spent, and stop active sessions.",
+  "settingsGoalsResetSuccess": "Goals reset successfully",
+  "settingsDeleteAllGoals": "Delete All Goals",
+  "settingsDeleteAllGoalsMessage": "Are you sure? All goals will be permanently deleted.\n\nThis cannot be undone.",
+  "settingsAllGoalsDeleted": "All goals deleted",
+  "settingsDeleteAllRoutines": "Delete All Routines",
+  "settingsDeleteAllRoutinesMessage": "Are you sure? All routines and their notifications will be permanently deleted.\n\nThis cannot be undone.",
+  "settingsAllRoutinesDeleted": "All routines deleted",
+  "settingsDeleteAllRecords": "Delete All Records",
+  "settingsDeleteAllRecordsSubtitle": "Notes, tags, and all associated data",
+  "settingsDangerZone": "Danger Zone",
+  "settingsDangerZoneDescription": "These actions are irreversible. Make sure you have a backup.",
+  "settingsDeleteDataPermanently": "Delete data permanently",
+  "settingsDebug": "Debug",
+  "settingsPrintTags": "Print Tags to Console",
+  "settingsTagsPrinted": "Tags printed to debug console (flutter run / Logcat)",
+
+  "commonSend": "Send",
+  "commonApply": "Apply",
+  "commonShow": "Show",
+  "commonGotIt": "Got it",
+  "commonCreate": "Create",
+  "commonNew": "New",
+  "commonSearch": "Search",
+
+  "navGoals": "Goals",
+  "navRoutines": "Routines",
+  "navTodo": "Todo",
+  "navTags": "Tags",
+  "navWorkspace": "Workspace",
+  "navAiChat": "AI Chat",
+
+  "backupEmailBody": "Here is the backup of all notes and tags.",
+  "backupEmailSubject": "Backup of Notes",
+
+  "homeDeleteRecordTitle": "Delete record",
+  "homeDeleteRecordMessage": "Are you sure you want to delete this record?",
+  "homeChronoTagMissing": "Chrono tag not found. Please restart the app.",
+  "homeChronoNoteAdded": "Chrono note added",
+  "homeChronoNoteFailed": "Failed to create Chrono note: {error}",
+  "@homeChronoNoteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeChronoInfoTitle": "Chronological notes",
+  "homeChronoInfoBody": "The Chrono tag is for timeline notes — quick logs of what happens during your day:\n\n• visited a place\n• something happened\n• currently at a location\n• met someone\n\nUse the quick input to capture moments as they happen.",
+  "homeChronoQuickHint": "Quick chrono note...",
+  "homeSearchHint": "Search records...",
+  "homeFilterTooltip": "Filter records",
+
+  "filterTitle": "Filter Records",
+  "filterSubtitle": "Select which types of records to show:",
+  "filterShowGoals": "Show records from Goals",
+  "filterShowGoalsSubtitle": "Include records created from goal sessions",
+  "filterShowRoutines": "Show records from Routines",
+  "filterShowRoutinesSubtitle": "Include records created from completed routines",
+  "filterShowTodos": "Show records from Todos",
+  "filterShowTodosSubtitle": "Include records created from completed todos",
+  "filterShowProductivity": "Show Productivity Index",
+  "filterShowProductivitySubtitle": "Include daily productivity score records",
+
+  "noteLocked": "Note locked",
+  "noteUnlocked": "Note unlocked",
+  "createNewTagTooltip": "Create new tag",
+  "noTagsFound": "No tags found",
+  "searchTagsHint": "Search tags...",
+  "saveNoteFirst": "Save the note first",
+  "writeYourNote": "Write your note",
+  "cardSpaceButton": "Space",
+  "newWorkspaceTitle": "New workspace",
+  "workspaceNameHint": "Name",
+  "createAndAdd": "Create & Add",
+  "addedToWorkspace": "Added to \"{name}\"",
+  "@addedToWorkspace": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addToWorkspaceTitle": "Add to Workspace",
+  "noWorkspacesYet": "No workspaces yet",
+  "tapNewToCreate": "Tap \"New\" to create one",
+
+  "commonRename": "Rename",
+  "commonFilter": "Filter",
+  "commonPreview": "Preview",
+  "timeJustNow": "Just now",
+  "timeMinutesAgo": "{minutes}m ago",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{hours}h ago",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{days}d ago",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceDeleteTitle": "Delete workspace?",
+
+  "noteCount": "{count, plural, =0{No notes} one{{count} note} other{{count} notes}}",
+  "@noteCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "workspacesTitle": "Workspaces",
+  "workspaceEmptyTitle": "No Workspaces Yet",
+  "workspaceEmptyHint": "Tap + to create your first workspace.\nLink notes, write documents, and use AI to find related content.",
+  "workspaceCreateButton": "Create Workspace",
+  "newWorkspaceTooltip": "New workspace",
+  "workspaceChangeColor": "Change color",
+  "workspaceRemoveMessage": "This removes \"{name}\" and its note links. Notes themselves are not deleted.",
+  "@workspaceRemoveMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "editorWriteMarkdownHint": "Write in Markdown…",
+  "editorNoLinkedNotes": "No linked notes yet",
+  "editorTapAddHint": "Tap \"Add\" to search or use AI",
+  "editorLinkedNotesTooltip": "Linked notes",
+  "editorAddNotesTooltip": "Add notes",
+  "editorChatDocNotes": "Chat: doc + notes",
+  "editorChatDocOnly": "Chat: doc only",
+  "editorChatIncludeNotes": "AI Chat will include linked notes",
+  "editorChatDocumentOnly": "AI Chat: document only",
+  "editorLinkedNotesTitle": "Linked Notes",
+  "editorShowLess": "Show less",
+  "editorShowMore": "Show more…",
+  "editorNoTagsSelected": "No tags selected — AI will scan {count} notes.\nPick tags to narrow scope.",
+  "@editorNoTagsSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorAiSearchFailed": "AI search failed: {error}",
+  "@editorAiSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "editorNoteAdded": "Note added to workspace",
+  "editorFindNotes": "Find Notes",
+  "editorTabSearch": "Search",
+  "editorTabAiFind": "AI Find",
+  "editorSearchNotesHint": "Search notes…",
+  "editorNoNotesFound": "No notes found",
+  "editorAllLinked": "All matching notes already linked",
+  "editorDescribeLooking": "Describe what you're looking for",
+  "editorAiPromptHint": "e.g. Notes about productivity techniques",
+  "editorSearching": "Searching…",
+  "editorFindWithAi": "Find with AI",
+  "editorEnterPromptHint": "Enter a prompt and tap Find",
+  "editorAllFoundLinked": "All found notes already linked",
+  "editorLargeSearchTitle": "Large search",
+  "commonContinue": "Continue",
+  "editorRenameWorkspace": "Rename workspace",
+  "editorWorkspaceColor": "Workspace color",
+  "editorWorkspaceNotFound": "Workspace not found",
+
+  "commonSubmit": "Submit",
+  "commonUpdate": "Update",
+  "commonActions": "Actions",
+  "tagEditTooltip": "Edit tag",
+  "goalImportance": "Importance",
+  "insightsOutsideContext": "Outside context window",
+  "errorCouldNotLaunch": "Could not launch {uri}",
+  "@errorCouldNotLaunch": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+
+  "drawerPremium": "Chrono Premium",
+  "drawerPremiumTry": "Try Premium",
+  "drawerPremiumActive": "Active",
+  "drawerPremiumTrial": "3 days free",
+  "drawerSectionAiPrompts": "AI & PROMPTS",
+  "drawerPrompts": "Prompts",
+  "drawerGptSettings": "GPT Settings",
+  "drawerSectionGeneral": "GENERAL",
+  "drawerShowIntro": "Show Intro",
+  "drawerPrivacyPolicy": "Privacy Policy",
+  "drawerTermsOfUse": "Terms of Use (EULA)",
+
+  "confirmDeleteTitle": "Confirm Delete",
+  "confirmDeleteAllMessage": "Are you sure you want to delete all notes? This action cannot be undone.",
+  "allNotesDeleted": "All notes have been deleted successfully.",
+  "failedToDeleteNotes": "Failed to delete notes: {error}",
+  "@failedToDeleteNotes": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "apiAccessSettings": "API Access Settings",
+  "selectModel": "Select Model",
+  "tokenLimit": "Token limit: {tpm}",
+  "@tokenLimit": {
+    "placeholders": {
+      "tpm": {
+        "type": "String"
+      }
+    }
+  },
+  "openAiApiKey": "OpenAI API Key",
+  "geminiApiKey": "Gemini API Key",
+  "getOpenAiKey": "Get OpenAI Key",
+  "getGeminiKey": "Get Gemini Key",
+  "apiResponseDelay": "Response delay: {delay}",
+  "@apiResponseDelay": {
+    "placeholders": {
+      "delay": {
+        "type": "String"
+      }
+    }
+  },
+
+  "exportTitle": "Export Backup",
+  "exportSelectData": "Select data to include in your backup",
+  "exportSelectAtLeastOne": "Please select at least one data type.",
+  "exportExporting": "Exporting data...",
+  "exportReady": "Backup ready! Choose how to save it.",
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSharedSuccess": "Backup shared successfully!",
+  "exportShareFailed": "Share failed: {error}",
+  "@exportShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportEmailOpened": "Email composer opened!",
+  "exportNoEmailApp": "No email app found. Please use 'Share' instead.",
+  "exportEmailFailed": "Email failed: {error}",
+  "@exportEmailFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportLabelNotes": "Notes & Tags",
+  "exportLabelTodos": "Todos",
+  "exportLabelInstructions": "AI Instructions",
+  "exportCreateBackup": "Create Backup",
+  "exportEmailButton": "Email",
+  "exportShareButton": "Share",
+  "exportBackupSubject": "Chrono Data Backup",
+  "exportBackupBody": "Here is the backup of your Chrono data including: {types}.",
+  "@exportBackupBody": {
+    "placeholders": {
+      "types": {
+        "type": "String"
+      }
+    }
+  },
+
+  "importTitle": "Import Data",
+  "importPressButton": "Press the button to import data.",
+  "importNoFileSelected": "No file selected.",
+  "importReplaceTitle": "Replace All Data?",
+  "importReplaceMessage": "Import will DELETE all current data and replace it with backup.",
+  "importCurrentToDelete": "Current data to be deleted:",
+  "importLabelNotes": "Notes",
+  "importTotalToDelete": "Total: {count} items will be deleted",
+  "@importTotalToDelete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importBackupWarning": "⚠️ Make sure you have a backup before proceeding!",
+  "importDeleteAndImport": "Delete & Import",
+  "importCancelled": "Import cancelled.",
+  "importDeleting": "Deleting current data...",
+  "importImporting": "Importing...",
+  "importImportingRoutines": "Importing routines...",
+  "importImportingGoals": "Importing goals...",
+  "importImportingTodos": "Importing todos...",
+  "importImportingReminders": "Importing todo reminders...",
+  "importImportingInstructions": "Importing instructions...",
+  "importImportingNotes": "Importing notes and tags...",
+  "importImportingWorkspaces": "Importing workspaces...",
+  "importSuccessCount": "Import successful! Imported {count} items.",
+  "@importSuccessCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailed": "Import failed: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importSelectFile": "Select File & Import",
+  "importWarningLong": "Select a JSON backup file to import.\n\n⚠️ WARNING: Import will DELETE all current data and replace it with the backup.\n\nYou will see a confirmation screen before deletion.",
+
+  "promptsTitle": "Prompts",
+  "promptsNewTitle": "New Prompt",
+  "promptsEditTitle": "Edit Prompt",
+  "promptsEnterText": "Enter prompt text...",
+  "promptsOnTapBehavior": "ON TAP BEHAVIOR",
+  "promptsCreate": "Create Prompt",
+  "promptsSaveChanges": "Save Changes",
+  "promptsDeleteTitle": "Delete Prompt?",
+  "promptsDeleteMessage": "Are you sure you want to delete \"{text}\"?",
+  "@promptsDeleteMessage": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "promptsSendInstantly": "Send instantly",
+  "promptsSendInstantlyDesc": "Sends the prompt immediately",
+  "promptsInsertToInput": "Insert to input",
+  "promptsInsertToInputDesc": "Pastes text for editing",
+  "promptsEmptyTitle": "No Prompts Yet",
+  "promptsEmptyDesc": "Create quick prompts to speed up your AI conversations. Tap + to get started.",
+  "promptsSendsInstantly": "Sends instantly",
+  "promptsInsertsToInput": "Inserts to input",
+
+  "goalsErrorLoading": "Error loading goals: {error}",
+  "@goalsErrorLoading": { "placeholders": { "error": { "type": "String" } } },
+  "goalDeletedSuccess": "Goal \"{title}\" deleted successfully",
+  "@goalDeletedSuccess": { "placeholders": { "title": { "type": "String" } } },
+  "goalErrorDeleting": "Error deleting goal: {error}",
+  "@goalErrorDeleting": { "placeholders": { "error": { "type": "String" } } },
+  "goalErrorSaving": "Error saving goal: {error}",
+  "@goalErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "goalsHideCompleted": "Hide completed goals",
+  "goalsShowCompleted": "Show completed goals",
+  "goalCompleted": "Completed",
+  "goalsEmptyTitle": "No Goals Yet",
+  "goalsEmptyDesc": "Create your first goal to start tracking your progress and building better habits.",
+  "goalsCreateFirst": "Create Your First Goal",
+  "goalEditTitle": "Edit Goal",
+  "goalNewTitle": "New Goal",
+  "goalTitleLabel": "Goal Title",
+  "goalTitleRequired": "Please enter a goal title",
+  "goalHours": "Hours",
+  "goalMinutes": "Minutes",
+  "goalSessionDuration": "Session Duration (minutes)",
+  "goalUpdate": "Update Goal",
+  "goalCreate": "Create Goal",
+  "goalSpecifyTime": "Please specify at least some hours or minutes",
+  "goalTimeTarget": "Time Target",
+  "goalSessionDurationHelper": "How long each work session should be",
+  "validatorInvalid": "Invalid",
+  "validatorRequired": "Required",
+  "goalMinutesRange": "0-59",
+  "goalCannotDeleteActive": "Cannot delete an active goal. Stop the session first.",
+  "goalTimeSpent": "Time spent: {time}",
+  "@goalTimeSpent": { "placeholders": { "time": { "type": "String" } } },
+  "goalRunning": "Running: {time}",
+  "@goalRunning": { "placeholders": { "time": { "type": "String" } } },
+  "goalComplete": "Complete",
+  "goalUncomplete": "Uncomplete",
+  "goalDeleteTitle": "Delete Goal",
+  "goalDeleteMessage": "Are you sure you want to delete \"{title}\"?\n\nThis action cannot be undone.",
+  "@goalDeleteMessage": { "placeholders": { "title": { "type": "String" } } },
+
+  "routineArchived": "Archived ({count})",
+  "@routineArchived": { "placeholders": { "count": { "type": "int" } } },
+  "routineViewHistory": "View completion history",
+  "routineDeleteTitle": "Delete Routine",
+  "routineDeleteMessage": "Are you sure you want to delete \"{name}\"?",
+  "@routineDeleteMessage": { "placeholders": { "name": { "type": "String" } } },
+  "routinesEmptyTitle": "No Routines Yet",
+  "routinesEmptyDesc": "Create your first routine to build consistent daily habits and stay organized.",
+  "routinesCreateFirst": "Create Your First Routine",
+  "routineSelectDay": "Please select at least one day",
+  "routineEditTitle": "Edit Routine",
+  "routineNewTitle": "New Routine",
+  "routineNameLabel": "Routine Name",
+  "routineNameRequired": "Please enter a name",
+  "routineDaysOfWeek": "Days of Week",
+  "routineRemindersPersistence": "Reminders & Persistence",
+  "routineSchedule": "Schedule",
+  "routineTime": "Time",
+  "routineHideOtherDays": "Hide other days",
+  "routineShowOtherDays": "Show other days",
+  "routineOtherDays": "Other days",
+  "routineDuration": "Duration",
+  "routineInterval": "Interval",
+  "routineAdditional": "Additional",
+  "routineTrackStreak": "Track streak",
+  "routineTrackStreakDesc": "Display streak count when completing this routine",
+  "routineErrorCreating": "Error creating routine record: {error}",
+  "@routineErrorCreating": { "placeholders": { "error": { "type": "String" } } },
+  "commonMin": "min",
+  "dayMon": "Mon",
+  "dayTue": "Tue",
+  "dayWed": "Wed",
+  "dayThu": "Thu",
+  "dayFri": "Fri",
+  "daySat": "Sat",
+  "daySun": "Sun",
+
+  "todoSelectDeadline": "Please select a deadline date",
+  "todoErrorSaving": "Error saving todo: {error}",
+  "@todoErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "todoEditTitle": "Edit Todo",
+  "todoNewTitle": "New Todo",
+  "todoTitleLabel": "Title",
+  "todoTitleRequired": "Please enter a title",
+  "todoNoDate": "No date",
+  "todoSelectDeadlineDate": "Select a deadline date",
+  "todoRemindTomorrow": "Remind me tomorrow",
+  "todoRemindDaily": "Remind me every day",
+  "todoAtTime": "At {time}",
+  "@todoAtTime": { "placeholders": { "time": { "type": "String" } } },
+  "todoUpdate": "Update Todo",
+  "todoCreate": "Create Todo",
+  "todoType": "Type",
+  "todoTypeTomorrow": "Tomorrow",
+  "todoTypeDeadline": "Deadline",
+  "todoDeadlineDate": "Deadline Date",
+  "todoPickDate": "Pick date",
+  "todoNotification": "Notification",
+  "todoRepeatNotifications": "Repeat notifications",
+  "todoPeriodLabel": "Period: ",
+  "todoEveryLabel": "Every: ",
+  "commonChange": "Change",
+  "todoNotifyOnDay": "Get a notification on the day",
+  "todoNotifyDaily": "Get a notification every day until the deadline",
+  "todoNotificationPreview": "{count, plural, one{{count} notification} other{{count} notifications}}: starting {period} before, every {interval}",
+  "@todoNotificationPreview": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "period": { "type": "String" },
+      "interval": { "type": "String" }
+    }
+  },
+
+  "tagErrorSaving": "Error saving tag: {error}",
+  "@tagErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "tagSystemCannotDelete": "System tags cannot be deleted",
+  "tagDeleteTitle": "Tag deletion",
+  "tagDeleteMessage": "Are you sure you want to delete this tag?",
+  "tagEditTitle": "Edit Tag",
+  "tagCreateTitle": "Create Tag",
+  "tagNameLabel": "Tag Name",
+  "tagSystemNameCannotChange": "System tag name cannot be changed",
+  "tagEnterName": "Enter tag name",
+  "tagNameRequired": "Please enter a tag name",
+  "tagColorLabel": "Tag Color",
+
+  "productivityWeek": "Week",
+  "productivityMonth": "Month",
+  "productivityAllTime": "All time",
+  "productivityNoActiveToday": "No active routines or goals today",
+  "productivityCurrentStreak": "current streak",
+  "productivityBestStreak": "best streak",
+  "productivityRoutinesCompleted": "Routines completed",
+  "productivityGoalProgress": "Goal progress",
+  "productivityDayCount": "{count, plural, one{{count} day} other{{count} days}}",
+  "@productivityDayCount": { "placeholders": { "count": { "type": "int" } } },
+  "productivityNoData": "No data for this period yet",
+  "productivityNoBreakdown": "No breakdown available",
+  "productivityNoHistory": "No history yet",
+  "productivityHistory": "History",
+
+  "commonConfirm": "Confirm",
+  "commonNoData": "No data",
+  "commonAddedSuccess": "Added successfully",
+
+  "calendarErrorLoadingRoutine": "Error loading completion dates: {error}",
+  "@calendarErrorLoadingRoutine": { "placeholders": { "error": { "type": "String" } } },
+  "calendarBackdateLimit": "Can only backdate completions within the last 14 days",
+  "calendarMarkCompleted": "Mark \"{name}\" as completed on {date}?\n\nThis will update your streak accordingly.",
+  "@calendarMarkCompleted": { "placeholders": { "name": { "type": "String" }, "date": { "type": "String" } } },
+  "routineCompletionAdded": "Routine completion added successfully",
+  "routineNotScheduled": "Routine is not scheduled for this day of the week",
+  "routineAlreadyCompleted": "Routine already completed on this date",
+  "calendarMarkAsComplete": "Mark as Complete",
+  "calendarTitleHistory": "{name} - History",
+  "@calendarTitleHistory": { "placeholders": { "name": { "type": "String" } } },
+  "calendarTapPastDate": "Tap any past date to mark as complete",
+  "calendarTotalCompletions": "Total Completions",
+  "calendarCurrentStreak": "Current Streak",
+
+  "goalCalendarErrorLoading": "Error loading goal history: {error}",
+  "@goalCalendarErrorLoading": { "placeholders": { "error": { "type": "String" } } },
+  "goalAddWorkSession": "Add work session",
+  "goalCompletedCannotEdit": "This goal is completed and cannot be edited",
+  "goalAddWorkFor": "Add \"{title}\" work for {date}",
+  "@goalAddWorkFor": { "placeholders": { "title": { "type": "String" }, "date": { "type": "String" } } },
+  "goalEnterValidMinutes": "Please enter a valid number of minutes",
+  "goalTapPastDate": "Tap any past date to add a work session",
+  "goalDailyTarget": "Daily target: {minutes} min",
+  "@goalDailyTarget": { "placeholders": { "minutes": { "type": "int" } } },
+
+  "todoListNoDateSection": "NO DATE",
+  "todoSectionTomorrow": "TOMORROW",
+  "todoSectionDeadline": "DEADLINE",
+  "todoSectionOverdue": "OVERDUE",
+  "todoSectionCompleted": "COMPLETED",
+  "todoTypesTitle": "Todo Types",
+  "todoTypeTomorrowDesc": "Tasks you plan to do tomorrow. Moves to overdue if not completed.",
+  "todoTypeDeadlineDesc": "Tasks with a specific due date. Enable daily reminders to get notified every day.",
+  "todoTypeNoDateTitle": "No Date",
+  "todoTypeNoDateDesc": "Backlog tasks without a specific timeframe.",
+  "todoAboutTypes": "About todo types",
+  "todoListEmptyTitle": "No Todos Yet",
+  "todoListEmptyDesc": "Tap + to create your first todo",
+  "todoListAddButton": "Add Todo",
+  "todoListEmptyShort": "No todos yet\nTap + to create one",
+
+  "tagsClearSelection": "Clear selection",
+
+  "chatContextTooLarge": "Context Too Large",
+  "chatUnexpectedError": "Unexpected Error",
+  "chatContextExceedsLimit": "Your selected context exceeds the model's limit.",
+  "chatSplitInfo": "We can split it into approximately {chunks} chunks and process them sequentially. The AI will receive all context before responding.",
+  "@chatSplitInfo": { "placeholders": { "chunks": { "type": "int" } } },
+  "chatChunkingNote": "Note: This may take longer and cost more.",
+  "chatContinueChunking": "Continue with Chunking",
+  "chatAiContext": "AI Context",
+  "chatAiContextPreview": "AI Context Preview",
+  "chatApiError": "API Error: {error}",
+  "@chatApiError": { "placeholders": { "error": { "type": "String" } } },
+  "chatRequestCancelled": "Request cancelled.",
+  "chatApiKeysSettings": "API Keys Settings",
+  "chatAiCoach": "AI Coach",
+  "chatUnexpectedErrorRetry": "An unexpected error occurred. Please try again.",
+  "chatErrorRetry": "An error occurred. Please try again.",
+  "chatChunkedError": "Error during chunked processing: {error}",
+  "@chatChunkedError": { "placeholders": { "error": { "type": "String" } } },
+
+  "commonCalendar": "Calendar",
+  "sessionStopGoal": "Stop Goal",
+  "messageGoToNotes": "Go to Notes",
+  "composerHint": "Write your message here...",
+  "undoRedoHint": "Enter some text...",
+  "productivityLow": "Low",
+  "productivityHigh": "High",
+
+  "checkinAnalyticsTitle": "Analytics",
+  "checkinMorning": "Morning Check-in",
+  "checkinEvening": "Evening Check-in",
+  "checkinMorningShort": "Morning",
+  "checkinEveningShort": "Evening",
+  "checkinNoData": "No data for selected period",
+
+  "insightsSaved": "Insights settings saved",
+  "insightsEnable": "Enable AI Insights",
+  "insightsInterval": "Interval (minutes)",
+  "insightsContextWindow": "Context window (days)",
+  "insightsTokenLimit": "Token limit (approx)",
+  "insightsQuietStart": "Quiet hours start",
+  "insightsQuietEnd": "Quiet hours end",
+  "insightsTestNow": "Test Insight Generation Now",
+  "insightsFullContextJson": "Full Context JSON",
+  "insightsSystemPrompt": "System Prompt",
+  "insightsUserPrompt": "User Prompt (JSON)",
+  "insightsNoneSaved": "No insights saved yet.",
+  "insightsNoItems": "No items",
+  "insightsSettingsTitle": "AI Insights Settings",
+  "commonNotSet": "Not set",
+  "insightsGenerating": "🧪 Generating insight... check logs and notifications",
+  "insightsTestCompleted": "✅ Test completed! Check logs for details",
+  "insightsCharCount": "{count} characters",
+  "@insightsCharCount": { "placeholders": { "count": { "type": "int" } } },
+  "insightsNoTopic": "(no topic)",
+  "insightsRequiresInternet": "Requires internet connection and OpenAI API key to generate insights",
+
+  "onbSkip": "Skip",
+  "onbNext": "Next",
+  "onbGetStarted": "Get Started",
+  "ob1Title": "Time is the only\nnon-renewable resource",
+  "ob1Subtitle": "Stop spending it.\nStart investing it.",
+  "ob2Title": "Your Data. Your Device.",
+  "ob2Subtitle": "Chrono works 100% offline.\nAll your data stays on your phone —\nprivate and always available.",
+  "ob2Footnote": "AI features may send your data to third-party services.",
+  "ob3Title": "Your External Brain",
+  "ob3Subtitle": "Writing isn't just recording — it's thinking.\nMaking notes has never been this easy.",
+  "ob4Title": "Unbreakable Discipline",
+  "ob4Subtitle": "Routine is what makes us better every day.\nDaily reset. Persistent notifications.\nNo room for procrastination.",
+  "ob5Title": "Invest Your Time",
+  "ob5Subtitle": "What gets measured, gets managed.\nDaily goals for deep work — see where your time goes\nand what still needs your attention.",
+  "ob6Title": "Your Notes Are\na Knowledge Base",
+  "ob6Subtitle": "Chat with AI for free — bring your own API key.\nFeed your notes as context to get insights\nbuilt on your own data.",
+  "ob6Footnote": "Requires your own API key.",
+  "ob7Title": "Your Thinking Space",
+  "ob7Subtitle": "Great ideas need room to develop.\nCollect materials, shape thoughts, analyze —\neach workspace is a dedicated lab for your ideas.",
+  "ob8Title": "Measure Your Growth",
+  "ob8Subtitle": "What you track, you improve.\nDaily score from your routines and goals.\nSpot trends, find patterns, keep rising.",
+
+  "paywallUnlock": "Unlock Your\nFull Potential",
+  "paywallOneTime": "One-time purchase",
+  "paywallSave": "Save {percent}%",
+  "@paywallSave": { "placeholders": { "percent": { "type": "int" } } },
+  "paywallStartGrowing": "Start Growing",
+  "paywallSeePlans": "See Plans",
+  "paywallRestore": "Restore Purchases",
+  "paywallContinueFree": "Continue Free",
+  "planLifetime": "Lifetime",
+  "planGeneric": "Plan",
+  "planYears": "{count, plural, one{1 Year} other{{count} Years}}",
+  "@planYears": { "placeholders": { "count": { "type": "int" } } },
+  "planMonths": "{count, plural, one{1 Month} other{{count} Months}}",
+  "@planMonths": { "placeholders": { "count": { "type": "int" } } },
+  "planWeeks": "{count, plural, one{1 Week} other{{count} Weeks}}",
+  "@planWeeks": { "placeholders": { "count": { "type": "int" } } },
+
+  "pfRoutineTitle": "Routine Manager",
+  "pfRoutineSub": "Build unbreakable daily habits",
+  "pfGoalTitle": "Goal Manager",
+  "pfGoalSub": "Track deep work sessions with timers",
+  "pfTodoTitle": "Todo Manager",
+  "pfTodoSub": "Deadlines with daily reminders",
+  "pfWorkspacesTitle": "Workspaces",
+  "pfWorkspacesSub": "Organize ideas into focused labs",
+  "pfProductivityTitle": "Productivity Index",
+  "pfProductivitySub": "Daily score from your progress",
+  "pfAiTitle": "AI Context",
+  "pfAiSub": "Feed your notes to AI for deeper insights",
+  "pfAiNote": "Requires your own API key",
+  "paywallSubscriptionTerms": "Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. Manage or cancel subscriptions in your App Store account settings."
+}

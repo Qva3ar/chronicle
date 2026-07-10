@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/homepage.dart';
 import 'package:chrono/models/chat-context-message.dart';
 import 'package:chrono/models/enums.dart';
@@ -148,7 +149,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                               builder: (_) =>
                                   HomePage(recordIds: widget.recordIds)));
                     },
-                    child: Text("Go to Notes"),
+                    child: Text(AppLocalizations.of(context).messageGoToNotes),
                   )
                 : Container()
           ],

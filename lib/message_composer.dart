@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 
 class MessageComposer extends StatefulWidget {
   const MessageComposer({
@@ -77,7 +78,7 @@ class _MessageComposerState extends State<MessageComposer> {
                     controller: _messageController,
                     onSubmitted: widget.onSubmitted,
                     style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -91,7 +92,7 @@ class _MessageComposerState extends State<MessageComposer> {
                         borderRadius: BorderRadius.all(Radius.circular(8)),
                         borderSide: BorderSide(color: Colors.transparent, width: 0),
                       ),
-                      hintText: 'Write your message here...',
+                      hintText: AppLocalizations.of(context).composerHint,
                       border: InputBorder.none,
                       hintStyle: TextStyle(
                         color: Color.fromARGB(255, 108, 108, 108),

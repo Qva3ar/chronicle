@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/services/productivity_service.dart';
@@ -108,13 +109,14 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   }
 
   String _rangeLabel(_DateRange range) {
+    final l = AppLocalizations.of(context);
     switch (range) {
       case _DateRange.week:
-        return 'Week';
+        return l.productivityWeek;
       case _DateRange.month:
-        return 'Month';
+        return l.productivityMonth;
       case _DateRange.all:
-        return 'All time';
+        return l.productivityAllTime;
     }
   }
 
@@ -285,12 +287,12 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   Widget _buildScoreCircle() {
     if (_currentScore == null || _currentScore!.totalWeight == 0) {
       return _card(
-        child: const Padding(
-          padding: EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Center(
             child: Text(
-              'No active routines or goals today',
-              style: TextStyle(color: textMuted),
+              AppLocalizations.of(context).productivityNoActiveToday,
+              style: const TextStyle(color: textMuted),
             ),
           ),
         ),
@@ -370,15 +372,15 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$current day${current != 1 ? 's' : ''}',
+                          AppLocalizations.of(context).productivityDayCount(current),
                           style: TextStyle(
                             color: current > 0 ? warningColor : textMuted,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const Text('current streak',
-                            style: TextStyle(color: textMuted, fontSize: 11)),
+                        Text(AppLocalizations.of(context).productivityCurrentStreak,
+                            style: const TextStyle(color: textMuted, fontSize: 11)),
                       ],
                     ),
                   ),
@@ -402,15 +404,15 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$best day${best != 1 ? 's' : ''}',
+                          AppLocalizations.of(context).productivityDayCount(best),
                           style: const TextStyle(
                             color: MyColors.orangeDivider,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const Text('best streak',
-                            style: TextStyle(color: textMuted, fontSize: 11)),
+                        Text(AppLocalizations.of(context).productivityBestStreak,
+                            style: const TextStyle(color: textMuted, fontSize: 11)),
                       ],
                     ),
                   ),
@@ -437,14 +439,14 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     return Column(
       children: [
         _BreakdownRow(
-          title: 'Routines completed',
+          title: AppLocalizations.of(context).productivityRoutinesCompleted,
           value: '${score.routinesDone} / ${score.routinesTotal}',
           progress: routineProgress,
           color: const Color(0xFF66BB6A),
         ),
         const SizedBox(height: 8),
         _BreakdownRow(
-          title: 'Goal progress',
+          title: AppLocalizations.of(context).productivityGoalProgress,
           value: '${(score.goalsProgress * 100).round()}%',
           progress: score.goalsProgress.clamp(0.0, 1.0),
           color: const Color(0xFF42A5F5),
@@ -584,12 +586,12 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   Widget _buildBarChart() {
     final bars = _chartBars();
     if (bars.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 150,
         child: Center(
           child: Text(
-            'No data for this period yet',
-            style: TextStyle(color: textMuted),
+            AppLocalizations.of(context).productivityNoData,
+            style: const TextStyle(color: textMuted),
           ),
         ),
       );
@@ -721,7 +723,7 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
                     );
                   }
                   final detail = snap.data ?? score;
-                  return productivityDayBreakdown(detail);
+                  return productivityDayBreakdown(context, detail);
                 },
               ),
             ],
@@ -1071,7 +1073,7 @@ class _ProductivityHeatmap extends StatelessWidget {
               children: weekColumns,
             ),
             const SizedBox(height: 12),
-            _buildLegend(),
+            _buildLegend(context),
           ],
         );
       },
@@ -1113,7 +1115,7 @@ class _ProductivityHeatmap extends StatelessWidget {
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(BuildContext context) {
     Widget swatch(Color c) => Container(
           width: 10,
           height: 10,
@@ -1125,7 +1127,7 @@ class _ProductivityHeatmap extends StatelessWidget {
 
     return Row(
       children: [
-        const Text('Low', style: TextStyle(color: textMuted, fontSize: 10)),
+        Text(AppLocalizations.of(context).productivityLow, style: const TextStyle(color: textMuted, fontSize: 10)),
         const SizedBox(width: 6),
         swatch(const Color(0xFFEF5350)),
         const SizedBox(width: 3),
@@ -1133,7 +1135,7 @@ class _ProductivityHeatmap extends StatelessWidget {
         const SizedBox(width: 3),
         swatch(const Color(0xFF66BB6A)),
         const SizedBox(width: 6),
-        const Text('High', style: TextStyle(color: textMuted, fontSize: 10)),
+        Text(AppLocalizations.of(context).productivityHigh, style: const TextStyle(color: textMuted, fontSize: 10)),
       ],
     );
   }

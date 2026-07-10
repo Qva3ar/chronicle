@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/colors.dart';
@@ -107,7 +108,7 @@ class _InsightBannerState extends State<InsightBanner> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context).commonClose),
           ),
         ],
       ),

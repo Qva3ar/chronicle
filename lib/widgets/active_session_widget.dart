@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import '../services/timer_service.dart';
 
 class ActiveSessionWidget extends StatelessWidget {
@@ -257,7 +258,7 @@ class ActiveSessionWidget extends StatelessWidget {
                   onPressed:
                       onStop ?? () => TimerService.instance.stopSession(),
                   icon: const Icon(Icons.stop, size: 18),
-                  label: const Text('Stop Goal'),
+                  label: Text(AppLocalizations.of(context).sessionStopGoal),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,

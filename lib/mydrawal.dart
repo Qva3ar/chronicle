@@ -1,4 +1,5 @@
 import 'package:chrono/settings_page.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:chrono/instuction_page.dart';
 import 'package:chrono/shared/api-key-popup.dart';
@@ -87,7 +88,9 @@ class MyDrawal extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isPremium ? 'Chrono Premium' : 'Попробовать Premium',
+                                  isPremium
+                                      ? AppLocalizations.of(context).drawerPremium
+                                      : AppLocalizations.of(context).drawerPremiumTry,
                                   style: const TextStyle(
                                     color: MyColors.orangeDivider,
                                     fontSize: 14,
@@ -95,8 +98,10 @@ class MyDrawal extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  isPremium ? 'Активна' : '3 дня бесплатно',
-                                  style: TextStyle(
+                                  isPremium
+                                      ? AppLocalizations.of(context).drawerPremiumActive
+                                      : AppLocalizations.of(context).drawerPremiumTrial,
+                                  style: const TextStyle(
                                     color: textMuted,
                                     fontSize: 12,
                                   ),
@@ -117,8 +122,8 @@ class MyDrawal extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
                 child: Text(
-                  'AI & PROMPTS',
-                  style: TextStyle(
+                  AppLocalizations.of(context).drawerSectionAiPrompts,
+                  style: const TextStyle(
                     color: textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -131,7 +136,7 @@ class MyDrawal extends StatelessWidget {
                   ChronoSettingsRow(
                     icon: Icons.description_outlined,
                     iconColor: infoColor,
-                    label: 'Prompts',
+                    label: AppLocalizations.of(context).drawerPrompts,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => InstructionsPage()),
@@ -140,7 +145,7 @@ class MyDrawal extends StatelessWidget {
                   ChronoSettingsRow(
                     icon: Icons.smart_toy_outlined,
                     iconColor: successColor,
-                    label: 'GPT Settings',
+                    label: AppLocalizations.of(context).drawerGptSettings,
                     onTap: () => _showApiKeyPopup(context),
                   ),
                 ],
@@ -152,8 +157,8 @@ class MyDrawal extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text(
-                  'GENERAL',
-                  style: TextStyle(
+                  AppLocalizations.of(context).drawerSectionGeneral,
+                  style: const TextStyle(
                     color: textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -166,7 +171,7 @@ class MyDrawal extends StatelessWidget {
                   ChronoSettingsRow(
                     icon: Icons.settings_outlined,
                     iconColor: textSecondary,
-                    label: 'Settings',
+                    label: AppLocalizations.of(context).commonSettings,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => SettingsPage()),
@@ -175,7 +180,7 @@ class MyDrawal extends StatelessWidget {
                   ChronoSettingsRow(
                     icon: Icons.slideshow_outlined,
                     iconColor: infoColor,
-                    label: 'Show Intro',
+                    label: AppLocalizations.of(context).drawerShowIntro,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -184,13 +189,13 @@ class MyDrawal extends StatelessWidget {
                   ChronoSettingsRow(
                     icon: Icons.policy_outlined,
                     iconColor: textSecondary,
-                    label: 'Privacy Policy',
+                    label: AppLocalizations.of(context).drawerPrivacyPolicy,
                     onTap: () => _launchUrl(policyUrl),
                   ),
                   ChronoSettingsRow(
                     icon: Icons.gavel_outlined,
                     iconColor: textSecondary,
-                    label: 'Terms of Use (EULA)',
+                    label: AppLocalizations.of(context).drawerTermsOfUse,
                     onTap: () => _launchUrl(_eulaUrl),
                   ),
                 ],

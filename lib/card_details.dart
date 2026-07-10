@@ -9,6 +9,7 @@ import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/messages.service.dart';
 import 'package:chrono/shared/api-key-popup.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/services/gpt.service.dart';
 import 'package:flutter_multi_select_items/flutter_multi_select_items.dart';
@@ -203,7 +204,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
     recordService.handleLock(_isLocked);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isLocked ? 'Note locked' : 'Note unlocked'),
+        content: Text(_isLocked
+            ? AppLocalizations.of(context).noteLocked
+            : AppLocalizations.of(context).noteUnlocked),
         duration: Duration(seconds: 1),
       ),
     );
@@ -331,7 +334,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                         children: [
                           // Header
                           ChronoSheetHeader(
-                            title: 'Tags',
+                            title: AppLocalizations.of(context).navTags,
                             titleIcon: Icons.grid_view_rounded,
                             itemCount: allRecordTags.length,
                             actions: [
@@ -341,7 +344,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                                   Navigator.pop(context);
                                   navigateToTagForm();
                                 },
-                                tooltip: 'Create new tag',
+                                tooltip: AppLocalizations.of(context).createNewTagTooltip,
                               ),
                             ],
                           ),
@@ -377,7 +380,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                                           ? Padding(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                               child: Text(
-                                                'No tags found',
+                                                AppLocalizations.of(context).noTagsFound,
                                                 style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 14),
                                               ),
                                             )
@@ -400,7 +403,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                               autofocus: false,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
-                                hintText: 'Search tags...',
+                                hintText: AppLocalizations.of(context).searchTagsHint,
                                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                                 prefixIcon: const Icon(Icons.search, color: Colors.white),
                                 suffixIcon: tagSearchController.text.isNotEmpty
@@ -568,7 +571,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
     final recordId = recordService.getCurrentRecordId();
     if (recordId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Save the note first')),
+        SnackBar(content: Text(AppLocalizations.of(context).saveNoteFirst)),
       );
       return;
     }
@@ -619,7 +622,7 @@ class _CardDetailPageState extends State<CardDetailPage> {
                   borderSide: BorderSide(color: Colors.transparent, width: 0),
                 ),
                 helperStyle: const TextStyle(color: Colors.white),
-                hintText: "Write your note",
+                hintText: AppLocalizations.of(context).writeYourNote,
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 counterStyle: TextStyle(color: MyColors.forthyColor)),
             controller: _descriptionController,
@@ -688,12 +691,12 @@ class _CardDetailPageState extends State<CardDetailPage> {
                   Icons.category,
                   size: 24.0,
                 ),
-                label: Text('Tags'),
+                label: Text(AppLocalizations.of(context).navTags),
               ),
               ElevatedButton.icon(
                 onPressed: _showAddToWorkspaceSheet,
                 icon: Icon(Icons.workspaces_outlined, size: 24.0),
-                label: Text('Space'),
+                label: Text(AppLocalizations.of(context).cardSpaceButton),
               ),
               ElevatedButton.icon(
                 icon: SvgPicture.asset(
@@ -791,16 +794,17 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
         final c = TextEditingController(text: 'Workspace');
         return AlertDialog(
           backgroundColor: MyColors.primaryColor,
-          title: const Text('New workspace', style: TextStyle(color: Colors.white)),
+          title: Text(l.newWorkspaceTitle, style: const TextStyle(color: Colors.white)),
           content: TextField(
             controller: c,
             autofocus: true,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Name',
+              hintText: l.workspaceNameHint,
               hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
               filled: true,
               fillColor: MyColors.secondaryColor,
@@ -813,13 +817,12 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: TextStyle(color: Colors.white.withValues(alpha: 0.5)) is Widget
-                  ? const Text('Cancel')
-                  : Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+              child: Text(l.commonCancel,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('Create & Add', style: TextStyle(color: MyColors.fivyColor)),
+              child: Text(l.createAndAdd, style: const TextStyle(color: MyColors.fivyColor)),
             ),
           ],
         );
@@ -832,7 +835,7 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added to "$name"'),
+          content: Text(AppLocalizations.of(context).addedToWorkspace(name)),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -847,7 +850,7 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added to "${w.name}"'),
+          content: Text(AppLocalizations.of(context).addedToWorkspace(w.name)),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -881,9 +884,9 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
               children: [
                 const Icon(Icons.workspaces_outlined, color: Colors.white70, size: 22),
                 const SizedBox(width: 10),
-                const Text(
-                  'Add to Workspace',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).addToWorkspaceTitle,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -893,7 +896,7 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
                 TextButton.icon(
                   onPressed: _createAndAdd,
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('New'),
+                  label: Text(AppLocalizations.of(context).commonNew),
                   style: TextButton.styleFrom(
                     foregroundColor: MyColors.fivyColor,
                   ),
@@ -910,12 +913,12 @@ class _AddToWorkspaceSheetState extends State<_AddToWorkspaceSheet> {
                   Icon(Icons.workspaces_outlined, size: 40, color: Colors.white.withValues(alpha: 0.2)),
                   const SizedBox(height: 12),
                   Text(
-                    'No workspaces yet',
+                    AppLocalizations.of(context).noWorkspacesYet,
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 15),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tap "New" to create one',
+                    AppLocalizations.of(context).tapNewToCreate,
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
                   ),
                 ],

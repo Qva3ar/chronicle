@@ -1,6 +1,10 @@
 import 'dart:developer';
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:chrono/l10n/app_localizations.dart';
+import 'package:chrono/services/locale_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/onboarding/onboarding_screen.dart';
@@ -37,8 +41,18 @@ void main() async {
     // Register widget callback (sync, must be done before any widget tap)
     HomeWidget.registerInteractivityCallback(unifiedWidgetCallback);
 
+    // Load the persisted language choice before the first frame so the app
+    // starts in the correct locale (null = follow system locale).
+    final localeProvider = LocaleProvider();
+    await localeProvider.load();
+
     // Show app immediately - no splash screen delay
-    runApp(MyApp(showOnboarding: !onboardingDone));
+    runApp(
+      ChangeNotifierProvider.value(
+        value: localeProvider,
+        child: MyApp(showOnboarding: !onboardingDone),
+      ),
+    );
 
     // Deferred init: runs in background after first frame
     // Heavy services (notifications, WorkManager, etc.) don't block app launch
@@ -120,10 +134,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = context.watch<LocaleProvider>();
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Goal Manager',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
+      locale: localeProvider.locale,
+      supportedLocales: LocaleProvider.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         fontFamily: 'Montserrat',
         brightness: Brightness.dark,

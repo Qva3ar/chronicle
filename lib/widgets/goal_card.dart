@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import '../models/goal.model.dart';
 import '../services/timer_service.dart';
 import '../colors.dart';
@@ -64,8 +65,8 @@ class GoalCard extends StatelessWidget {
               // Prevent deletion of active goals
               if (isActiveGoal) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cannot delete an active goal. Stop the session first.'),
+                  SnackBar(
+                    content: Text(AppLocalizations.of(context).goalCannotDeleteActive),
                     backgroundColor: Colors.orange,
                   ),
                 );
@@ -91,15 +92,15 @@ class GoalCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(0),
             ),
             alignment: Alignment.centerLeft,
-            child: const Padding(
-              padding: EdgeInsets.only(left: 16),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
               child: Row(
                 children: [
-                  Icon(Icons.edit, color: Colors.white, size: 24),
-                  SizedBox(width: 8),
+                  const Icon(Icons.edit, color: Colors.white, size: 24),
+                  const SizedBox(width: 8),
                   Text(
-                    'Edit',
-                    style: TextStyle(
+                    AppLocalizations.of(context).commonEdit,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -116,21 +117,21 @@ class GoalCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(0),
             ),
             alignment: Alignment.centerRight,
-            child: const Padding(
-              padding: EdgeInsets.only(right: 16),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Delete',
-                    style: TextStyle(
+                    AppLocalizations.of(context).commonDelete,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Icon(Icons.delete, color: Colors.white, size: 24),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.delete, color: Colors.white, size: 24),
                 ],
               ),
             ),
@@ -252,8 +253,8 @@ class GoalCard extends StatelessWidget {
                               if (isActiveGoal) ...[
                                 Text(
                                   isRunning
-                                      ? 'Running: ${timerService.formatTime(timerService.totalTimeElapsed)}'
-                                      : 'Time spent: ${goal.formattedTimeSpent}',
+                                      ? AppLocalizations.of(context).goalRunning(timerService.formatTime(timerService.totalTimeElapsed))
+                                      : AppLocalizations.of(context).goalTimeSpent(goal.formattedTimeSpent),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
@@ -263,7 +264,7 @@ class GoalCard extends StatelessWidget {
                                 ),
                               ] else ...[
                                 Text(
-                                  'Time spent: ${goal.formattedTimeSpent}',
+                                  AppLocalizations.of(context).goalTimeSpent(goal.formattedTimeSpent),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
@@ -325,7 +326,7 @@ class GoalCard extends StatelessWidget {
                         if (onCalendar != null || onToggleArchived != null) ...[
                           const SizedBox(width: 4),
                           PopupMenuButton<_GoalCardAction>(
-                            tooltip: 'Actions',
+                            tooltip: AppLocalizations.of(context).commonActions,
                             color: cardColor3,
                             icon: const Icon(
                               Icons.more_vert,
@@ -334,13 +335,13 @@ class GoalCard extends StatelessWidget {
                             ),
                             itemBuilder: (context) => [
                               if (onCalendar != null)
-                                const PopupMenuItem<_GoalCardAction>(
+                                PopupMenuItem<_GoalCardAction>(
                                   value: _GoalCardAction.calendar,
                                   child: Row(
                                     children: [
-                                      Icon(Icons.calendar_today, size: 18, color: textSecondary),
-                                      SizedBox(width: 10),
-                                      Text('Calendar', style: TextStyle(color: textPrimary)),
+                                      const Icon(Icons.calendar_today, size: 18, color: textSecondary),
+                                      const SizedBox(width: 10),
+                                      Text(AppLocalizations.of(context).commonCalendar, style: const TextStyle(color: textPrimary)),
                                     ],
                                   ),
                                 ),
@@ -356,7 +357,9 @@ class GoalCard extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
-                                        goal.isArchived ? 'Uncomplete' : 'Complete',
+                                        goal.isArchived
+                                            ? AppLocalizations.of(context).goalUncomplete
+                                            : AppLocalizations.of(context).goalComplete,
                                         style: const TextStyle(color: textPrimary),
                                       ),
                                     ],
@@ -391,21 +394,21 @@ class GoalCard extends StatelessWidget {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Delete Goal'),
+            title: Text(AppLocalizations.of(context).goalDeleteTitle),
             content: Text(
-              'Are you sure you want to delete "${goal.title}"?\n\nThis action cannot be undone.',
+              AppLocalizations.of(context).goalDeleteMessage(goal.title),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context).commonCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red,
                 ),
-                child: const Text('Delete'),
+                child: Text(AppLocalizations.of(context).commonDelete),
               ),
             ],
           ),

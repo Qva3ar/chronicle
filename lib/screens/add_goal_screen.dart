@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import '../models/goal.model.dart';
 import '../db_manager.dart';
 import '../services/productivity_service.dart';
@@ -84,7 +85,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         title: Text(
-          _isEditing ? 'Edit Goal' : 'New Goal',
+          _isEditing
+              ? AppLocalizations.of(context).goalEditTitle
+              : AppLocalizations.of(context).goalNewTitle,
           style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         ),
         iconTheme: const IconThemeData(color: textPrimary),
@@ -94,7 +97,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           TextButton(
             onPressed: _saveGoal,
             child: Text(
-              _isEditing ? 'Save' : 'Create',
+              _isEditing
+                  ? AppLocalizations.of(context).commonSave
+                  : AppLocalizations.of(context).commonCreate,
               style: const TextStyle(
                 color: MyColors.orangeDivider,
                 fontWeight: FontWeight.w600,
@@ -113,10 +118,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
             TextFormField(
               controller: _titleController,
               style: const TextStyle(color: textPrimary, fontSize: 16),
-              decoration: _inputDecoration('Goal Title', helperText: ' '),
+              decoration: _inputDecoration(AppLocalizations.of(context).goalTitleLabel, helperText: ' '),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a goal title';
+                  return AppLocalizations.of(context).goalTitleRequired;
                 }
                 return null;
               },
@@ -127,7 +132,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
 
             // ── Time settings ──
             ChronoSettingsGroup(
-              title: 'Time Target',
+              title: AppLocalizations.of(context).goalTimeTarget,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
@@ -137,12 +142,12 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         child: TextFormField(
                           controller: _hoursController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Hours', helperText: ' '),
+                          decoration: _inputDecoration(AppLocalizations.of(context).goalHours, helperText: ' '),
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.isEmpty) return null;
                             final hours = int.tryParse(value);
-                            if (hours == null || hours < 0) return 'Invalid';
+                            if (hours == null || hours < 0) return AppLocalizations.of(context).validatorInvalid;
                             return null;
                           },
                         ),
@@ -152,19 +157,19 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         child: TextFormField(
                           controller: _minutesController,
                           style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration('Minutes', helperText: ' '),
+                          decoration: _inputDecoration(AppLocalizations.of(context).goalMinutes, helperText: ' '),
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             final hours = int.tryParse(_hoursController.text);
                             final hasHours = hours != null && hours > 0;
-                            
+
                             if (!hasHours && (value == null || value.isEmpty)) {
-                              return 'Required';
+                              return AppLocalizations.of(context).validatorRequired;
                             }
-                            
+
                             if (value != null && value.isNotEmpty) {
                               final minutes = int.tryParse(value);
-                              if (minutes == null || minutes < 0 || minutes >= 60) return '0-59';
+                              if (minutes == null || minutes < 0 || minutes >= 60) return AppLocalizations.of(context).goalMinutesRange;
                             }
                             
                             return null;
@@ -179,12 +184,12 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                   child: TextFormField(
                     controller: _sessionMinutesController,
                     style: const TextStyle(color: textPrimary),
-                    decoration: _inputDecoration('Session Duration (minutes)', helperText: 'How long each work session should be'),
+                    decoration: _inputDecoration(AppLocalizations.of(context).goalSessionDuration, helperText: AppLocalizations.of(context).goalSessionDurationHelper),
                     keyboardType: TextInputType.number,
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Required';
+                      if (value == null || value.isEmpty) return AppLocalizations.of(context).validatorRequired;
                       final sessionMinutes = int.tryParse(value);
-                      if (sessionMinutes == null || sessionMinutes <= 0) return 'Invalid';
+                      if (sessionMinutes == null || sessionMinutes <= 0) return AppLocalizations.of(context).validatorInvalid;
                       return null;
                     },
                   ),
@@ -196,7 +201,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
 
             // ── Priority ──
             ChronoSettingsGroup(
-              title: 'Importance',
+              title: AppLocalizations.of(context).goalImportance,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 20),
@@ -225,7 +230,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                 elevation: 0,
               ),
               child: Text(
-                _isEditing ? 'Update Goal' : 'Create Goal',
+                _isEditing
+                    ? AppLocalizations.of(context).goalUpdate
+                    : AppLocalizations.of(context).goalCreate,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
@@ -330,8 +337,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     // Check that total time is greater than 0
     if (hours == 0 && minutes == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please specify at least some hours or minutes'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).goalSpecifyTime),
           backgroundColor: MyColors.remove,
         ),
       );
@@ -371,7 +378,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving goal: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).goalErrorSaving(e.toString()))),
         );
       }
     }

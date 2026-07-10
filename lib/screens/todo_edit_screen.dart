@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/todo.model.dart';
 import 'package:chrono/services/todo_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
@@ -137,7 +138,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     // Validate deadline date for deadline type
     if (_selectedType == TodoType.deadline && _deadlineDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a deadline date')),
+        SnackBar(content: Text(AppLocalizations.of(context).todoSelectDeadline)),
       );
       return;
     }
@@ -206,7 +207,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving todo: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).todoErrorSaving(e.toString()))),
         );
       }
     }
@@ -243,7 +244,9 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         title: Text(
-          _isEditing ? 'Edit Todo' : 'New Todo',
+          _isEditing
+              ? AppLocalizations.of(context).todoEditTitle
+              : AppLocalizations.of(context).todoNewTitle,
           style: const TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
         ),
         iconTheme: const IconThemeData(color: textPrimary),
@@ -251,7 +254,9 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
           TextButton(
             onPressed: _saveTodo,
             child: Text(
-              _isEditing ? 'Save' : 'Create',
+              _isEditing
+                  ? AppLocalizations.of(context).commonSave
+                  : AppLocalizations.of(context).commonCreate,
               style: const TextStyle(
                 color: MyColors.orangeDivider,
                 fontWeight: FontWeight.w600,
@@ -270,10 +275,10 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
             TextFormField(
               controller: _titleController,
               style: const TextStyle(color: textPrimary, fontSize: 16),
-              decoration: _inputDecoration('Title'),
+              decoration: _inputDecoration(AppLocalizations.of(context).todoTitleLabel),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a title';
+                  return AppLocalizations.of(context).todoTitleRequired;
                 }
                 return null;
               },
@@ -284,7 +289,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
 
             // Type selector
             ChronoSettingsGroup(
-              title: 'Type',
+              title: AppLocalizations.of(context).todoType,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -292,7 +297,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                     children: [
                       Expanded(
                         child: _typeChip(
-                          label: 'Tomorrow',
+                          label: AppLocalizations.of(context).todoTypeTomorrow,
                           icon: Icons.wb_sunny_outlined,
                           type: TodoType.tomorrow,
                         ),
@@ -300,7 +305,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _typeChip(
-                          label: 'Deadline',
+                          label: AppLocalizations.of(context).todoTypeDeadline,
                           icon: Icons.flag_outlined,
                           type: TodoType.deadline,
                         ),
@@ -308,7 +313,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _typeChip(
-                          label: 'No date',
+                          label: AppLocalizations.of(context).todoNoDate,
                           icon: Icons.inbox_outlined,
                           type: TodoType.noDate,
                         ),
@@ -323,7 +328,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
             if (_selectedType == TodoType.deadline) ...[
               const SizedBox(height: 16),
               ChronoSettingsGroup(
-                title: 'Deadline Date',
+                title: AppLocalizations.of(context).todoDeadlineDate,
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -338,7 +343,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                         Expanded(
                           child: Text(
                             _deadlineDate == null
-                                ? 'Select a deadline date'
+                                ? AppLocalizations.of(context).todoSelectDeadlineDate
                                 : _formatDate(_deadlineDate!),
                             style: TextStyle(
                               color: _deadlineDate != null ? textPrimary : textHint,
@@ -349,7 +354,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                         TextButton.icon(
                           onPressed: _pickDeadlineDate,
                           icon: const Icon(Icons.edit_calendar, size: 16),
-                          label: const Text('Pick date'),
+                          label: Text(AppLocalizations.of(context).todoPickDate),
                           style: TextButton.styleFrom(
                             foregroundColor: MyColors.orangeDivider,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -370,7 +375,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
             if (_selectedType != TodoType.noDate) ...[
               const SizedBox(height: 16),
               ChronoSettingsGroup(
-                title: 'Notification',
+                title: AppLocalizations.of(context).todoNotification,
                 children: [
                   // Enable toggle
                   Padding(
@@ -386,8 +391,8 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                         Expanded(
                           child: Text(
                             _selectedType == TodoType.tomorrow
-                                ? 'Remind me tomorrow'
-                                : 'Remind me every day',
+                                ? AppLocalizations.of(context).todoRemindTomorrow
+                                : AppLocalizations.of(context).todoRemindDaily,
                             style: const TextStyle(color: textPrimary, fontSize: 14),
                           ),
                         ),
@@ -414,7 +419,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                           const Icon(Icons.access_time, size: 18, color: textMuted),
                           const SizedBox(width: 10),
                           Text(
-                            'At ${_formatTimeOfDay(_reminderTime)}',
+                            AppLocalizations.of(context).todoAtTime(_formatTimeOfDay(_reminderTime)),
                             style: const TextStyle(color: textSecondary, fontSize: 14),
                           ),
                           const Spacer(),
@@ -429,7 +434,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                                     color: MyColors.orangeDivider.withValues(alpha: 0.3)),
                               ),
                             ),
-                            child: const Text('Change'),
+                            child: Text(AppLocalizations.of(context).commonChange),
                           ),
                         ],
                       ),
@@ -447,10 +452,10 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                               color: _repeatEnabled ? MyColors.orangeDivider : textMuted,
                             ),
                             const SizedBox(width: 10),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'Repeat notifications',
-                                style: TextStyle(color: textPrimary, fontSize: 14),
+                                AppLocalizations.of(context).todoRepeatNotifications,
+                                style: const TextStyle(color: textPrimary, fontSize: 14),
                               ),
                             ),
                             Switch(
@@ -472,7 +477,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                           padding: const EdgeInsets.fromLTRB(42, 0, 14, 6),
                           child: Row(
                             children: [
-                              const Text('Period: ', style: TextStyle(color: textSecondary, fontSize: 13)),
+                              Text(AppLocalizations.of(context).todoPeriodLabel, style: const TextStyle(color: textSecondary, fontSize: 13)),
                               _minuteChip(30, _periodMinutes, (v) => setState(() => _periodMinutes = v)),
                               const SizedBox(width: 6),
                               _minuteChip(60, _periodMinutes, (v) => setState(() => _periodMinutes = v)),
@@ -487,7 +492,7 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                           padding: const EdgeInsets.fromLTRB(42, 0, 14, 6),
                           child: Row(
                             children: [
-                              const Text('Every: ', style: TextStyle(color: textSecondary, fontSize: 13)),
+                              Text(AppLocalizations.of(context).todoEveryLabel, style: const TextStyle(color: textSecondary, fontSize: 13)),
                               _minuteChip(10, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
                               const SizedBox(width: 6),
                               _minuteChip(15, _intervalMinutes, (v) => setState(() => _intervalMinutes = v)),
@@ -503,8 +508,11 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(42, 2, 14, 12),
                           child: Text(
-                            '$_previewNotificationCount notification${_previewNotificationCount > 1 ? 's' : ''}: '
-                            'starting ${_formatMinutes(_periodMinutes)} before, every ${_formatMinutes(_intervalMinutes)}',
+                            AppLocalizations.of(context).todoNotificationPreview(
+                              _previewNotificationCount,
+                              _formatMinutes(_periodMinutes),
+                              _formatMinutes(_intervalMinutes),
+                            ),
                             style: const TextStyle(color: textMuted, fontSize: 11),
                           ),
                         ),
@@ -517,8 +525,8 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                       padding: const EdgeInsets.fromLTRB(42, 0, 14, 12),
                       child: Text(
                         _selectedType == TodoType.tomorrow
-                            ? 'Get a notification on the day'
-                            : 'Get a notification every day until the deadline',
+                            ? AppLocalizations.of(context).todoNotifyOnDay
+                            : AppLocalizations.of(context).todoNotifyDaily,
                         style: const TextStyle(color: textMuted, fontSize: 12),
                       ),
                     ),
@@ -548,7 +556,9 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
                 elevation: 0,
               ),
               child: Text(
-                _isEditing ? 'Update Todo' : 'Create Todo',
+                _isEditing
+                    ? AppLocalizations.of(context).todoUpdate
+                    : AppLocalizations.of(context).todoCreate,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),

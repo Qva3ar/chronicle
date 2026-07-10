@@ -1,0 +1,714 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Менеджер целей",
+  "language": "Язык",
+  "languageSystem": "Системный",
+  "languageEnglish": "English",
+  "languageRussian": "Русский",
+
+  "commonOk": "ОК",
+  "commonCancel": "Отмена",
+  "commonSave": "Сохранить",
+  "commonDelete": "Удалить",
+  "commonEdit": "Изменить",
+  "commonClose": "Закрыть",
+  "commonExit": "Выход",
+  "commonDone": "Готово",
+  "commonYes": "Да",
+  "commonNo": "Нет",
+  "commonAdd": "Добавить",
+  "commonError": "Ошибка",
+  "commonSettings": "Настройки",
+  "commonReset": "Сбросить",
+
+  "errorWithMessage": "Ошибка: {message}",
+  "@errorWithMessage": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+
+  "settingsTitle": "Настройки",
+  "settingsMainIntentionUpdated": "Главная цель успешно обновлена",
+  "settingsBackupRestore": "Резервное копирование",
+  "settingsExportBackup": "Экспорт резервной копии",
+  "settingsExportBackupSubtitle": "Сохранить данные в файл JSON",
+  "settingsImportBackup": "Импорт резервной копии",
+  "settingsImportBackupSubtitle": "Восстановить из файла резервной копии",
+  "settingsTroubleshooting": "Устранение неполадок",
+  "settingsResetRoutines": "Сбросить рутины",
+  "settingsResetRoutinesSubtitle": "Отметить все как невыполненные, перепланировать уведомления",
+  "settingsResetRoutinesMessage": "Все рутины будут отмечены как невыполненные, а уведомления перепланированы.\n\nДанные о сериях сохранятся.",
+  "settingsRoutinesResetSuccess": "Рутины успешно сброшены",
+  "settingsResetGoals": "Сбросить цели",
+  "settingsResetGoalsSubtitle": "Сбросить статус выполнения и затраченное время",
+  "settingsResetGoalsMessage": "Это сбросит статус выполнения всех целей, затраченное время и остановит активные сессии.",
+  "settingsGoalsResetSuccess": "Цели успешно сброшены",
+  "settingsDeleteAllGoals": "Удалить все цели",
+  "settingsDeleteAllGoalsMessage": "Вы уверены? Все цели будут удалены безвозвратно.\n\nЭто действие нельзя отменить.",
+  "settingsAllGoalsDeleted": "Все цели удалены",
+  "settingsDeleteAllRoutines": "Удалить все рутины",
+  "settingsDeleteAllRoutinesMessage": "Вы уверены? Все рутины и их уведомления будут удалены безвозвратно.\n\nЭто действие нельзя отменить.",
+  "settingsAllRoutinesDeleted": "Все рутины удалены",
+  "settingsDeleteAllRecords": "Удалить все записи",
+  "settingsDeleteAllRecordsSubtitle": "Заметки, теги и все связанные данные",
+  "settingsDangerZone": "Опасная зона",
+  "settingsDangerZoneDescription": "Эти действия необратимы. Убедитесь, что у вас есть резервная копия.",
+  "settingsDeleteDataPermanently": "Безвозвратно удалить данные",
+  "settingsDebug": "Отладка",
+  "settingsPrintTags": "Вывести теги в консоль",
+  "settingsTagsPrinted": "Теги выведены в консоль отладки (flutter run / Logcat)",
+
+  "commonSend": "Отправить",
+  "commonApply": "Применить",
+  "commonShow": "Показать",
+  "commonGotIt": "Понятно",
+  "commonCreate": "Создать",
+  "commonNew": "Новый",
+  "commonSearch": "Поиск",
+
+  "navGoals": "Цели",
+  "navRoutines": "Рутины",
+  "navTodo": "Задачи",
+  "navTags": "Теги",
+  "navWorkspace": "Пространства",
+  "navAiChat": "AI-чат",
+
+  "backupEmailBody": "Вот резервная копия всех заметок и тегов.",
+  "backupEmailSubject": "Резервная копия заметок",
+
+  "homeDeleteRecordTitle": "Удалить запись",
+  "homeDeleteRecordMessage": "Вы уверены, что хотите удалить эту запись?",
+  "homeChronoTagMissing": "Тег Chrono не найден. Перезапустите приложение.",
+  "homeChronoNoteAdded": "Заметка Chrono добавлена",
+  "homeChronoNoteFailed": "Не удалось создать заметку Chrono: {error}",
+  "@homeChronoNoteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeChronoInfoTitle": "Хронологические заметки",
+  "homeChronoInfoBody": "Тег Chrono — для заметок на временной шкале, быстрых записей о том, что происходит в течение дня:\n\n• посетили место\n• что-то произошло\n• сейчас находитесь где-то\n• встретили кого-то\n\nИспользуйте быстрый ввод, чтобы фиксировать моменты по мере их появления.",
+  "homeChronoQuickHint": "Быстрая заметка chrono...",
+  "homeSearchHint": "Поиск записей...",
+  "homeFilterTooltip": "Фильтр записей",
+
+  "filterTitle": "Фильтр записей",
+  "filterSubtitle": "Выберите, какие типы записей показывать:",
+  "filterShowGoals": "Показывать записи из целей",
+  "filterShowGoalsSubtitle": "Включать записи, созданные из сессий целей",
+  "filterShowRoutines": "Показывать записи из рутин",
+  "filterShowRoutinesSubtitle": "Включать записи, созданные из выполненных рутин",
+  "filterShowTodos": "Показывать записи из задач",
+  "filterShowTodosSubtitle": "Включать записи, созданные из выполненных задач",
+  "filterShowProductivity": "Показывать индекс продуктивности",
+  "filterShowProductivitySubtitle": "Включать записи ежедневного индекса продуктивности",
+
+  "noteLocked": "Заметка заблокирована",
+  "noteUnlocked": "Заметка разблокирована",
+  "createNewTagTooltip": "Создать тег",
+  "noTagsFound": "Теги не найдены",
+  "searchTagsHint": "Поиск тегов...",
+  "saveNoteFirst": "Сначала сохраните заметку",
+  "writeYourNote": "Напишите заметку",
+  "cardSpaceButton": "Пространство",
+  "newWorkspaceTitle": "Новое пространство",
+  "workspaceNameHint": "Название",
+  "createAndAdd": "Создать и добавить",
+  "addedToWorkspace": "Добавлено в «{name}»",
+  "@addedToWorkspace": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addToWorkspaceTitle": "Добавить в пространство",
+  "noWorkspacesYet": "Пока нет пространств",
+  "tapNewToCreate": "Нажмите «Новый», чтобы создать",
+
+  "commonRename": "Переименовать",
+  "commonFilter": "Фильтр",
+  "commonPreview": "Просмотр",
+  "timeJustNow": "Только что",
+  "timeMinutesAgo": "{minutes} мин назад",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{hours} ч назад",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{days} дн назад",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceDeleteTitle": "Удалить пространство?",
+
+  "noteCount": "{count, plural, =0{Нет заметок} one{{count} заметка} few{{count} заметки} many{{count} заметок} other{{count} заметки}}",
+  "@noteCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "workspacesTitle": "Пространства",
+  "workspaceEmptyTitle": "Пока нет пространств",
+  "workspaceEmptyHint": "Нажмите +, чтобы создать первое пространство.\nСвязывайте заметки, пишите документы и используйте ИИ для поиска связанного контента.",
+  "workspaceCreateButton": "Создать пространство",
+  "newWorkspaceTooltip": "Новое пространство",
+  "workspaceChangeColor": "Изменить цвет",
+  "workspaceRemoveMessage": "Это удалит «{name}» и его связи с заметками. Сами заметки не удаляются.",
+  "@workspaceRemoveMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "editorWriteMarkdownHint": "Пишите в Markdown…",
+  "editorNoLinkedNotes": "Пока нет связанных заметок",
+  "editorTapAddHint": "Нажмите «Добавить» для поиска или используйте ИИ",
+  "editorLinkedNotesTooltip": "Связанные заметки",
+  "editorAddNotesTooltip": "Добавить заметки",
+  "editorChatDocNotes": "Чат: документ + заметки",
+  "editorChatDocOnly": "Чат: только документ",
+  "editorChatIncludeNotes": "AI-чат будет учитывать связанные заметки",
+  "editorChatDocumentOnly": "AI-чат: только документ",
+  "editorLinkedNotesTitle": "Связанные заметки",
+  "editorShowLess": "Свернуть",
+  "editorShowMore": "Показать ещё…",
+  "editorNoTagsSelected": "Теги не выбраны — ИИ просмотрит {count} заметок.\nВыберите теги, чтобы сузить область.",
+  "@editorNoTagsSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorAiSearchFailed": "Ошибка ИИ-поиска: {error}",
+  "@editorAiSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "editorNoteAdded": "Заметка добавлена в пространство",
+  "editorFindNotes": "Найти заметки",
+  "editorTabSearch": "Поиск",
+  "editorTabAiFind": "ИИ-поиск",
+  "editorSearchNotesHint": "Поиск заметок…",
+  "editorNoNotesFound": "Заметки не найдены",
+  "editorAllLinked": "Все подходящие заметки уже связаны",
+  "editorDescribeLooking": "Опишите, что вы ищете",
+  "editorAiPromptHint": "напр. Заметки о техниках продуктивности",
+  "editorSearching": "Поиск…",
+  "editorFindWithAi": "Найти с помощью ИИ",
+  "editorEnterPromptHint": "Введите запрос и нажмите «Найти»",
+  "editorAllFoundLinked": "Все найденные заметки уже связаны",
+  "editorLargeSearchTitle": "Большой поиск",
+  "commonContinue": "Продолжить",
+  "editorRenameWorkspace": "Переименовать пространство",
+  "editorWorkspaceColor": "Цвет пространства",
+  "editorWorkspaceNotFound": "Пространство не найдено",
+
+  "commonSubmit": "Отправить",
+  "commonUpdate": "Обновить",
+  "commonActions": "Действия",
+  "tagEditTooltip": "Изменить тег",
+  "goalImportance": "Важность",
+  "insightsOutsideContext": "Вне окна контекста",
+  "errorCouldNotLaunch": "Не удалось открыть {uri}",
+  "@errorCouldNotLaunch": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+
+  "drawerPremium": "Chrono Premium",
+  "drawerPremiumTry": "Попробовать Premium",
+  "drawerPremiumActive": "Активна",
+  "drawerPremiumTrial": "3 дня бесплатно",
+  "drawerSectionAiPrompts": "ИИ И ПРОМПТЫ",
+  "drawerPrompts": "Промпты",
+  "drawerGptSettings": "Настройки GPT",
+  "drawerSectionGeneral": "ОБЩЕЕ",
+  "drawerShowIntro": "Показать введение",
+  "drawerPrivacyPolicy": "Политика конфиденциальности",
+  "drawerTermsOfUse": "Условия использования (EULA)",
+
+  "confirmDeleteTitle": "Подтвердите удаление",
+  "confirmDeleteAllMessage": "Вы уверены, что хотите удалить все заметки? Это действие нельзя отменить.",
+  "allNotesDeleted": "Все заметки успешно удалены.",
+  "failedToDeleteNotes": "Не удалось удалить заметки: {error}",
+  "@failedToDeleteNotes": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
+  "apiAccessSettings": "Настройки доступа к API",
+  "selectModel": "Выберите модель",
+  "tokenLimit": "Лимит токенов: {tpm}",
+  "@tokenLimit": {
+    "placeholders": {
+      "tpm": {
+        "type": "String"
+      }
+    }
+  },
+  "openAiApiKey": "Ключ API OpenAI",
+  "geminiApiKey": "Ключ API Gemini",
+  "getOpenAiKey": "Получить ключ OpenAI",
+  "getGeminiKey": "Получить ключ Gemini",
+  "apiResponseDelay": "Задержка до ответа: {delay}",
+  "@apiResponseDelay": {
+    "placeholders": {
+      "delay": {
+        "type": "String"
+      }
+    }
+  },
+
+  "exportTitle": "Экспорт резервной копии",
+  "exportSelectData": "Выберите данные для резервной копии",
+  "exportSelectAtLeastOne": "Выберите хотя бы один тип данных.",
+  "exportExporting": "Экспорт данных...",
+  "exportReady": "Резервная копия готова! Выберите способ сохранения.",
+  "exportFailed": "Ошибка экспорта: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSharedSuccess": "Резервная копия успешно отправлена!",
+  "exportShareFailed": "Ошибка отправки: {error}",
+  "@exportShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportEmailOpened": "Почтовый клиент открыт!",
+  "exportNoEmailApp": "Почтовое приложение не найдено. Используйте «Поделиться».",
+  "exportEmailFailed": "Ошибка отправки письма: {error}",
+  "@exportEmailFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportLabelNotes": "Заметки и теги",
+  "exportLabelTodos": "Задачи",
+  "exportLabelInstructions": "ИИ-инструкции",
+  "exportCreateBackup": "Создать копию",
+  "exportEmailButton": "Почта",
+  "exportShareButton": "Поделиться",
+  "exportBackupSubject": "Резервная копия данных Chrono",
+  "exportBackupBody": "Вот резервная копия ваших данных Chrono, включая: {types}.",
+  "@exportBackupBody": {
+    "placeholders": {
+      "types": {
+        "type": "String"
+      }
+    }
+  },
+
+  "importTitle": "Импорт данных",
+  "importPressButton": "Нажмите кнопку, чтобы импортировать данные.",
+  "importNoFileSelected": "Файл не выбран.",
+  "importReplaceTitle": "Заменить все данные?",
+  "importReplaceMessage": "Импорт УДАЛИТ все текущие данные и заменит их резервной копией.",
+  "importCurrentToDelete": "Текущие данные, которые будут удалены:",
+  "importLabelNotes": "Заметки",
+  "importTotalToDelete": "Всего: {count} элементов будет удалено",
+  "@importTotalToDelete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importBackupWarning": "⚠️ Убедитесь, что у вас есть резервная копия!",
+  "importDeleteAndImport": "Удалить и импортировать",
+  "importCancelled": "Импорт отменён.",
+  "importDeleting": "Удаление текущих данных...",
+  "importImporting": "Импорт...",
+  "importImportingRoutines": "Импорт рутин...",
+  "importImportingGoals": "Импорт целей...",
+  "importImportingTodos": "Импорт задач...",
+  "importImportingReminders": "Импорт напоминаний...",
+  "importImportingInstructions": "Импорт инструкций...",
+  "importImportingNotes": "Импорт заметок и тегов...",
+  "importImportingWorkspaces": "Импорт пространств...",
+  "importSuccessCount": "Импорт успешен! Импортировано {count} элементов.",
+  "@importSuccessCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailed": "Ошибка импорта: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importSelectFile": "Выбрать файл и импортировать",
+  "importWarningLong": "Выберите файл резервной копии JSON для импорта.\n\n⚠️ ВНИМАНИЕ: Импорт УДАЛИТ все текущие данные и заменит их резервной копией.\n\nПеред удалением вы увидите экран подтверждения.",
+
+  "promptsTitle": "Промпты",
+  "promptsNewTitle": "Новый промпт",
+  "promptsEditTitle": "Редактировать промпт",
+  "promptsEnterText": "Введите текст промпта...",
+  "promptsOnTapBehavior": "ПОВЕДЕНИЕ ПРИ НАЖАТИИ",
+  "promptsCreate": "Создать промпт",
+  "promptsSaveChanges": "Сохранить изменения",
+  "promptsDeleteTitle": "Удалить промпт?",
+  "promptsDeleteMessage": "Вы уверены, что хотите удалить «{text}»?",
+  "@promptsDeleteMessage": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "promptsSendInstantly": "Отправлять сразу",
+  "promptsSendInstantlyDesc": "Отправляет промпт немедленно",
+  "promptsInsertToInput": "Вставить в поле ввода",
+  "promptsInsertToInputDesc": "Вставляет текст для редактирования",
+  "promptsEmptyTitle": "Пока нет промптов",
+  "promptsEmptyDesc": "Создавайте быстрые промпты, чтобы ускорить общение с ИИ. Нажмите +, чтобы начать.",
+  "promptsSendsInstantly": "Отправляет сразу",
+  "promptsInsertsToInput": "Вставляет в поле ввода",
+
+  "goalsErrorLoading": "Ошибка загрузки целей: {error}",
+  "@goalsErrorLoading": { "placeholders": { "error": { "type": "String" } } },
+  "goalDeletedSuccess": "Цель «{title}» успешно удалена",
+  "@goalDeletedSuccess": { "placeholders": { "title": { "type": "String" } } },
+  "goalErrorDeleting": "Ошибка удаления цели: {error}",
+  "@goalErrorDeleting": { "placeholders": { "error": { "type": "String" } } },
+  "goalErrorSaving": "Ошибка сохранения цели: {error}",
+  "@goalErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "goalsHideCompleted": "Скрыть выполненные цели",
+  "goalsShowCompleted": "Показать выполненные цели",
+  "goalCompleted": "Выполнено",
+  "goalsEmptyTitle": "Пока нет целей",
+  "goalsEmptyDesc": "Создайте первую цель, чтобы отслеживать прогресс и формировать полезные привычки.",
+  "goalsCreateFirst": "Создать первую цель",
+  "goalEditTitle": "Редактировать цель",
+  "goalNewTitle": "Новая цель",
+  "goalTitleLabel": "Название цели",
+  "goalTitleRequired": "Введите название цели",
+  "goalHours": "Часы",
+  "goalMinutes": "Минуты",
+  "goalSessionDuration": "Длительность сессии (минуты)",
+  "goalUpdate": "Обновить цель",
+  "goalCreate": "Создать цель",
+  "goalSpecifyTime": "Укажите хотя бы часы или минуты",
+  "goalTimeTarget": "Целевое время",
+  "goalSessionDurationHelper": "Насколько длинной должна быть каждая рабочая сессия",
+  "validatorInvalid": "Неверно",
+  "validatorRequired": "Обязательно",
+  "goalMinutesRange": "0-59",
+  "goalCannotDeleteActive": "Нельзя удалить активную цель. Сначала остановите сессию.",
+  "goalTimeSpent": "Затрачено времени: {time}",
+  "@goalTimeSpent": { "placeholders": { "time": { "type": "String" } } },
+  "goalRunning": "Идёт: {time}",
+  "@goalRunning": { "placeholders": { "time": { "type": "String" } } },
+  "goalComplete": "Выполнить",
+  "goalUncomplete": "Отменить выполнение",
+  "goalDeleteTitle": "Удалить цель",
+  "goalDeleteMessage": "Вы уверены, что хотите удалить «{title}»?\n\nЭто действие нельзя отменить.",
+  "@goalDeleteMessage": { "placeholders": { "title": { "type": "String" } } },
+
+  "routineArchived": "В архиве ({count})",
+  "@routineArchived": { "placeholders": { "count": { "type": "int" } } },
+  "routineViewHistory": "История выполнения",
+  "routineDeleteTitle": "Удалить рутину",
+  "routineDeleteMessage": "Вы уверены, что хотите удалить «{name}»?",
+  "@routineDeleteMessage": { "placeholders": { "name": { "type": "String" } } },
+  "routinesEmptyTitle": "Пока нет рутин",
+  "routinesEmptyDesc": "Создайте первую рутину, чтобы формировать стабильные ежедневные привычки.",
+  "routinesCreateFirst": "Создать первую рутину",
+  "routineSelectDay": "Выберите хотя бы один день",
+  "routineEditTitle": "Редактировать рутину",
+  "routineNewTitle": "Новая рутина",
+  "routineNameLabel": "Название рутины",
+  "routineNameRequired": "Введите название",
+  "routineDaysOfWeek": "Дни недели",
+  "routineRemindersPersistence": "Напоминания и настойчивость",
+  "routineSchedule": "Расписание",
+  "routineTime": "Время",
+  "routineHideOtherDays": "Скрыть другие дни",
+  "routineShowOtherDays": "Показать другие дни",
+  "routineOtherDays": "Другие дни",
+  "routineDuration": "Длительность",
+  "routineInterval": "Интервал",
+  "routineAdditional": "Дополнительно",
+  "routineTrackStreak": "Отслеживать серию",
+  "routineTrackStreakDesc": "Показывать счётчик серии при выполнении этой рутины",
+  "routineErrorCreating": "Ошибка создания записи рутины: {error}",
+  "@routineErrorCreating": { "placeholders": { "error": { "type": "String" } } },
+  "commonMin": "мин",
+  "dayMon": "Пн",
+  "dayTue": "Вт",
+  "dayWed": "Ср",
+  "dayThu": "Чт",
+  "dayFri": "Пт",
+  "daySat": "Сб",
+  "daySun": "Вс",
+
+  "todoSelectDeadline": "Выберите дату дедлайна",
+  "todoErrorSaving": "Ошибка сохранения задачи: {error}",
+  "@todoErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "todoEditTitle": "Редактировать задачу",
+  "todoNewTitle": "Новая задача",
+  "todoTitleLabel": "Название",
+  "todoTitleRequired": "Введите название",
+  "todoNoDate": "Без даты",
+  "todoSelectDeadlineDate": "Выберите дату дедлайна",
+  "todoRemindTomorrow": "Напомнить завтра",
+  "todoRemindDaily": "Напоминать каждый день",
+  "todoAtTime": "В {time}",
+  "@todoAtTime": { "placeholders": { "time": { "type": "String" } } },
+  "todoUpdate": "Обновить задачу",
+  "todoCreate": "Создать задачу",
+  "todoType": "Тип",
+  "todoTypeTomorrow": "Завтра",
+  "todoTypeDeadline": "Дедлайн",
+  "todoDeadlineDate": "Дата дедлайна",
+  "todoPickDate": "Выбрать дату",
+  "todoNotification": "Уведомление",
+  "todoRepeatNotifications": "Повторять уведомления",
+  "todoPeriodLabel": "Период: ",
+  "todoEveryLabel": "Каждые: ",
+  "commonChange": "Изменить",
+  "todoNotifyOnDay": "Получить уведомление в этот день",
+  "todoNotifyDaily": "Получать уведомление каждый день до дедлайна",
+  "todoNotificationPreview": "{count, plural, one{{count} уведомление} few{{count} уведомления} many{{count} уведомлений} other{{count} уведомления}}: начиная за {period}, каждые {interval}",
+  "@todoNotificationPreview": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "period": { "type": "String" },
+      "interval": { "type": "String" }
+    }
+  },
+
+  "tagErrorSaving": "Ошибка сохранения тега: {error}",
+  "@tagErrorSaving": { "placeholders": { "error": { "type": "String" } } },
+  "tagSystemCannotDelete": "Системные теги нельзя удалить",
+  "tagDeleteTitle": "Удаление тега",
+  "tagDeleteMessage": "Вы уверены, что хотите удалить этот тег?",
+  "tagEditTitle": "Редактировать тег",
+  "tagCreateTitle": "Создать тег",
+  "tagNameLabel": "Название тега",
+  "tagSystemNameCannotChange": "Название системного тега нельзя изменить",
+  "tagEnterName": "Введите название тега",
+  "tagNameRequired": "Введите название тега",
+  "tagColorLabel": "Цвет тега",
+
+  "productivityWeek": "Неделя",
+  "productivityMonth": "Месяц",
+  "productivityAllTime": "Всё время",
+  "productivityNoActiveToday": "Сегодня нет активных рутин или целей",
+  "productivityCurrentStreak": "текущая серия",
+  "productivityBestStreak": "лучшая серия",
+  "productivityRoutinesCompleted": "Выполнено рутин",
+  "productivityGoalProgress": "Прогресс целей",
+  "productivityDayCount": "{count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}}",
+  "@productivityDayCount": { "placeholders": { "count": { "type": "int" } } },
+  "productivityNoData": "Пока нет данных за этот период",
+  "productivityNoBreakdown": "Разбивка недоступна",
+  "productivityNoHistory": "Пока нет истории",
+  "productivityHistory": "История",
+
+  "commonConfirm": "Подтвердить",
+  "commonNoData": "Нет данных",
+  "commonAddedSuccess": "Успешно добавлено",
+
+  "calendarErrorLoadingRoutine": "Ошибка загрузки дат выполнения: {error}",
+  "@calendarErrorLoadingRoutine": { "placeholders": { "error": { "type": "String" } } },
+  "calendarBackdateLimit": "Отмечать выполнение задним числом можно только за последние 14 дней",
+  "calendarMarkCompleted": "Отметить «{name}» как выполненную {date}?\n\nЭто соответственно обновит вашу серию.",
+  "@calendarMarkCompleted": { "placeholders": { "name": { "type": "String" }, "date": { "type": "String" } } },
+  "routineCompletionAdded": "Выполнение рутины успешно добавлено",
+  "routineNotScheduled": "Рутина не запланирована на этот день недели",
+  "routineAlreadyCompleted": "Рутина уже отмечена выполненной в этот день",
+  "calendarMarkAsComplete": "Отметить выполненной",
+  "calendarTitleHistory": "{name} — история",
+  "@calendarTitleHistory": { "placeholders": { "name": { "type": "String" } } },
+  "calendarTapPastDate": "Нажмите на любую прошедшую дату, чтобы отметить выполнение",
+  "calendarTotalCompletions": "Всего выполнений",
+  "calendarCurrentStreak": "Текущая серия",
+
+  "goalCalendarErrorLoading": "Ошибка загрузки истории цели: {error}",
+  "@goalCalendarErrorLoading": { "placeholders": { "error": { "type": "String" } } },
+  "goalAddWorkSession": "Добавить рабочую сессию",
+  "goalCompletedCannotEdit": "Эта цель выполнена и не может быть изменена",
+  "goalAddWorkFor": "Добавить работу над «{title}» за {date}",
+  "@goalAddWorkFor": { "placeholders": { "title": { "type": "String" }, "date": { "type": "String" } } },
+  "goalEnterValidMinutes": "Введите корректное количество минут",
+  "goalTapPastDate": "Нажмите на любую прошедшую дату, чтобы добавить рабочую сессию",
+  "goalDailyTarget": "Дневная цель: {minutes} мин",
+  "@goalDailyTarget": { "placeholders": { "minutes": { "type": "int" } } },
+
+  "todoListNoDateSection": "БЕЗ ДАТЫ",
+  "todoSectionTomorrow": "ЗАВТРА",
+  "todoSectionDeadline": "ДЕДЛАЙН",
+  "todoSectionOverdue": "ПРОСРОЧЕНО",
+  "todoSectionCompleted": "ВЫПОЛНЕНО",
+  "todoTypesTitle": "Типы задач",
+  "todoTypeTomorrowDesc": "Задачи, которые вы планируете сделать завтра. Переходят в просроченные, если не выполнены.",
+  "todoTypeDeadlineDesc": "Задачи с конкретным сроком. Включите ежедневные напоминания, чтобы получать уведомления каждый день.",
+  "todoTypeNoDateTitle": "Без даты",
+  "todoTypeNoDateDesc": "Задачи из бэклога без конкретного срока.",
+  "todoAboutTypes": "О типах задач",
+  "todoListEmptyTitle": "Пока нет задач",
+  "todoListEmptyDesc": "Нажмите +, чтобы создать первую задачу",
+  "todoListAddButton": "Добавить задачу",
+  "todoListEmptyShort": "Пока нет задач\nНажмите +, чтобы создать",
+
+  "tagsClearSelection": "Очистить выбор",
+
+  "chatContextTooLarge": "Слишком большой контекст",
+  "chatUnexpectedError": "Непредвиденная ошибка",
+  "chatContextExceedsLimit": "Выбранный контекст превышает лимит модели.",
+  "chatSplitInfo": "Мы можем разбить его примерно на {chunks} частей и обработать последовательно. ИИ получит весь контекст перед ответом.",
+  "@chatSplitInfo": { "placeholders": { "chunks": { "type": "int" } } },
+  "chatChunkingNote": "Примечание: это может занять больше времени и стоить дороже.",
+  "chatContinueChunking": "Продолжить с разбиением",
+  "chatAiContext": "Контекст ИИ",
+  "chatAiContextPreview": "Предпросмотр контекста ИИ",
+  "chatApiError": "Ошибка API: {error}",
+  "@chatApiError": { "placeholders": { "error": { "type": "String" } } },
+  "chatRequestCancelled": "Запрос отменён.",
+  "chatApiKeysSettings": "Настройки API-ключей",
+  "chatAiCoach": "ИИ-коуч",
+  "chatUnexpectedErrorRetry": "Произошла непредвиденная ошибка. Попробуйте снова.",
+  "chatErrorRetry": "Произошла ошибка. Попробуйте снова.",
+  "chatChunkedError": "Ошибка при поблочной обработке: {error}",
+  "@chatChunkedError": { "placeholders": { "error": { "type": "String" } } },
+
+  "commonCalendar": "Календарь",
+  "sessionStopGoal": "Остановить цель",
+  "messageGoToNotes": "Перейти к заметкам",
+  "composerHint": "Напишите сообщение здесь...",
+  "undoRedoHint": "Введите текст...",
+  "productivityLow": "Низкий",
+  "productivityHigh": "Высокий",
+
+  "checkinAnalyticsTitle": "Аналитика",
+  "checkinMorning": "Утренний чек-ин",
+  "checkinEvening": "Вечерний чек-ин",
+  "checkinMorningShort": "Утро",
+  "checkinEveningShort": "Вечер",
+  "checkinNoData": "Нет данных за выбранный период",
+
+  "insightsSaved": "Настройки инсайтов сохранены",
+  "insightsEnable": "Включить ИИ-инсайты",
+  "insightsInterval": "Интервал (минуты)",
+  "insightsContextWindow": "Окно контекста (дни)",
+  "insightsTokenLimit": "Лимит токенов (примерно)",
+  "insightsQuietStart": "Начало тихих часов",
+  "insightsQuietEnd": "Конец тихих часов",
+  "insightsTestNow": "Проверить генерацию инсайтов сейчас",
+  "insightsFullContextJson": "Полный контекст JSON",
+  "insightsSystemPrompt": "Системный промпт",
+  "insightsUserPrompt": "Пользовательский промпт (JSON)",
+  "insightsNoneSaved": "Инсайты ещё не сохранены.",
+  "insightsNoItems": "Нет элементов",
+  "insightsSettingsTitle": "Настройки ИИ-инсайтов",
+  "commonNotSet": "Не задано",
+  "insightsGenerating": "🧪 Генерация инсайта... смотрите логи и уведомления",
+  "insightsTestCompleted": "✅ Тест завершён! Подробности в логах",
+  "insightsCharCount": "{count} символов",
+  "@insightsCharCount": { "placeholders": { "count": { "type": "int" } } },
+  "insightsNoTopic": "(без темы)",
+  "insightsRequiresInternet": "Для генерации инсайтов требуется интернет-соединение и ключ API OpenAI",
+
+  "onbSkip": "Пропустить",
+  "onbNext": "Далее",
+  "onbGetStarted": "Начать",
+  "ob1Title": "Время — единственный\nневосполнимый ресурс",
+  "ob1Subtitle": "Хватит его тратить.\nНачните его инвестировать.",
+  "ob2Title": "Ваши данные. Ваше устройство.",
+  "ob2Subtitle": "Chrono работает на 100% офлайн.\nВсе ваши данные остаются на телефоне —\nприватно и всегда доступно.",
+  "ob2Footnote": "Функции ИИ могут отправлять ваши данные сторонним сервисам.",
+  "ob3Title": "Ваш внешний мозг",
+  "ob3Subtitle": "Письмо — это не просто запись, это мышление.\nДелать заметки ещё никогда не было так просто.",
+  "ob4Title": "Несокрушимая дисциплина",
+  "ob4Subtitle": "Рутина — это то, что делает нас лучше каждый день.\nЕжедневный сброс. Настойчивые уведомления.\nНикакого места для прокрастинации.",
+  "ob5Title": "Инвестируйте своё время",
+  "ob5Subtitle": "Что измеряется, тем можно управлять.\nЕжедневные цели для глубокой работы — видьте, куда уходит время\nи что ещё требует внимания.",
+  "ob6Title": "Ваши заметки —\nбаза знаний",
+  "ob6Subtitle": "Общайтесь с ИИ бесплатно — со своим ключом API.\nПередавайте заметки как контекст, чтобы получать инсайты,\nоснованные на ваших данных.",
+  "ob6Footnote": "Требуется ваш собственный ключ API.",
+  "ob7Title": "Ваше пространство для мыслей",
+  "ob7Subtitle": "Великим идеям нужно место для развития.\nСобирайте материалы, оформляйте мысли, анализируйте —\nкаждое пространство — лаборатория для ваших идей.",
+  "ob8Title": "Измеряйте свой рост",
+  "ob8Subtitle": "Что отслеживаете, то улучшаете.\nЕжедневная оценка на основе рутин и целей.\nЗамечайте тренды, находите закономерности, растите.",
+
+  "paywallUnlock": "Раскройте свой\nполный потенциал",
+  "paywallOneTime": "Разовая покупка",
+  "paywallSave": "Экономия {percent}%",
+  "@paywallSave": { "placeholders": { "percent": { "type": "int" } } },
+  "paywallStartGrowing": "Начать расти",
+  "paywallSeePlans": "Посмотреть планы",
+  "paywallRestore": "Восстановить покупки",
+  "paywallContinueFree": "Продолжить бесплатно",
+  "planLifetime": "Навсегда",
+  "planGeneric": "План",
+  "planYears": "{count, plural, one{1 год} few{{count} года} many{{count} лет} other{{count} года}}",
+  "@planYears": { "placeholders": { "count": { "type": "int" } } },
+  "planMonths": "{count, plural, one{1 месяц} few{{count} месяца} many{{count} месяцев} other{{count} месяца}}",
+  "@planMonths": { "placeholders": { "count": { "type": "int" } } },
+  "planWeeks": "{count, plural, one{1 неделя} few{{count} недели} many{{count} недель} other{{count} недели}}",
+  "@planWeeks": { "placeholders": { "count": { "type": "int" } } },
+
+  "pfRoutineTitle": "Менеджер рутин",
+  "pfRoutineSub": "Формируйте несокрушимые ежедневные привычки",
+  "pfGoalTitle": "Менеджер целей",
+  "pfGoalSub": "Отслеживайте сессии глубокой работы с таймерами",
+  "pfTodoTitle": "Менеджер задач",
+  "pfTodoSub": "Дедлайны с ежедневными напоминаниями",
+  "pfWorkspacesTitle": "Пространства",
+  "pfWorkspacesSub": "Организуйте идеи в отдельные лаборатории",
+  "pfProductivityTitle": "Индекс продуктивности",
+  "pfProductivitySub": "Ежедневная оценка вашего прогресса",
+  "pfAiTitle": "Контекст ИИ",
+  "pfAiSub": "Передавайте заметки ИИ для более глубоких инсайтов",
+  "pfAiNote": "Требуется ваш собственный ключ API",
+  "paywallSubscriptionTerms": "Подписки автоматически продлеваются, если не отменить их не менее чем за 24 часа до окончания текущего периода. Оплата за продление списывается в течение 24 часов до окончания текущего периода. Управлять подписками и отменять их можно в настройках вашей учётной записи App Store."
+}

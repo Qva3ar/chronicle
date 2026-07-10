@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:chrono/record.service.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 
 import 'colors.dart';
 import 'db_manager.dart';
@@ -114,7 +115,7 @@ class _TagsManagerState extends State<TagsManager> {
   Widget _buildHeader() {
     final selectedTag = getSelectedTag();
     return ChronoSheetHeader(
-      title: 'Tags',
+      title: AppLocalizations.of(context).navTags,
       titleIcon: Icons.grid_view_rounded,
       itemCount: allTags.length,
       actions: [
@@ -122,12 +123,12 @@ class _TagsManagerState extends State<TagsManager> {
           IconButton(
             icon: Icon(Icons.edit, color: textPrimary, size: 20),
             onPressed: () => navigateToTagForm(selectedTag),
-            tooltip: 'Edit tag',
+            tooltip: AppLocalizations.of(context).tagEditTooltip,
           ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
           onPressed: () => navigateToTagForm(),
-          tooltip: 'Create new tag',
+          tooltip: AppLocalizations.of(context).createNewTagTooltip,
         ),
       ],
     );
@@ -141,7 +142,7 @@ class _TagsManagerState extends State<TagsManager> {
         focusNode: _searchFocusNode,
         style: const TextStyle(color: white),
         decoration: InputDecoration(
-          hintText: 'Search tags...',
+          hintText: AppLocalizations.of(context).searchTagsHint,
           hintStyle: TextStyle(color: white.withOpacity(0.5)),
           prefixIcon: const Icon(Icons.search, color: white),
           suffixIcon: _searchQuery.isNotEmpty
@@ -247,7 +248,7 @@ class _TagsManagerState extends State<TagsManager> {
                 });
                 widget.onTagSelected(null);
               },
-              tooltip: 'Clear selection',
+              tooltip: AppLocalizations.of(context).tagsClearSelection,
             ),
           ],
         ),
@@ -267,7 +268,7 @@ class _TagsManagerState extends State<TagsManager> {
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Text(
-                'No tags found',
+                AppLocalizations.of(context).noTagsFound,
                 style: TextStyle(color: white.withOpacity(0.45), fontSize: 14),
               ),
             )

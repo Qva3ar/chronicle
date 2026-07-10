@@ -1,4 +1,5 @@
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chrono/ai/insight_engine.dart';
@@ -79,7 +80,7 @@ class _PrimaryGoalScreenState extends State<PrimaryGoalScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving goal: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).goalErrorSaving(e.toString()))),
         );
       }
     } finally {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/shared/chrono_ui.dart';
 
 class InstructionsPage extends StatefulWidget {
@@ -81,9 +82,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          'New Prompt',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).promptsNewTitle,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: textPrimary,
@@ -105,7 +106,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                         fontSize: 15,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Enter prompt text...',
+                        hintText: AppLocalizations.of(context).promptsEnterText,
                         hintStyle: const TextStyle(color: textHint),
                         filled: true,
                         fillColor: surfaceElevated,
@@ -137,9 +138,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                     const SizedBox(height: 20),
 
                     // Action type selector
-                    const Text(
-                      'ON TAP BEHAVIOR',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).promptsOnTapBehavior,
+                      style: const TextStyle(
                         color: textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -179,9 +180,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'Create Prompt',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context).promptsCreate,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                           ),
@@ -252,10 +253,10 @@ class _InstructionsPageState extends State<InstructionsPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Edit Prompt',
-                            style: TextStyle(
+                            AppLocalizations.of(context).promptsEditTitle,
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: textPrimary,
@@ -270,29 +271,30 @@ class _InstructionsPageState extends State<InstructionsPage> {
                               context: context,
                               builder: (ctx) => AlertDialog(
                                 backgroundColor: cardColor,
-                                title: const Text(
-                                  'Delete Prompt?',
-                                  style: TextStyle(color: textPrimary),
+                                title: Text(
+                                  AppLocalizations.of(ctx).promptsDeleteTitle,
+                                  style: const TextStyle(color: textPrimary),
                                 ),
                                 content: Text(
-                                  'Are you sure you want to delete "${instruction.text}"?',
+                                  AppLocalizations.of(ctx)
+                                      .promptsDeleteMessage(instruction.text),
                                   style: const TextStyle(color: textSecondary),
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(false),
-                                    child: const Text(
-                                      'Cancel',
-                                      style: TextStyle(color: textMuted),
+                                    child: Text(
+                                      AppLocalizations.of(ctx).commonCancel,
+                                      style: const TextStyle(color: textMuted),
                                     ),
                                   ),
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(true),
-                                    child: const Text(
-                                      'Delete',
-                                      style: TextStyle(
+                                    child: Text(
+                                      AppLocalizations.of(ctx).commonDelete,
+                                      style: const TextStyle(
                                           color: MyColors.remove),
                                     ),
                                   ),
@@ -334,7 +336,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                         fontSize: 15,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Enter prompt text...',
+                        hintText: AppLocalizations.of(context).promptsEnterText,
                         hintStyle: const TextStyle(color: textHint),
                         filled: true,
                         fillColor: surfaceElevated,
@@ -366,9 +368,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                     const SizedBox(height: 20),
 
                     // Action type selector
-                    const Text(
-                      'ON TAP BEHAVIOR',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).promptsOnTapBehavior,
+                      style: const TextStyle(
                         color: textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -409,9 +411,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'Save Changes',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context).promptsSaveChanges,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                           ),
@@ -462,7 +464,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Send instantly',
+                    AppLocalizations.of(context).promptsSendInstantly,
                     style: TextStyle(
                       color: autoSend ? MyColors.orangeDivider : textSecondary,
                       fontSize: 12,
@@ -473,7 +475,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Sends the prompt immediately',
+                    AppLocalizations.of(context).promptsSendInstantlyDesc,
                     style: TextStyle(
                       color: textMuted.withValues(alpha: 0.7),
                       fontSize: 10,
@@ -514,7 +516,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Insert to input',
+                    AppLocalizations.of(context).promptsInsertToInput,
                     style: TextStyle(
                       color: !autoSend ? infoColor : textSecondary,
                       fontSize: 12,
@@ -525,7 +527,7 @@ class _InstructionsPageState extends State<InstructionsPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Pastes text for editing',
+                    AppLocalizations.of(context).promptsInsertToInputDesc,
                     style: TextStyle(
                       color: textMuted.withValues(alpha: 0.7),
                       fontSize: 10,
@@ -546,9 +548,9 @@ class _InstructionsPageState extends State<InstructionsPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
-          'Prompts',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).promptsTitle,
+          style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 18,
           ),
@@ -559,11 +561,10 @@ class _InstructionsPageState extends State<InstructionsPage> {
         scrolledUnderElevation: 0,
       ),
       body: instructions.isEmpty
-          ? const ChronoEmptyState(
+          ? ChronoEmptyState(
               icon: Icons.bolt_rounded,
-              title: 'No Prompts Yet',
-              subtitle:
-                  'Create quick prompts to speed up your AI conversations. Tap + to get started.',
+              title: AppLocalizations.of(context).promptsEmptyTitle,
+              subtitle: AppLocalizations.of(context).promptsEmptyDesc,
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
@@ -605,8 +606,8 @@ class _InstructionsPageState extends State<InstructionsPage> {
                                 const SizedBox(width: 5),
                                 Text(
                                   instruction.autoSend
-                                      ? 'Sends instantly'
-                                      : 'Inserts to input',
+                                      ? AppLocalizations.of(context).promptsSendsInstantly
+                                      : AppLocalizations.of(context).promptsInsertsToInput,
                                   style: TextStyle(
                                     color: instruction.autoSend
                                         ? MyColors.orangeDivider

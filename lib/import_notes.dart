@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/goal.model.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/models/todo.model.dart';
@@ -20,7 +21,8 @@ class ImportNotesDialog extends StatefulWidget {
 
 class _ImportNotesDialogState extends State<ImportNotesDialog> {
   bool _isLoading = false;
-  String _statusMessage = "Press the button to import data.";
+  // Empty means "show the default localized prompt" (resolved in build with context).
+  String _statusMessage = "";
   RecordService dataController = RecordService();
   NotificationService _notificationService = NotificationService();
 
@@ -66,7 +68,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
 
       if (result == null) {
         setState(() {
-          _statusMessage = "No file selected.";
+          _statusMessage = AppLocalizations.of(context).importNoFileSelected;
         });
         return;
       }
@@ -83,12 +85,14 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) {
+          final l = AppLocalizations.of(context);
+          return AlertDialog(
           title: Row(
             children: [
               Icon(Icons.warning, color: Colors.orange),
               SizedBox(width: 8),
-              Text('Replace All Data?'),
+              Text(l.importReplaceTitle),
             ],
           ),
           content: Column(
@@ -96,26 +100,26 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Import will DELETE all current data and replace it with backup.',
+                l.importReplaceMessage,
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16),
-              Text('Current data to be deleted:'),
+              Text(l.importCurrentToDelete),
               SizedBox(height: 8),
-              _buildDataRow('Notes', currentCounts['notes']!),
-              _buildDataRow('Tags', currentCounts['tags']!),
-              _buildDataRow('Routines', currentCounts['routines']!),
-              _buildDataRow('Goals', currentCounts['goals']!),
-              _buildDataRow('Todos', currentCounts['todos']!),
+              _buildDataRow(l.importLabelNotes, currentCounts['notes']!),
+              _buildDataRow(l.navTags, currentCounts['tags']!),
+              _buildDataRow(l.navRoutines, currentCounts['routines']!),
+              _buildDataRow(l.navGoals, currentCounts['goals']!),
+              _buildDataRow(l.exportLabelTodos, currentCounts['todos']!),
               Divider(),
               Text(
-                'Total: $totalCurrent items will be deleted',
+                l.importTotalToDelete(totalCurrent),
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               if (totalCurrent > 0) ...[
                 SizedBox(height: 16),
                 Text(
-                  '⚠️ Make sure you have a backup before proceeding!',
+                  l.importBackupWarning,
                   style: TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ],
@@ -124,7 +128,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Cancel'),
+              child: Text(l.commonCancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -132,15 +136,16 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
               ),
-              child: Text('Delete & Import'),
+              child: Text(l.importDeleteAndImport),
             ),
           ],
-        ),
+        );
+        },
       );
 
       if (confirmed != true) {
         setState(() {
-          _statusMessage = "Import cancelled.";
+          _statusMessage = AppLocalizations.of(context).importCancelled;
         });
         return;
       }
@@ -148,13 +153,13 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
       // Step 4: Proceed with import
       setState(() {
         _isLoading = true;
-        _statusMessage = "Deleting current data...";
+        _statusMessage = AppLocalizations.of(context).importDeleting;
       });
 
       await _deleteAllData();
 
       setState(() {
-        _statusMessage = "Importing...";
+        _statusMessage = AppLocalizations.of(context).importImporting;
       });
 
         int importedItems = 0;
@@ -167,7 +172,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import routines FIRST (before notes, so we can remap IDs)
         if (importData.containsKey('routines')) {
           setState(() {
-            _statusMessage = "Importing routines...";
+            _statusMessage = AppLocalizations.of(context).importImportingRoutines;
           });
 
           List<dynamic> routines = importData['routines'];
@@ -207,7 +212,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import goals SECOND (before notes, so we can remap IDs)
         if (importData.containsKey('goals')) {
           setState(() {
-            _statusMessage = "Importing goals...";
+            _statusMessage = AppLocalizations.of(context).importImportingGoals;
           });
 
           List<dynamic> goals = importData['goals'];
@@ -241,7 +246,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import todos THIRD (before todo_reminders and notes)
         if (importData.containsKey('todos')) {
           setState(() {
-            _statusMessage = "Importing todos...";
+            _statusMessage = AppLocalizations.of(context).importImportingTodos;
           });
 
           List<dynamic> todos = importData['todos'];
@@ -267,7 +272,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import todo reminders FOURTH (after todos, so we can remap todo IDs)
         if (importData.containsKey('todo_reminders')) {
           setState(() {
-            _statusMessage = "Importing todo reminders...";
+            _statusMessage = AppLocalizations.of(context).importImportingReminders;
           });
 
           List<dynamic> reminders = importData['todo_reminders'];
@@ -295,7 +300,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import instructions (no ID remapping needed)
         if (importData.containsKey('instructions')) {
           setState(() {
-            _statusMessage = "Importing instructions...";
+            _statusMessage = AppLocalizations.of(context).importImportingInstructions;
           });
 
           List<dynamic> instructions = importData['instructions'];
@@ -311,7 +316,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         // Import notes and tags LAST (so we can update routine_id and goal_id references)
         if (importData.containsKey('notes') || importData.containsKey('tags')) {
           setState(() {
-            _statusMessage = "Importing notes and tags...";
+            _statusMessage = AppLocalizations.of(context).importImportingNotes;
           });
 
           // Update routine_id and goal_id in notes to use new IDs
@@ -354,7 +359,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             final ws = importData['workspaces'];
             if (ws is List && ws.isNotEmpty) {
               setState(() {
-                _statusMessage = "Importing workspaces...";
+                _statusMessage = AppLocalizations.of(context).importImportingWorkspaces;
               });
               await DatabaseHelper.instance.importWorkspacesFromBackup(ws);
               importedItems += ws.length;
@@ -372,11 +377,11 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         }
 
         setState(() {
-          _statusMessage = "Import successful! Imported $importedItems items.";
+          _statusMessage = AppLocalizations.of(context).importSuccessCount(importedItems);
         });
     } catch (e) {
       setState(() {
-        _statusMessage = "Import failed: ${e.toString()}";
+        _statusMessage = AppLocalizations.of(context).importFailed(e.toString());
       });
     } finally {
       setState(() {
@@ -425,16 +430,20 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text('Import Data'),
+      title: Text(l.importTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (_isLoading) CircularProgressIndicator() else Text(_statusMessage),
+          if (_isLoading)
+            CircularProgressIndicator()
+          else
+            Text(_statusMessage.isEmpty ? l.importPressButton : _statusMessage),
           SizedBox(height: 16),
           if (!_isLoading)
             Text(
-              'Select a JSON backup file to import.\n\n⚠️ WARNING: Import will DELETE all current data and replace it with the backup.\n\nYou will see a confirmation screen before deletion.',
+              l.importWarningLong,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
@@ -444,11 +453,11 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
         if (!_isLoading)
           TextButton(
             onPressed: _importData,
-            child: Text('Select File & Import'),
+            child: Text(l.importSelectFile),
           ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Close'),
+          child: Text(l.commonClose),
         ),
       ],
     );

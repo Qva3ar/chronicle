@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/ai/insight_engine.dart';
 import 'package:chrono/ai/context_builder.dart';
 import 'package:chrono/services/notification_service.dart';
@@ -258,7 +259,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
     await _loadInsights();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insights settings saved')),
+        SnackBar(content: Text(AppLocalizations.of(context).insightsSaved)),
       );
     Navigator.of(context).pop(true);
     }
@@ -267,9 +268,9 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
   Future<void> _testNow() async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🧪 Generating insight... check logs and notifications'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).insightsGenerating),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -289,10 +290,10 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
       await _loadInsights(); // Refresh the insights list
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Test completed! Check logs for details'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).insightsTestCompleted),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -330,7 +331,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Insights Settings')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).insightsSettingsTitle)),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -338,14 +339,14 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
           child: ListView(
             children: [
               SwitchListTile(
-                title: const Text('Enable AI Insights'),
+                title: Text(AppLocalizations.of(context).insightsEnable),
                 value: _enabled,
                 onChanged: (v) => setState(() => _enabled = v),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: '$_intervalMinutes',
-                decoration: const InputDecoration(labelText: 'Interval (minutes)'),
+                decoration: InputDecoration(labelText: AppLocalizations.of(context).insightsInterval),
                 keyboardType: TextInputType.number,
                 onChanged: (v) => _intervalMinutes = int.tryParse(v) ?? _intervalMinutes,
                 validator: (v) {
@@ -359,7 +360,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: '$_contextDays',
-                decoration: const InputDecoration(labelText: 'Context window (days)'),
+                decoration: InputDecoration(labelText: AppLocalizations.of(context).insightsContextWindow),
                 keyboardType: TextInputType.number,
                 onChanged: (v) => _contextDays = int.tryParse(v) ?? _contextDays,
                 validator: (v) {
@@ -373,7 +374,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: '$_tokenLimit',
-                decoration: const InputDecoration(labelText: 'Token limit (approx)'),
+                decoration: InputDecoration(labelText: AppLocalizations.of(context).insightsTokenLimit),
                 keyboardType: TextInputType.number,
                 onChanged: (v) => _tokenLimit = int.tryParse(v) ?? _tokenLimit,
                 validator: (v) {
@@ -386,14 +387,14 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               ),
               const SizedBox(height: 20),
               ListTile(
-                title: const Text('Quiet hours start'),
-                subtitle: Text(_fmt(_quietStart) ?? 'Not set'),
+                title: Text(AppLocalizations.of(context).insightsQuietStart),
+                subtitle: Text(_fmt(_quietStart) ?? AppLocalizations.of(context).commonNotSet),
                 trailing: const Icon(Icons.schedule),
                 onTap: () => _pickTime(isStart: true),
               ),
               ListTile(
-                title: const Text('Quiet hours end'),
-                subtitle: Text(_fmt(_quietEnd) ?? 'Not set'),
+                title: Text(AppLocalizations.of(context).insightsQuietEnd),
+                subtitle: Text(_fmt(_quietEnd) ?? AppLocalizations.of(context).commonNotSet),
                 trailing: const Icon(Icons.schedule),
                 onTap: () => _pickTime(isStart: false),
               ),
@@ -406,13 +407,13 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                   border: Border.all(color: Colors.blue.withOpacity(0.3)),
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                    SizedBox(width: 12),
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Requires internet connection and OpenAI API key to generate insights',
-                        style: TextStyle(fontSize: 12, color: Colors.white70),
+                        AppLocalizations.of(context).insightsRequiresInternet,
+                        style: const TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                     ),
                   ],
@@ -421,13 +422,13 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _save,
-                child: const Text('Save'),
+                child: Text(AppLocalizations.of(context).commonSave),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _testNow,
                 icon: const Icon(Icons.science),
-                label: const Text('Test Insight Generation Now'),
+                label: Text(AppLocalizations.of(context).insightsTestNow),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.amber,
                   side: const BorderSide(color: Colors.amber),
@@ -495,8 +496,8 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               const SizedBox(height: 8),
               if (_contextPreview != null)
                 ExpansionTile(
-                  title: const Text('Full Context JSON'),
-                  subtitle: Text('${(_contextPreview!['context_json'] as String).length} characters'),
+                  title: Text(AppLocalizations.of(context).insightsFullContextJson),
+                  subtitle: Text(AppLocalizations.of(context).insightsCharCount((_contextPreview!['context_json'] as String).length)),
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -549,8 +550,8 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
               const SizedBox(height: 8),
               if (_systemPrompt != null)
                 ExpansionTile(
-                  title: const Text('System Prompt'),
-                  subtitle: Text('${_systemPrompt!.length} characters'),
+                  title: Text(AppLocalizations.of(context).insightsSystemPrompt),
+                  subtitle: Text(AppLocalizations.of(context).insightsCharCount(_systemPrompt!.length)),
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -576,8 +577,8 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                 ),
               if (_userPrompt != null)
                 ExpansionTile(
-                  title: const Text('User Prompt (JSON)'),
-                  subtitle: Text('${_userPrompt!.length} characters'),
+                  title: Text(AppLocalizations.of(context).insightsUserPrompt),
+                  subtitle: Text(AppLocalizations.of(context).insightsCharCount(_userPrompt!.length)),
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -622,7 +623,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 _buildSignalSection(
-                  title: 'Outside context window',
+                  title: AppLocalizations.of(context).insightsOutsideContext,
                   items: _signalsOutContext,
                 ),
               ],
@@ -640,9 +641,9 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (_insights.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, right: 4, bottom: 12),
-                  child: Text('No insights saved yet.'),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
+                  child: Text(AppLocalizations.of(context).insightsNoneSaved),
                 )
               else
                 ListView.builder(
@@ -730,11 +731,11 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
       initiallyExpanded: false,
       children: [
         if (items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(left: 16, right: 16, bottom: 12),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('No items'),
+              child: Text(AppLocalizations.of(context).insightsNoItems),
             ),
           )
         else
@@ -752,7 +753,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
                   ts != null ? DateTime.fromMillisecondsSinceEpoch(ts).toIso8601String() : '';
               return ListTile(
                 dense: true,
-                title: Text(topic.isEmpty ? '(no topic)' : topic),
+                title: Text(topic.isEmpty ? AppLocalizations.of(context).insightsNoTopic : topic),
                 subtitle: Text(
                     'intent: ${intent.isEmpty ? '-' : intent} • conf: ${conf is num ? conf.toStringAsFixed(2) : '-'} • $dt'),
               );
@@ -844,7 +845,7 @@ class _InsightsSettingsScreenState extends State<InsightsSettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context).commonClose),
           ),
         ],
       ),

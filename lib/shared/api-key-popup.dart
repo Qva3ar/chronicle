@@ -1,6 +1,7 @@
 // api_key_popup.dart
 import 'package:flutter/material.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/helpers/api-key-options.dart';
 import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -66,8 +67,9 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
       );
     }
 
+    final l = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text('API Access Settings'),
+      title: Text(l.apiAccessSettings),
       content: SingleChildScrollView(
         child: Column(
           children: [
@@ -87,7 +89,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               selectedItemBuilder: (context) => apiKeyOptions
                   .map(
                     (item) => Text(
-                      item.label.isEmpty ? 'Select Model' : item.label,
+                      item.label.isEmpty ? l.selectModel : item.label,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -98,7 +100,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
                   selectedModel = value!;
                 });
               },
-              decoration: const InputDecoration(labelText: 'Select Model'),
+              decoration: InputDecoration(labelText: l.selectModel),
             ),
             if (selectedOption.speedLabel != null &&
                 selectedOption.speedLabel!.isNotEmpty) ...[
@@ -106,7 +108,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Задержка до ответа: ${selectedOption.speedLabel}',
+                  l.apiResponseDelay(selectedOption.speedLabel ?? ''),
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).textTheme.bodySmall?.color,
@@ -121,7 +123,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Token limit: ${selectedOption.tpm}'),
+                    Text(l.tokenLimit('${selectedOption.tpm}')),
                   ],
                 ),
               ),
@@ -135,7 +137,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               maxLines: null,
               style: const TextStyle(color: textPrimary),
               decoration: keyFieldDecoration(
-                label: 'OpenAI API Key',
+                label: l.openAiApiKey,
                 isActive: !isGeminiModel,
               ),
             ),
@@ -146,7 +148,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
               maxLines: null,
               style: const TextStyle(color: textPrimary),
               decoration: keyFieldDecoration(
-                label: 'Gemini API Key',
+                label: l.geminiApiKey,
                 isActive: isGeminiModel,
               ),
             ),
@@ -158,13 +160,13 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
                   onPressed: () {
                     _launchUrl(url1);
                   },
-                  child: Text('Get OpenAI Key'),
+                  child: Text(l.getOpenAiKey),
                 ),
                 TextButton(
                   onPressed: () {
                     _launchUrl(geminiUrl);
                   },
-                  child: Text('Get Gemini Key'),
+                  child: Text(l.getGeminiKey),
                 ),
               ],
             ),
@@ -176,7 +178,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
           onPressed: () {
             Navigator.of(context).pop();
           },
-          child: Text('Cancel'),
+          child: Text(l.commonCancel),
         ),
         TextButton(
           onPressed: () {
@@ -185,7 +187,7 @@ class _ApiKeyPopupState extends State<ApiKeyPopup> {
             gptNoteBindService.setModel(selectedModel);
             Navigator.of(context).pop();
           },
-          child: Text('Submit'),
+          child: Text(l.commonSubmit),
         ),
       ],
     );

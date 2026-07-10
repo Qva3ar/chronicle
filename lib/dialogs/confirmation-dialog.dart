@@ -1,4 +1,5 @@
 import 'package:chrono/db_manager.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/record.service.dart';
 import 'package:flutter/material.dart';
 
@@ -8,24 +9,24 @@ Future<void> showDeleteConfirmationDialog(BuildContext context) async {
   bool confirm = await showDialog(
           context: context,
           builder: (BuildContext context) {
+            final l = AppLocalizations.of(context);
             return AlertDialog(
-              title: Text('Confirm Delete'),
-              content: Text(
-                  'Are you sure you want to delete all notes? This action cannot be undone.'),
+              title: Text(l.confirmDeleteTitle),
+              content: Text(l.confirmDeleteAllMessage),
               actions: <Widget>[
                 TextButton(
                   onPressed: () {
                     Navigator.of(context)
                         .pop(false); // Dismisses the dialog and returns false
                   },
-                  child: Text('Cancel'),
+                  child: Text(l.commonCancel),
                 ),
                 TextButton(
                   onPressed: () {
                     Navigator.of(context)
                         .pop(true); // Dismisses the dialog and returns true
                   },
-                  child: Text('Delete'),
+                  child: Text(l.commonDelete),
                 ),
               ],
             );
@@ -38,10 +39,11 @@ Future<void> showDeleteConfirmationDialog(BuildContext context) async {
       await DatabaseHelper.instance.deleteAllNotes();
       recordService.importSuccess();
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('All notes have been deleted successfully.')));
+          SnackBar(content: Text(AppLocalizations.of(context).allNotesDeleted)));
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete notes: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context)
+              .failedToDeleteNotes(error.toString()))));
     }
   }
 }

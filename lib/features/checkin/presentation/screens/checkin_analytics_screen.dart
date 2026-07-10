@@ -6,6 +6,7 @@ import 'package:chrono/features/checkin/data/repositories/checkin_repository.dar
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class CheckinAnalyticsScreen extends StatefulWidget {
@@ -149,7 +150,7 @@ class _CheckinAnalyticsScreenState extends State<CheckinAnalyticsScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text("Analytics", style: TextStyle(color: Colors.white70)),
+        title: Text(AppLocalizations.of(context).checkinAnalyticsTitle, style: const TextStyle(color: Colors.white70)),
         backgroundColor: MyColors.primaryColor,
         iconTheme: const IconThemeData(color: Colors.white70),
       ),
@@ -167,7 +168,7 @@ class _CheckinAnalyticsScreenState extends State<CheckinAnalyticsScreen> {
                       CheckinDialog.show(context, CheckinType.morning).then((_) => _loadData());
                     },
                     icon: const Icon(Icons.wb_sunny_outlined),
-                    label: const Text("Morning Check-in"),
+                    label: Text(AppLocalizations.of(context).checkinMorning),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: MyColors.orangeDivider,
                       foregroundColor: Colors.white,
@@ -181,7 +182,7 @@ class _CheckinAnalyticsScreenState extends State<CheckinAnalyticsScreen> {
                       CheckinDialog.show(context, CheckinType.evening).then((_) => _loadData());
                     },
                     icon: const Icon(Icons.nightlight_round),
-                    label: const Text("Evening Check-in"),
+                    label: Text(AppLocalizations.of(context).checkinEvening),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: MyColors.primaryColor,
                       foregroundColor: Colors.white,
@@ -199,9 +200,9 @@ class _CheckinAnalyticsScreenState extends State<CheckinAnalyticsScreen> {
                 children: [
                   // Type Toggle
                   SegmentedButton<CheckinType>(
-                    segments: const [
-                      ButtonSegment(value: CheckinType.morning, label: Text("Morning")),
-                      ButtonSegment(value: CheckinType.evening, label: Text("Evening")),
+                    segments: [
+                      ButtonSegment(value: CheckinType.morning, label: Text(AppLocalizations.of(context).checkinMorningShort)),
+                      ButtonSegment(value: CheckinType.evening, label: Text(AppLocalizations.of(context).checkinEveningShort)),
                     ],
                     selected: {_selectedType},
                     onSelectionChanged: (Set<CheckinType> newSelection) {
@@ -272,9 +273,9 @@ class _CheckinAnalyticsScreenState extends State<CheckinAnalyticsScreen> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : spots.isEmpty
-                      ? const Center(
-                          child: Text("No data for selected period",
-                              style: TextStyle(color: Colors.grey)))
+                      ? Center(
+                          child: Text(AppLocalizations.of(context).checkinNoData,
+                              style: const TextStyle(color: Colors.grey)))
                       : LineChart(
                           LineChartData(
                             gridData: FlGridData(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:chrono/colors.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/models/workspace_entry.dart';
 import 'package:chrono/screens/workspace_editor_screen.dart';
 import 'package:chrono/services/workspace_service.dart';
@@ -67,7 +68,8 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
         final c = TextEditingController(text: w.name);
         return AlertDialog(
           backgroundColor: cardColor,
-          title: const Text('Rename', style: TextStyle(color: textPrimary)),
+          title: Text(AppLocalizations.of(ctx).commonRename,
+              style: const TextStyle(color: textPrimary)),
           content: TextField(
             controller: c,
             autofocus: true,
@@ -85,11 +87,13 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: textMuted)),
+              child: Text(AppLocalizations.of(ctx).commonCancel,
+                  style: const TextStyle(color: textMuted)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+              child: Text(AppLocalizations.of(ctx).commonSave,
+                  style: const TextStyle(color: MyColors.orangeDivider)),
             ),
           ],
         );
@@ -109,7 +113,8 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
             backgroundColor: cardColor,
-            title: const Text('Change color', style: TextStyle(color: textPrimary)),
+            title: Text(AppLocalizations.of(ctx).workspaceChangeColor,
+                style: const TextStyle(color: textPrimary)),
             content: WorkspaceColorPicker(
               selectedColorHex: selected,
               onColorSelected: (h) => setDialogState(() => selected = h),
@@ -117,11 +122,13 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel', style: TextStyle(color: textMuted)),
+                child: Text(AppLocalizations.of(ctx).commonCancel,
+                    style: const TextStyle(color: textMuted)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, selected),
-                child: const Text('Save', style: TextStyle(color: MyColors.orangeDivider)),
+                child: Text(AppLocalizations.of(ctx).commonSave,
+                    style: const TextStyle(color: MyColors.orangeDivider)),
               ),
             ],
           ),
@@ -144,19 +151,22 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: cardColor,
-        title: const Text('Delete workspace?', style: TextStyle(color: textPrimary)),
+        title: Text(AppLocalizations.of(ctx).workspaceDeleteTitle,
+            style: const TextStyle(color: textPrimary)),
         content: Text(
-          'This removes "${w.name}" and its note links. Notes themselves are not deleted.',
+          AppLocalizations.of(ctx).workspaceRemoveMessage(w.name),
           style: TextStyle(color: textMuted.withValues(alpha: 0.9)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: textMuted)),
+            child: Text(AppLocalizations.of(ctx).commonCancel,
+                style: const TextStyle(color: textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: MyColors.remove)),
+            child: Text(AppLocalizations.of(ctx).commonDelete,
+                style: const TextStyle(color: MyColors.remove)),
           ),
         ],
       ),
@@ -166,14 +176,15 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
     _load();
   }
 
-  String _formatDate(int millis) {
+  String _formatDate(BuildContext context, int millis) {
+    final l = AppLocalizations.of(context);
     final dt = DateTime.fromMillisecondsSinceEpoch(millis);
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return l.timeJustNow;
+    if (diff.inHours < 1) return l.timeMinutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return l.timeHoursAgo(diff.inHours);
+    if (diff.inDays < 7) return l.timeDaysAgo(diff.inDays);
     return DateFormat('dd MMM yyyy').format(dt);
   }
 
@@ -196,8 +207,8 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
         foregroundColor: textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text('Workspaces',
-            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+        title: Text(AppLocalizations.of(context).workspacesTitle,
+            style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: MyColors.secondaryColor,
@@ -218,16 +229,16 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
                       children: [
                         Icon(Icons.workspaces_outlined, size: 64, color: textMuted.withValues(alpha: 0.4)),
                         const SizedBox(height: 16),
-                        const Text(
-                          'No workspaces yet',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).noWorkspacesYet,
+                          style: const TextStyle(
                               color: textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Tap + to create your first workspace.\nLink notes, write documents, and use AI to find related content.',
+                          AppLocalizations.of(context).workspaceEmptyHint,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: textMuted, height: 1.5),
+                          style: const TextStyle(color: textMuted, height: 1.5),
                         ),
                       ],
                     ),
@@ -294,18 +305,18 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
                                                 if (v == 'delete') _confirmDelete(w);
                                               },
                                               itemBuilder: (ctx) => [
-                                                const PopupMenuItem(
+                                                PopupMenuItem(
                                                     value: 'rename',
-                                                    child: Text('Rename',
-                                                        style: TextStyle(color: textPrimary))),
-                                                const PopupMenuItem(
+                                                    child: Text(AppLocalizations.of(ctx).commonRename,
+                                                        style: const TextStyle(color: textPrimary))),
+                                                PopupMenuItem(
                                                     value: 'color',
-                                                    child: Text('Change color',
-                                                        style: TextStyle(color: textPrimary))),
-                                                const PopupMenuItem(
+                                                    child: Text(AppLocalizations.of(ctx).workspaceChangeColor,
+                                                        style: const TextStyle(color: textPrimary))),
+                                                PopupMenuItem(
                                                     value: 'delete',
-                                                    child: Text('Delete',
-                                                        style: TextStyle(color: MyColors.remove))),
+                                                    child: Text(AppLocalizations.of(ctx).commonDelete,
+                                                        style: const TextStyle(color: MyColors.remove))),
                                               ],
                                             ),
                                           ],
@@ -325,14 +336,14 @@ class _WorkspaceListScreenState extends State<WorkspaceListScreen> {
                                             Icon(Icons.access_time_rounded, size: 14, color: textHint),
                                             const SizedBox(width: 4),
                                             Text(
-                                              _formatDate(w.updatedAt),
+                                              _formatDate(context, w.updatedAt),
                                               style: const TextStyle(color: textHint, fontSize: 12),
                                             ),
                                             const SizedBox(width: 16),
                                             Icon(Icons.link_rounded, size: 14, color: textHint),
                                             const SizedBox(width: 4),
                                             Text(
-                                              '$count note${count != 1 ? 's' : ''}',
+                                              AppLocalizations.of(context).noteCount(count),
                                               style: const TextStyle(color: textHint, fontSize: 12),
                                             ),
                                           ],
@@ -372,7 +383,8 @@ class _NewWorkspaceDialogState extends State<_NewWorkspaceDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: cardColor,
-      title: const Text('New workspace', style: TextStyle(color: textPrimary)),
+      title: Text(AppLocalizations.of(context).newWorkspaceTitle,
+          style: const TextStyle(color: textPrimary)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -381,7 +393,7 @@ class _NewWorkspaceDialogState extends State<_NewWorkspaceDialog> {
             autofocus: true,
             style: const TextStyle(color: textPrimary),
             decoration: InputDecoration(
-              hintText: 'Name',
+              hintText: AppLocalizations.of(context).workspaceNameHint,
               hintStyle: const TextStyle(color: textHint),
               filled: true,
               fillColor: cardColor2,
@@ -401,14 +413,16 @@ class _NewWorkspaceDialogState extends State<_NewWorkspaceDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: textMuted)),
+          child: Text(AppLocalizations.of(context).commonCancel,
+              style: const TextStyle(color: textMuted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(
             context,
             (name: _controller.text.trim(), color: _selectedColor),
           ),
-          child: const Text('Create', style: TextStyle(color: MyColors.orangeDivider)),
+          child: Text(AppLocalizations.of(context).commonCreate,
+              style: const TextStyle(color: MyColors.orangeDivider)),
         ),
       ],
     );

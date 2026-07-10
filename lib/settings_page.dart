@@ -8,8 +8,11 @@ import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/shared/chrono_ui.dart';
+import 'package:chrono/l10n/app_localizations.dart';
+import 'package:chrono/services/locale_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -49,7 +52,9 @@ class _SettingsPageState extends State<SettingsPage> {
       _loadMainIntention();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Main intention updated successfully')),
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context).settingsMainIntentionUpdated)),
         );
       }
     }
@@ -91,7 +96,8 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: textSecondary)),
+            child: Text(AppLocalizations.of(context).commonCancel,
+                style: const TextStyle(color: textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -108,10 +114,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _resetRoutines() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await _showConfirmation(
-      title: 'Reset Routines',
-      message: 'This will mark all routines as not done and reschedule notifications.\n\nStreak data will be preserved.',
-      confirmLabel: 'Reset',
+      title: l.settingsResetRoutines,
+      message: l.settingsResetRoutinesMessage,
+      confirmLabel: l.commonReset,
       confirmColor: warningColor,
     );
     if (confirmed != true) return;
@@ -126,23 +133,29 @@ class _SettingsPageState extends State<SettingsPage> {
       await _notificationService.checkAndRescheduleRoutines();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Routines reset successfully')),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).settingsRoutinesResetSuccess)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: MyColors.remove),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).errorWithMessage(e.toString())),
+              backgroundColor: MyColors.remove),
         );
       }
     }
   }
 
   Future<void> _resetGoals() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await _showConfirmation(
-      title: 'Reset Goals',
-      message: 'This will reset all goal completion status, time spent, and stop active sessions.',
-      confirmLabel: 'Reset',
+      title: l.settingsResetGoals,
+      message: l.settingsResetGoalsMessage,
+      confirmLabel: l.commonReset,
       confirmColor: warningColor,
     );
     if (confirmed != true) return;
@@ -152,23 +165,29 @@ class _SettingsPageState extends State<SettingsPage> {
       await goalService.resetAllGoals();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Goals reset successfully')),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).settingsGoalsResetSuccess)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: MyColors.remove),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).errorWithMessage(e.toString())),
+              backgroundColor: MyColors.remove),
         );
       }
     }
   }
 
   Future<void> _deleteAllGoals() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await _showConfirmation(
-      title: 'Delete All Goals',
-      message: 'Are you sure? All goals will be permanently deleted.\n\nThis cannot be undone.',
-      confirmLabel: 'Delete',
+      title: l.settingsDeleteAllGoals,
+      message: l.settingsDeleteAllGoalsMessage,
+      confirmLabel: l.commonDelete,
     );
     if (confirmed != true) return;
 
@@ -176,23 +195,27 @@ class _SettingsPageState extends State<SettingsPage> {
       await DatabaseHelper.instance.deleteAllGoals();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All goals deleted')),
+          SnackBar(
+              content: Text(AppLocalizations.of(context).settingsAllGoalsDeleted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context).errorWithMessage(e.toString()))),
         );
       }
     }
   }
 
   Future<void> _deleteAllRoutines() async {
+    final l = AppLocalizations.of(context);
     final confirmed = await _showConfirmation(
-      title: 'Delete All Routines',
-      message: 'Are you sure? All routines and their notifications will be permanently deleted.\n\nThis cannot be undone.',
-      confirmLabel: 'Delete',
+      title: l.settingsDeleteAllRoutines,
+      message: l.settingsDeleteAllRoutinesMessage,
+      confirmLabel: l.commonDelete,
     );
     if (confirmed != true) return;
 
@@ -211,19 +234,83 @@ class _SettingsPageState extends State<SettingsPage> {
       await DatabaseHelper.instance.deleteAllRoutines();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All routines deleted')),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context).settingsAllRoutinesDeleted)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context).errorWithMessage(e.toString()))),
         );
       }
     }
   }
 
+  String _languageLabel(BuildContext context, Locale? locale) {
+    final l = AppLocalizations.of(context);
+    switch (locale?.languageCode) {
+      case 'en':
+        return l.languageEnglish;
+      case 'ru':
+        return l.languageRussian;
+      default:
+        return l.languageSystem;
+    }
+  }
+
+  void _showLanguagePicker() {
+    final l = AppLocalizations.of(context);
+    final provider = context.read<LocaleProvider>();
+    final current = provider.locale;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        Widget option(String label, Locale? value) {
+          final selected = current?.languageCode == value?.languageCode;
+          return ListTile(
+            title: Text(label, style: const TextStyle(color: textPrimary)),
+            trailing: selected
+                ? const Icon(Icons.check, color: MyColors.fivyColor)
+                : null,
+            onTap: () {
+              provider.setLocale(value);
+              Navigator.pop(sheetContext);
+            },
+          );
+        }
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(8, 16, 8, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l.language,
+                  style: const TextStyle(
+                      color: textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              option(l.languageSystem, null),
+              option(l.languageEnglish, const Locale('en')),
+              option(l.languageRussian, const Locale('ru')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showDangerZone() {
+    final l = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -246,9 +333,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Text(
-              'Danger Zone',
-              style: TextStyle(
+            Text(
+              l.settingsDangerZone,
+              style: const TextStyle(
                 color: MyColors.remove,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -256,14 +343,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'These actions are irreversible. Make sure you have a backup.',
-              style: TextStyle(color: textMuted, fontSize: 12),
+              l.settingsDangerZoneDescription,
+              style: const TextStyle(color: textMuted, fontSize: 12),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             _DangerAction(
               icon: Icons.delete_outline,
-              label: 'Delete All Goals',
+              label: l.settingsDeleteAllGoals,
               onTap: () {
                 Navigator.pop(context);
                 _deleteAllGoals();
@@ -271,7 +358,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             _DangerAction(
               icon: Icons.delete_outline,
-              label: 'Delete All Routines',
+              label: l.settingsDeleteAllRoutines,
               onTap: () {
                 Navigator.pop(context);
                 _deleteAllRoutines();
@@ -279,8 +366,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             _DangerAction(
               icon: Icons.delete_forever,
-              label: 'Delete All Records',
-              subtitle: 'Notes, tags, and all associated data',
+              label: l.settingsDeleteAllRecords,
+              subtitle: l.settingsDeleteAllRecordsSubtitle,
               onTap: () {
                 Navigator.pop(context);
                 _deleteAllRecords(context);
@@ -294,34 +381,52 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final currentLocale = context.watch<LocaleProvider>().locale;
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
         title:
-            const Text('Settings', style: TextStyle(color: textPrimary)),
+            Text(l.settingsTitle, style: const TextStyle(color: textPrimary)),
         iconTheme: const IconThemeData(color: textPrimary),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
 
+          // ── Language ──
+          ChronoSettingsGroup(
+            title: l.language,
+            children: [
+              ChronoSettingsRow(
+                icon: Icons.language_rounded,
+                iconColor: infoColor,
+                label: l.language,
+                subtitle: _languageLabel(context, currentLocale),
+                onTap: _showLanguagePicker,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
           // ── Backup & Restore ──
           ChronoSettingsGroup(
-            title: 'Backup & Restore',
+            title: l.settingsBackupRestore,
             children: [
               ChronoSettingsRow(
                 icon: Icons.backup_rounded,
                 iconColor: infoColor,
-                label: 'Export Backup',
-                subtitle: 'Save your data as JSON file',
+                label: l.settingsExportBackup,
+                subtitle: l.settingsExportBackupSubtitle,
                 onTap: _exportRecords,
               ),
               ChronoSettingsRow(
                 icon: Icons.restore_rounded,
                 iconColor: successColor,
-                label: 'Import Backup',
-                subtitle: 'Restore from a backup file',
+                label: l.settingsImportBackup,
+                subtitle: l.settingsImportBackupSubtitle,
                 onTap: _importRecords,
               ),
             ],
@@ -331,20 +436,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // ── Troubleshooting ──
           ChronoSettingsGroup(
-            title: 'Troubleshooting',
+            title: l.settingsTroubleshooting,
             children: [
               ChronoSettingsRow(
                 icon: Icons.refresh_rounded,
                 iconColor: warningColor,
-                label: 'Reset Routines',
-                subtitle: 'Mark all as not done, reschedule notifications',
+                label: l.settingsResetRoutines,
+                subtitle: l.settingsResetRoutinesSubtitle,
                 onTap: _resetRoutines,
               ),
               ChronoSettingsRow(
                 icon: Icons.restart_alt_rounded,
                 iconColor: warningColor,
-                label: 'Reset Goals',
-                subtitle: 'Reset completion status and time spent',
+                label: l.settingsResetGoals,
+                subtitle: l.settingsResetGoalsSubtitle,
                 onTap: _resetGoals,
               ),
             ],
@@ -358,8 +463,8 @@ class _SettingsPageState extends State<SettingsPage> {
               ChronoSettingsRow(
                 icon: Icons.warning_amber_rounded,
                 iconColor: MyColors.remove,
-                label: 'Danger Zone',
-                subtitle: 'Delete data permanently',
+                label: l.settingsDangerZone,
+                subtitle: l.settingsDeleteDataPermanently,
                 onTap: _showDangerZone,
               ),
             ],
@@ -368,20 +473,20 @@ class _SettingsPageState extends State<SettingsPage> {
           if (kDebugMode) ...[
             const SizedBox(height: 20),
             ChronoSettingsGroup(
-              title: 'Debug',
+              title: l.settingsDebug,
               children: [
                 ChronoSettingsRow(
                   icon: Icons.bug_report_outlined,
                   iconColor: textMuted,
-                  label: 'Print Tags to Console',
+                  label: l.settingsPrintTags,
                   onTap: () async {
                     await DatabaseHelper.instance
                         .debugPrintTagsDumpToConsole();
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Tags printed to debug console (flutter run / Logcat)'),
+                        SnackBar(
+                          content:
+                              Text(AppLocalizations.of(context).settingsTagsPrinted),
                         ),
                       );
                     }

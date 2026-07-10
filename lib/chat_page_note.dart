@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/message_bubble.dart';
@@ -132,8 +133,8 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           Icon(Icons.auto_awesome_outlined, size: 15, color: textMuted),
           const SizedBox(width: 6),
           Text(
-            'AI context',
-            style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+            AppLocalizations.of(context).chatAiContext,
+            style: const TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -199,17 +200,17 @@ class _ChatPageNoteState extends State<ChatPageNote> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Unexpected Error'),
+            title: Text(AppLocalizations.of(context).chatUnexpectedError),
             content: Text(
-              'Error: $errorMessage',
-              style: TextStyle(color: Colors.black),
+              AppLocalizations.of(context).errorWithMessage(errorMessage),
+              style: const TextStyle(color: Colors.black),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: Text('OK'),
+                child: Text(AppLocalizations.of(context).commonOk),
               ),
             ],
           );
@@ -270,7 +271,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
           // Handle other exceptions
           //print('An unexpected error occurred: $err');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
+            SnackBar(content: Text(AppLocalizations.of(context).chatUnexpectedErrorRetry)),
           );
         }
 
@@ -280,7 +281,7 @@ class _ChatPageNoteState extends State<ChatPageNote> {
       });
     } catch (err) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An error occurred. Please try again.')),
+        SnackBar(content: Text(AppLocalizations.of(context).chatErrorRetry)),
       );
       setState(() {
         _awaitingResponse = false;

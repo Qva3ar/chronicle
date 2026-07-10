@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chrono/l10n/app_localizations.dart';
 import 'dart:async';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
@@ -141,7 +142,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading goals: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).goalsErrorLoading(e.toString()))),
         );
       }
     }
@@ -203,7 +204,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Goal "${goal.title}" deleted successfully'),
+            content: Text(AppLocalizations.of(context).goalDeletedSuccess(goal.title)),
             backgroundColor: Colors.green,
           ),
         );
@@ -212,7 +213,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting goal: $e'),
+            content: Text(AppLocalizations.of(context).goalErrorDeleting(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -262,7 +263,7 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
 
   Widget _buildHeader() {
     return ChronoSheetHeader(
-      title: 'Goals',
+      title: AppLocalizations.of(context).navGoals,
       titleIcon: Icons.flag_rounded,
       itemCount: _activeGoals.length,
       actions: [
@@ -277,7 +278,9 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
               _showArchived = !_showArchived;
             });
           },
-          tooltip: _showArchived ? 'Hide completed goals' : 'Show completed goals',
+          tooltip: _showArchived
+              ? AppLocalizations.of(context).goalsHideCompleted
+              : AppLocalizations.of(context).goalsShowCompleted,
         ),
         IconButton(
           icon: const Icon(Icons.add, color: textPrimary),
@@ -330,11 +333,11 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
                             footer: (_showArchived && _archivedGoals.isNotEmpty)
                                 ? Column(
                                     children: [
-                                      const Padding(
-                                        padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                                         child: Text(
-                                          'Completed',
-                                          style: TextStyle(
+                                          AppLocalizations.of(context).goalCompleted,
+                                          style: const TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
                                             color: MyColors.fivyColor,
@@ -444,9 +447,9 @@ class _GoalsScreenState extends State<GoalsScreen> with WidgetsBindingObserver {
   Widget _buildEmptyState() {
     return ChronoEmptyState(
       icon: Icons.track_changes_outlined,
-      title: 'No Goals Yet',
-      subtitle: 'Create your first goal to start tracking your progress and building better habits.',
-      buttonLabel: 'Create Your First Goal',
+      title: AppLocalizations.of(context).goalsEmptyTitle,
+      subtitle: AppLocalizations.of(context).goalsEmptyDesc,
+      buttonLabel: AppLocalizations.of(context).goalsCreateFirst,
       onButton: _showAddGoalForm,
     );
   }
