@@ -286,14 +286,61 @@ Future<void> backgroundNotificationActionHandler(NotificationResponse response) 
         return;
       }
 
-      // Reactivate goal and set the session resumed timestamp
+      // 🎯 FIX: Credit the session that just finished BEFORE resuming.
+      // The "Continue" notification is fired by an exact local alarm
+      // (_scheduleLocalNotification) that does NOT touch the database, while the
+      // DB is only updated by the WorkManager _handleSessionCompletion task,
+      // which Android routinely delays (Doze/batching). If the user taps
+      // "Continue" before WorkManager runs, the goal is still isActive with a
+      // non-null sessionResumedTimestampSeconds, meaning timeSpentSeconds still
+      // holds the OLD baseline. Reactivating without crediting - combined with
+      // scheduleSessionCompletion's ExistingWorkPolicy.replace deleting the
+      // still-pending completion task below - would permanently discard the
+      // finished session's time (a 15-min session vanishes on every resume).
+      int creditedTimeSpent = goal.timeSpentSeconds;
+      if (goal.isActive && goal.sessionResumedTimestampSeconds != null) {
+        final int nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final int prevSessionElapsed = nowSec - goal.sessionResumedTimestampSeconds!;
+        final int prevSessionDuration = _getStaticSessionDurationForGoal(goal);
+        if (prevSessionElapsed > 0) {
+          final int credit =
+              prevSessionElapsed > prevSessionDuration ? prevSessionDuration : prevSessionElapsed;
+          final int rawTotal = goal.timeSpentSeconds + credit;
+          creditedTimeSpent = rawTotal > goal.totalSeconds ? goal.totalSeconds : rawTotal;
+          print(
+              '✅ BACKGROUND ACTION: WorkManager had not finalized the finished session yet - '
+              'crediting ${_formatTimeStatic(credit)} (total now ${_formatTimeStatic(creditedTimeSpent)}).');
+        }
+      }
+
+      // If crediting the finished session already completes the goal, finalize
+      // instead of starting another session.
+      if (creditedTimeSpent >= goal.totalSeconds) {
+        final finalizedGoal = goal.copyWith(
+          timeSpentSeconds: goal.totalSeconds,
+          isActive: false,
+          sessionResumedTimestampSeconds: null,
+          clearSessionResumedTimestamp: true,
+          completedAt: DateTime.now().millisecondsSinceEpoch,
+        );
+        await db.updateGoal(finalizedGoal);
+        await GoalsWidgetUpdater(db).update();
+        await notificationsPlugin.cancel(2);
+        print('🎉 BACKGROUND ACTION: Goal "${goal.title}" completed after crediting finished session.');
+        return;
+      }
+
+      // Reactivate goal, persist the credited baseline, and set the session
+      // resumed timestamp for the new session.
       final int resumeTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final updatedGoal = goal.copyWith(
         isActive: true,
+        timeSpentSeconds: creditedTimeSpent, // Preserve the just-finished session's time
         sessionResumedTimestampSeconds: resumeTimestamp, // Set the resume timestamp
       );
       await db.updateGoal(updatedGoal);
-      print('✅ BACKGROUND ACTION: Goal "${updatedGoal.title}" reactivated at $resumeTimestamp.');
+      print('✅ BACKGROUND ACTION: Goal "${updatedGoal.title}" reactivated at $resumeTimestamp '
+          '(baseline ${_formatTimeStatic(creditedTimeSpent)}).');
 
       // Refresh the goals widget so its chronometer restarts with the session.
       await GoalsWidgetUpdater(db).update();
