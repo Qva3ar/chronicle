@@ -34,6 +34,7 @@ import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/shared/premium_gate.dart';
 import 'package:chrono/widgets/productivity_banner.dart';
 import 'package:chrono/screens/productivity_screen.dart';
+import 'package:chrono/screens/goal_record_editor_screen.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/services/widget_service.dart';
@@ -1276,6 +1277,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               context,
                               checkinType,
                               existingRecord: item.toMap(),
+                            ).then((_) => loadRecords(refresh: true));
+                            return;
+                          }
+
+                          // Goal work-session notes open a dedicated editor
+                          // (edit time spent → productivity index recomputes).
+                          if (item.recordType == RecordType.goal) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    GoalRecordEditorScreen(record: item),
+                              ),
                             ).then((_) => loadRecords(refresh: true));
                             return;
                           }

@@ -2348,6 +2348,42 @@ abstract class AppLocalizations {
   /// **'Daily target: {minutes} min'**
   String goalDailyTarget(int minutes);
 
+  /// No description provided for @goalRecordEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Goal Session'**
+  String get goalRecordEditTitle;
+
+  /// No description provided for @goalRecordTimeSpentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Time spent (minutes)'**
+  String get goalRecordTimeSpentLabel;
+
+  /// No description provided for @goalRecordTodayReadonly.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s time is managed by the timer and can\'t be edited here.'**
+  String get goalRecordTodayReadonly;
+
+  /// No description provided for @goalRecordIndexUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Productivity index updated'**
+  String get goalRecordIndexUpdated;
+
+  /// No description provided for @goalRecordStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get goalRecordStatusCompleted;
+
+  /// No description provided for @goalRecordStatusDayEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Day ended'**
+  String get goalRecordStatusDayEnded;
+
   /// No description provided for @todoListNoDateSection.
   ///
   /// In en, this message translates to:

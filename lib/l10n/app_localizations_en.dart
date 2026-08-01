@@ -1274,6 +1274,25 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get goalRecordEditTitle => 'Edit Goal Session';
+
+  @override
+  String get goalRecordTimeSpentLabel => 'Time spent (minutes)';
+
+  @override
+  String get goalRecordTodayReadonly =>
+      'Today\'s time is managed by the timer and can\'t be edited here.';
+
+  @override
+  String get goalRecordIndexUpdated => 'Productivity index updated';
+
+  @override
+  String get goalRecordStatusCompleted => 'Completed';
+
+  @override
+  String get goalRecordStatusDayEnded => 'Day ended';
+
+  @override
   String get todoListNoDateSection => 'NO DATE';
 
   @override

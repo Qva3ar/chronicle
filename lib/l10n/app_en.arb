@@ -585,6 +585,13 @@
   "goalDailyTarget": "Daily target: {minutes} min",
   "@goalDailyTarget": { "placeholders": { "minutes": { "type": "int" } } },
 
+  "goalRecordEditTitle": "Edit Goal Session",
+  "goalRecordTimeSpentLabel": "Time spent (minutes)",
+  "goalRecordTodayReadonly": "Today's time is managed by the timer and can't be edited here.",
+  "goalRecordIndexUpdated": "Productivity index updated",
+  "goalRecordStatusCompleted": "Completed",
+  "goalRecordStatusDayEnded": "Day ended",
+
   "todoListNoDateSection": "NO DATE",
   "todoSectionTomorrow": "TOMORROW",
   "todoSectionDeadline": "DEADLINE",

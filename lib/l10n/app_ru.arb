@@ -585,6 +585,13 @@
   "goalDailyTarget": "Дневная цель: {minutes} мин",
   "@goalDailyTarget": { "placeholders": { "minutes": { "type": "int" } } },
 
+  "goalRecordEditTitle": "Редактировать заметку цели",
+  "goalRecordTimeSpentLabel": "Затрачено времени (минуты)",
+  "goalRecordTodayReadonly": "Время за сегодня управляется таймером и не редактируется здесь.",
+  "goalRecordIndexUpdated": "Индекс продуктивности обновлён",
+  "goalRecordStatusCompleted": "Выполнено",
+  "goalRecordStatusDayEnded": "День завершён",
+
   "todoListNoDateSection": "БЕЗ ДАТЫ",
   "todoSectionTomorrow": "ЗАВТРА",
   "todoSectionDeadline": "ДЕДЛАЙН",

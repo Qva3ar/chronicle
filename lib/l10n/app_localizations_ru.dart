@@ -1285,6 +1285,25 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get goalRecordEditTitle => 'Редактировать заметку цели';
+
+  @override
+  String get goalRecordTimeSpentLabel => 'Затрачено времени (минуты)';
+
+  @override
+  String get goalRecordTodayReadonly =>
+      'Время за сегодня управляется таймером и не редактируется здесь.';
+
+  @override
+  String get goalRecordIndexUpdated => 'Индекс продуктивности обновлён';
+
+  @override
+  String get goalRecordStatusCompleted => 'Выполнено';
+
+  @override
+  String get goalRecordStatusDayEnded => 'День завершён';
+
+  @override
   String get todoListNoDateSection => 'БЕЗ ДАТЫ';
 
   @override
