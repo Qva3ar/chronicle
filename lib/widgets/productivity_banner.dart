@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 
@@ -31,6 +32,11 @@ class _ProductivityBannerState extends State<ProductivityBanner>
     _resetSubscription = DailyResetService.instance.onResetComplete.listen((_) => _load());
     _scoreUpdatedSubscription =
         ProductivityService.instance.onProductivityScoreUpdated.listen((score) {
+      // The banner only ever shows TODAY. Editing/backdating a past day also
+      // emits on this stream with that day's date — ignore it, otherwise the
+      // banner briefly shows the past day's score until the next _load() reverts it.
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      if (score.date != todayStr) return;
       if (mounted) setState(() => _currentScore = score);
     });
   }

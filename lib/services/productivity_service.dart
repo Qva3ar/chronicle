@@ -142,10 +142,21 @@ class ProductivityService {
   /// record that day (covers import: export clears `is_done` but keeps notes).
   /// Goals: max(timer progress, progress inferred from goal records that day).
   /// For past dates: completion records only (routine flags are not historical).
-  Future<ProductivityScore> _calculateScoreForDate(String dateStr) async {
+  ///
+  /// [forceLiveState] makes a non-today date also credit live state
+  /// (`routine.isDone`, `goal.timeSpentSeconds`). This is used by the midnight
+  /// finalization, which runs while yesterday's live flags are still intact
+  /// (before the daily reset wipes them) and represent yesterday's end state.
+  /// Without it, finalization would reconstruct yesterday from records only and
+  /// under-credit any goal time that never reached a goal record.
+  Future<ProductivityScore> _calculateScoreForDate(
+    String dateStr, {
+    bool forceLiveState = false,
+  }) async {
     final now = DateTime.now();
     final todayStr = DateFormat('yyyy-MM-dd').format(now);
     final isToday = dateStr == todayStr;
+    final useLiveState = isToday || forceLiveState;
 
     final targetDate = DateTime.tryParse(dateStr) ?? now;
     final currentDayIndex = targetDate.weekday - 1;
@@ -188,7 +199,7 @@ class ProductivityService {
       final w = routine.priority * routineWeightFactor;
       totalWeight += w;
       bool completed = false;
-      if (isToday) {
+      if (useLiveState) {
         completed = routine.isDone;
       }
       if (!completed && routine.id != null) {
@@ -212,7 +223,7 @@ class ProductivityService {
       totalWeight += goal.priority;
       double progress = 0.0;
       if (goal.totalSeconds > 0 && goal.id != null) {
-        if (isToday) {
+        if (useLiveState) {
           progress =
               (goal.timeSpentSeconds / goal.totalSeconds).clamp(0.0, 1.0);
           final fromRecords = await _goalProgressFromRecordsForDay(
@@ -272,6 +283,20 @@ class ProductivityService {
         : 0.0;
   }
 
+  /// Reads the persisted `score` from a productivity record's JSON text.
+  /// Returns null when the text is absent or not a valid productivity payload.
+  double? _parseStoredScore(String? text) {
+    if (text == null || !text.trim().startsWith('{')) return null;
+    try {
+      final data = jsonDecode(text);
+      if (data is Map<String, dynamic>) {
+        final s = data['score'];
+        if (s is num) return s.toDouble();
+      }
+    } catch (_) {}
+    return null;
+  }
+
   int? _extractTimeMinutes(String text) {
     try {
       final data = jsonDecode(text);
@@ -289,10 +314,21 @@ class ProductivityService {
 
   /// Create or update today's productivity Record.
   /// [forDate] - if set, use this date instead of today (e.g. for finalizing yesterday at midnight).
-  Future<int> createOrUpdateDailyRecord({String? forDate}) async {
+  /// [useLiveState] - credit live routine/goal state even for a non-today date.
+  ///   Use only when that live state still reflects [forDate] (midnight finalization
+  ///   before the reset). Do NOT use for genuine backdating of older dates.
+  /// [preserveHigherScore] - never overwrite an existing record with a lower score.
+  ///   Safety net for finalization so a partially-reset live state can't erase the
+  ///   correct value that live updates already stored during the day.
+  Future<int> createOrUpdateDailyRecord({
+    String? forDate,
+    bool useLiveState = false,
+    bool preserveHigherScore = false,
+  }) async {
     final now = DateTime.now();
     final targetDate = forDate ?? DateFormat('yyyy-MM-dd').format(now);
-    final score = await _calculateScoreForDate(targetDate);
+    final score =
+        await _calculateScoreForDate(targetDate, forceLiveState: useLiveState);
     if (score.totalWeight == 0) return -1;
 
     final db = await _db.database;
@@ -310,6 +346,15 @@ class ProductivityService {
 
     if (existing.isNotEmpty) {
       final recordId = existing.first[DatabaseColumns.id] as int;
+      if (preserveHigherScore) {
+        final existingScore =
+            _parseStoredScore(existing.first[DatabaseColumns.recordText] as String?);
+        if (existingScore != null && existingScore > score.score) {
+          log('[ProductivityService] Kept higher stored score for $targetDate '
+              '(${existingScore.toStringAsFixed(1)} > ${score.score.toStringAsFixed(1)})');
+          return recordId;
+        }
+      }
       await db.update(
         DatabaseTables.record,
         {
@@ -324,11 +369,21 @@ class ProductivityService {
       _productivityScoreUpdatedController.add(score);
       return recordId;
     } else {
+      // Anchor createdAt to the target day (midday) so a record created for a
+      // PAST date sorts chronologically. Using `now` here would place a
+      // backdated record at the "most recent" end and scramble the date order
+      // that the history screen, chart and streak rely on. Midday avoids
+      // timezone/DST edge cases shifting the calendar date.
+      final parsedDate = DateTime.tryParse(targetDate);
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      final createdAtMs = (parsedDate == null || targetDate == todayStr)
+          ? now.millisecondsSinceEpoch
+          : DateTime(parsedDate.year, parsedDate.month, parsedDate.day, 12)
+              .millisecondsSinceEpoch;
       final recordId = await _db.insertRecord({
         DatabaseColumns.recordTitle: title,
         DatabaseColumns.recordText: jsonText,
-        DatabaseColumns.recordCreatedAt:
-            DateTime.now().millisecondsSinceEpoch,
+        DatabaseColumns.recordCreatedAt: createdAtMs,
         DatabaseColumns.recordType: RecordType.productivity.toDbValue(),
       }, []);
       log('[ProductivityService] Created daily record #$recordId: ${score.score.toStringAsFixed(1)}');
@@ -363,9 +418,77 @@ class ProductivityService {
       }
     }
 
+    // Sort by the logical `date` field, not by `recordCreatedAt`. Backdated
+    // records (and any older ones created with a `now` timestamp) would
+    // otherwise be out of chronological order, breaking the chart and the
+    // consecutive-day streak that assume date-ascending order.
+    scores.sort((a, b) => a.date.compareTo(b.date));
+
     if (days > 0 && scores.length > days) {
       return scores.sublist(scores.length - days);
     }
     return scores;
+  }
+
+  /// One-shot repair for productivity records whose `recordCreatedAt` day does
+  /// not match their logical `date` field. This happened when a record was
+  /// created for a PAST day (e.g. editing/backdating a goal note) before the
+  /// insert was fixed to anchor `createdAt` to the target day — such records
+  /// were stamped with `now`, so the main notes list (grouped by `createdAt`)
+  /// showed them under today instead of their real day.
+  ///
+  /// Idempotent: only rewrites mismatched records, anchoring to midday of the
+  /// stored `date` (avoids timezone/DST edge cases). Best-effort — never throws.
+  /// Returns the number of records fixed.
+  Future<int> healRecordDates() async {
+    try {
+      final db = await _db.database;
+      final records = await db.query(
+        DatabaseTables.record,
+        where: '${DatabaseColumns.recordType} = ?',
+        whereArgs: [RecordType.productivity.toDbValue()],
+      );
+
+      int fixed = 0;
+      for (final record in records) {
+        final text = record[DatabaseColumns.recordText] as String? ?? '';
+        if (!text.trim().startsWith('{')) continue;
+        String? dateStr;
+        try {
+          final json = jsonDecode(text) as Map<String, dynamic>;
+          dateStr = json['date'] as String?;
+        } catch (_) {
+          continue;
+        }
+        final parsed = dateStr != null ? DateTime.tryParse(dateStr) : null;
+        if (parsed == null) continue;
+
+        final currentMs = record[DatabaseColumns.recordCreatedAt] as int?;
+        if (currentMs == null) continue;
+        final currentDay = DateTime.fromMillisecondsSinceEpoch(currentMs);
+        if (currentDay.year == parsed.year &&
+            currentDay.month == parsed.month &&
+            currentDay.day == parsed.day) {
+          continue; // already anchored to the correct day
+        }
+
+        final anchoredMs =
+            DateTime(parsed.year, parsed.month, parsed.day, 12).millisecondsSinceEpoch;
+        await db.update(
+          DatabaseTables.record,
+          {DatabaseColumns.recordCreatedAt: anchoredMs},
+          where: '${DatabaseColumns.id} = ?',
+          whereArgs: [record[DatabaseColumns.id]],
+        );
+        fixed++;
+      }
+      if (fixed > 0) {
+        log('[ProductivityService] healRecordDates: re-anchored $fixed record(s) to their date');
+      }
+      return fixed;
+    } catch (e) {
+      log('[ProductivityService] healRecordDates failed (non-critical): $e');
+      return 0;
+    }
   }
 }

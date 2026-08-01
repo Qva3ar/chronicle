@@ -23,6 +23,20 @@ The Productivity Index is a daily score (0–10) based on completed routines and
 - **Past dates:** Uses records:
   - Routines: completion records for that date (`recordRoutineId` + `createdAt`)
   - Goals: goal records for that date, sum `time_minutes` from JSON
+- **`forceLiveState`:** credits live state (`isDone`, `timeSpentSeconds`) even for a
+  non-today date. Used only by midnight finalization (see below).
+
+### Midnight Finalization (⚠️ important)
+
+At the daily reset, `DailyResetService` finalizes YESTERDAY with
+`createOrUpdateDailyRecord(forDate: yesterday, useLiveState: true, preserveHigherScore: true)`
+**before** routines/goals are reset. At that moment yesterday's `isDone` /
+`timeSpentSeconds` still hold its end-of-day state, so we snapshot from that LIVE
+state. A records-only recompute would under-credit goal time that never reached a
+goal record (e.g. resumed/background sessions where `timeSpentSeconds` outran the
+recorded `time_minutes`) and overwrite the correct value the live updates already
+stored during the day. `preserveHigherScore` is a safety net so a partially-reset
+live state can never lower an already-stored score.
 
 ### Formula
 

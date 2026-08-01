@@ -112,11 +112,21 @@ class DailyResetService {
     final db = DatabaseHelper.instance;
     final goalService = GoalService(db);
 
-    // Finalize productivity record for YESTERDAY before resetting (state still reflects end of yesterday)
+    // Finalize productivity record for YESTERDAY before resetting.
+    // The routine `isDone` flags and goal `timeSpentSeconds` still hold yesterday's
+    // end state at this point, so we finalize from that LIVE state (useLiveState)
+    // instead of reconstructing from records only — a records-only recompute would
+    // under-credit goal time that never reached a goal record and overwrite the
+    // correct value the live updates already stored during the day.
+    // preserveHigherScore guards against a partially-reset live state lowering it.
     try {
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
       final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
-      await ProductivityService.instance.createOrUpdateDailyRecord(forDate: yesterdayStr);
+      await ProductivityService.instance.createOrUpdateDailyRecord(
+        forDate: yesterdayStr,
+        useLiveState: true,
+        preserveHigherScore: true,
+      );
       print('[DailyResetService] ✅ Productivity record finalized for $yesterdayStr');
     } catch (e) {
       print('[DailyResetService] ⚠️ Productivity record finalization failed (non-critical): $e');

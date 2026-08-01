@@ -53,30 +53,47 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
 
   static const double _streakThreshold = 7.0;
 
+  /// Days (normalized to midnight) that reached the streak threshold.
+  Set<DateTime> get _qualifyingDays {
+    final days = <DateTime>{};
+    for (final s in _history) {
+      if (s.score < _streakThreshold) continue;
+      final d = DateTime.tryParse(s.date);
+      if (d == null) continue;
+      days.add(DateTime(d.year, d.month, d.day));
+    }
+    return days;
+  }
+
+  /// Consecutive calendar days ending today (or yesterday if today isn't yet
+  /// qualifying — an in-progress day must not zero the streak). Counts by date,
+  /// so gaps break it and out-of-order history doesn't.
   int get _currentStreak {
-    if (_history.isEmpty) return 0;
+    final days = _qualifyingDays;
+    if (days.isEmpty) return 0;
+    final now = DateTime.now();
+    var cursor = DateTime(now.year, now.month, now.day);
+    if (!days.contains(cursor)) {
+      // Today not (yet) qualifying — start from yesterday instead of breaking.
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
     int streak = 0;
-    for (int i = _history.length - 1; i >= 0; i--) {
-      if (_history[i].score >= _streakThreshold) {
-        streak++;
-      } else {
-        break;
-      }
+    while (days.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
     }
     return streak;
   }
 
   int get _bestStreak {
-    if (_history.isEmpty) return 0;
-    int best = 0;
-    int current = 0;
-    for (final s in _history) {
-      if (s.score >= _streakThreshold) {
-        current++;
-        if (current > best) best = current;
-      } else {
-        current = 0;
-      }
+    final sorted = _qualifyingDays.toList()..sort();
+    if (sorted.isEmpty) return 0;
+    int best = 1;
+    int current = 1;
+    for (int i = 1; i < sorted.length; i++) {
+      final gap = sorted[i].difference(sorted[i - 1]).inDays;
+      current = gap == 1 ? current + 1 : 1;
+      if (current > best) best = current;
     }
     return best;
   }

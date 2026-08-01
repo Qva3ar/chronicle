@@ -14,6 +14,7 @@ import 'package:chrono/services/gpt-note-bind.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
+import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/goal_widget_service.dart';
@@ -104,6 +105,22 @@ Future<void> _deferredInitialization() async {
       }
     } catch (e) {
       log('Routine streak heal pass failed (non-critical): $e');
+    }
+
+    // One-shot heal for productivity records created for a PAST day before the
+    // insert anchored `createdAt` to the target day. Re-anchors their timestamp
+    // to their logical `date` so the notes list groups them under the right day.
+    // Statistics already read the `date` field directly and are unaffected.
+    try {
+      const healFlagKey = 'productivity_date_heal_v1_done';
+      final healPrefs = await SharedPreferences.getInstance();
+      if (!(healPrefs.getBool(healFlagKey) ?? false)) {
+        await ProductivityService.instance.healRecordDates();
+        await healPrefs.setBool(healFlagKey, true);
+        log('Productivity date heal pass v1 completed');
+      }
+    } catch (e) {
+      log('Productivity date heal pass failed (non-critical): $e');
     }
 
     // Ensure insight tasks respect current settings on app startup
