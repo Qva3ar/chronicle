@@ -149,11 +149,16 @@ class GoalCard extends StatelessWidget {
     );
   }
 
-  /// Border colour derived from the current progress level.
-  Color _borderForProgress(double progress) {
-    if (progress >= 1.0) return successColor;
-    if (progress >= 0.5) return infoColor.withValues(alpha: 0.5);
-    return cardBorder.withValues(alpha: 0.4);
+  /// Left indicator colour derived from the goal's importance (priority).
+  /// Mirrors the routine tiles so importance is visible at a glance.
+  Color _priorityColor(int priority) {
+    switch (priority) {
+      case 1: return textMuted;
+      case 2: return infoColor;
+      case 3: return warningColor;
+      case 4: return MyColors.remove;
+      default: return infoColor;
+    }
   }
 
   /// Icon container accent based on running/done state.
@@ -182,20 +187,16 @@ class GoalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardColor2,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _borderForProgress(realtimeProgress),
-            width: 1,
-          ),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: IntrinsicHeight(
             child: Row(
               children: [
-                // Left colour indicator
+                // Left colour indicator — reflects the goal's importance.
                 Container(
                   width: 4,
-                  color: accent.withValues(alpha: 0.7),
+                  color: _priorityColor(goal.priority).withValues(alpha: 0.7),
                 ),
 
                 // Main content
