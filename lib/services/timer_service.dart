@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
@@ -15,6 +14,8 @@ import '../record.service.dart';
 import '../main.dart';
 import '../models/routine.model.dart';
 import '../screens/goals_screen.dart';
+import 'daily_reset_service.dart';
+import 'live_activity_service.dart';
 import 'notification_service.dart';
 import 'routine_widget_service.dart';
 import 'goals_widget_updater.dart';
@@ -40,89 +41,62 @@ int _getStaticSessionDurationForGoal(Goal goal) {
   return goal.sessionMinutes * 60; // Normal duration
 }
 
+// Unified Android notification details for the ongoing session notification.
+// The OS renders a live chronometer counting up from [sessionStartTimeSeconds]
+// (`usesChronometer` + `when`), so the notification stays accurate even when
+// the app is backgrounded or killed - no periodic repaints needed.
 @pragma('vm:entry-point')
-// NEW: Show a running notification from background context with unified design
+AndroidNotificationDetails _buildRunningAndroidDetails(int sessionStartTimeSeconds) {
+  return AndroidNotificationDetails(
+    'timer_channel_v2',
+    'Timer Notifications',
+    channelDescription: 'Ongoing notification for the active goal session',
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
+    ongoing: true,
+    autoCancel: false,
+    onlyAlertOnce: true,
+    icon: '@mipmap/launcher_icon',
+    showWhen: true,
+    when: sessionStartTimeSeconds * 1000,
+    usesChronometer: true,
+    category: AndroidNotificationCategory.stopwatch,
+  );
+}
+
+@pragma('vm:entry-point')
+// Body line with the goal-level (not session) numbers. These only change
+// between sessions, so static text is fine here.
+String _buildRunningNotificationBody(Goal goal, int baselineTimeSpentSeconds) {
+  final int remaining =
+      (goal.totalSeconds - baselineTimeSpentSeconds).clamp(0, goal.totalSeconds);
+  return 'Total ${_formatTimeStatic(baselineTimeSpentSeconds)} of ${_formatTimeStatic(goal.totalSeconds)} · ${_formatTimeStatic(remaining)} left';
+}
+
+@pragma('vm:entry-point')
+// Show the running notification from a background isolate (the "Continue"
+// notification action). Android-only: iOS uses a Live Activity instead, which
+// cannot be (re)started from this isolate and is handled on next app launch.
 Future<void> _showBackgroundRunningNotification(
     FlutterLocalNotificationsPlugin plugin, Goal goal) async {
+  if (!Platform.isAndroid) return;
   try {
-    print('💡 BG NOTIF: Attempting to show unified running notification for ${goal.title}');
-
-    // Calculate session progress for the progress bar
-    // When continued from background, we need to calculate session elapsed time
     final int currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final int sessionStartTime = goal.sessionResumedTimestampSeconds ?? currentTime;
-    final int sessionElapsed = (currentTime - sessionStartTime).clamp(0, 86400);
-    final int sessionDuration = _getStaticSessionDurationForGoal(goal);
-
-    // Calculate progress percentage (0-100) for the current session segment
-    int progressPercentage =
-        sessionDuration > 0 ? ((sessionElapsed / sessionDuration) * 100).round().clamp(0, 100) : 0;
-
-    // UX FIX: Show indeterminate progress when session just started (< 5 seconds)
-    // This provides visual feedback that session is active even when progress is near 0
-    bool showIndeterminate = sessionElapsed < 5;
-    int maxProgress = 100;
-
-    if (showIndeterminate) {
-      // Android shows indeterminate progress bar when maxProgress = 0
-      maxProgress = 0;
-      progressPercentage = 0;
-      print(
-          '📊 BG NOTIF: Showing indeterminate progress (session just started: ${sessionElapsed}s)');
-    } else {
-      print(
-          '📊 BG NOTIF: Showing progress: $progressPercentage% (${sessionElapsed}s / ${sessionDuration}s)');
-    }
-
-    // Use unified notification format with progress bar
-    // HIGH PRIORITY: Make it noticeable when user resumes session
-    final androidDetails = AndroidNotificationDetails(
-      'timer_channel', // Same channel as the foreground running notification
-      'Timer Notifications',
-      channelDescription: 'Notifications for goal timer sessions',
-      importance: Importance.high, // Changed from defaultImportance to high
-      priority: Priority.high, // Changed from defaultPriority to high
-      ongoing: true,
-      autoCancel: false,
-      showWhen: false,
-      icon: '@mipmap/launcher_icon',
-      // Add vibration pattern for visibility
-      enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 500, 250, 500]), // Vibrate-pause-vibrate pattern
-      // Add sound for initial notification
-      playSound: true,
-      // Unified progress bar (indeterminate if session just started, otherwise shows actual progress)
-      showProgress: true,
-      maxProgress: maxProgress, // 0 = indeterminate, 100 = normal progress
-      progress: progressPercentage,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
-    );
 
     final details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
+      android: _buildRunningAndroidDetails(sessionStartTime),
     );
 
-    // Unified format: clean title and elapsed time
-    final notificationTitle = '🎯 ${goal.title}';
-    final notificationBody = '⏱️ ${_formatTimeStatic(goal.timeSpentSeconds)} elapsed';
-
     await plugin.show(
-      1, // Use the same ID as the main running notification
-      notificationTitle,
-      notificationBody,
+      1, // Same ID as the main running notification
+      '🎯 ${goal.title}',
+      _buildRunningNotificationBody(goal, goal.timeSpentSeconds),
       details,
       payload: 'running_goal_${goal.id}',
     );
 
-    print(
-        '✅ BACKGROUND: Unified running notification shown for ${goal.title} (progress: $progressPercentage%)');
+    print('✅ BACKGROUND: Chronometer running notification shown for ${goal.title}');
   } catch (e) {
     print('❌ BACKGROUND: Failed to show running notification: $e');
   }
@@ -616,6 +590,11 @@ class TimerService extends ChangeNotifier {
       await _db.database;
       print('✅ TIMER SERVICE: Database connection verified');
 
+      // iOS: clear any Live Activity left over from a previous run. If a
+      // session is still genuinely active, _resumeSessionFromDatabase below
+      // recreates the activity with fresh timestamps.
+      await LiveActivityService.instance.endSessionActivity();
+
       // Check for any orphaned alarms from previous app runs
       await _cleanupOrphanedAlarms();
 
@@ -952,6 +931,18 @@ class TimerService extends ChangeNotifier {
   // 🎯 ENHANCED: Start session with improved precision and validation
   Future<void> startSession(Goal goal) async {
     print('🚀 START SESSION: Initiating session for "${goal.title}"');
+
+    // 🎯 FIX: On the first app open of a new day the daily-reset catch-up runs
+    // asynchronously and can land a few seconds AFTER the user hits start,
+    // wiping is_active/time_spent of the just-started session. Wait for it
+    // here: if the reset already ran today this is a cheap prefs read; if it
+    // is in flight we join the shared future. This also guarantees the
+    // baseline read below is post-reset (0), not yesterday's leftover time.
+    try {
+      await DailyResetService.instance.runDailyResetIfNeeded();
+    } catch (e) {
+      print('⚠️ START SESSION: Daily reset catch-up failed (continuing): $e');
+    }
 
     // Get the latest state and validate
     final latestGoal = await _db.getGoal(goal.id!);
@@ -1396,10 +1387,8 @@ class TimerService extends ChangeNotifier {
             'UI Update: Session time: ${formatTime(sessionElapsed)}/${formatTime(sessionDuration)}');
       }
 
-      // Update notifications periodically (every 30 seconds instead of 60)
-      if (sessionElapsed % 30 == 0 && sessionElapsed > 0) {
-        await _showRunningNotification();
-      }
+      // No periodic notification repaint needed: the Android chronometer and
+      // the iOS Live Activity timer are rendered live by the OS itself.
 
       notifyListeners();
     });
@@ -1913,81 +1902,42 @@ class TimerService extends ChangeNotifier {
 
   // Notification methods
 
-  /// Creates unified notification details with progress bar for active goal sessions
-  /// Returns [NotificationDetails] with consistent formatting and visual progress indicator
-  NotificationDetails _createUnifiedNotificationDetails({
-    required int sessionElapsedSeconds,
-    required int sessionDurationSeconds,
-    required int totalElapsedSeconds,
-  }) {
-    // Calculate session progress percentage (0-100)
-    final int progressPercentage = sessionDurationSeconds > 0
-        ? ((sessionElapsedSeconds / sessionDurationSeconds) * 100).round().clamp(0, 100)
-        : 0;
-
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'timer_channel',
-      'Timer Notifications',
-      channelDescription: 'Notifications for goal timer sessions',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      ongoing: true,
-      autoCancel: false,
-      showWhen: false,
-      icon: '@mipmap/launcher_icon',
-      // Progress bar configuration
-      showProgress: true,
-      maxProgress: 100,
-      progress: progressPercentage,
-    );
-
-    // iOS: Show alert with sound for running sessions
-    // Note: iOS doesn't support persistent/ongoing notifications like Android
-    // So we show a regular notification that can be dismissed
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
-    );
-
-    return NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-  }
-
+  // Show the ongoing session indicator once per session start/resume.
+  // Android: chronometer notification the OS keeps ticking on its own.
+  // iOS: Live Activity with a native timer (no updatable notifications there).
   Future<void> _showRunningNotification() async {
     if (_activeGoal == null) {
       print('❌ Cannot show running notification - no active goal');
       return;
     }
 
-    print('🔔 NOTIFICATION: Updating running notification');
-    print('   - Goal: ${_activeGoal!.title}');
-    print(
-        '   - Session time: ${formatTime(sessionTimeElapsed)}/${formatTime(_getSessionDuration())}');
-    print('   - Total elapsed: ${formatTime(totalTimeElapsed)}');
+    if (Platform.isIOS) {
+      final int sessionEndTime = _sessionStartTime + _getSessionDuration();
+      await LiveActivityService.instance.startSessionActivity(
+        goalTitle: _activeGoal!.title,
+        sessionStartTimeSeconds: _sessionStartTime,
+        sessionEndTimeSeconds: sessionEndTime,
+        totalSpentSeconds: _baselineTimeSpent,
+        goalTargetSeconds: _activeGoal!.totalSeconds,
+      );
+      return;
+    }
 
     try {
-      final notificationTitle = '🎯 ${_activeGoal!.title}';
-      final notificationBody = '⏱️ ${formatTime(totalTimeElapsed)} elapsed';
-
-      final platformChannelSpecifics = _createUnifiedNotificationDetails(
-        sessionElapsedSeconds: sessionTimeElapsed,
-        sessionDurationSeconds: _getSessionDuration(),
-        totalElapsedSeconds: totalTimeElapsed,
+      final details = NotificationDetails(
+        android: _buildRunningAndroidDetails(_sessionStartTime),
       );
 
       await _notificationsPlugin.show(
         1,
-        notificationTitle,
-        notificationBody,
-        platformChannelSpecifics,
+        '🎯 ${_activeGoal!.title}',
+        _buildRunningNotificationBody(_activeGoal!, _baselineTimeSpent),
+        details,
+        payload: 'running_goal_${_activeGoal!.id}',
       );
 
       print(
-          '✅ NOTIFICATION: Running notification updated successfully (${sessionTimeElapsed}/${_getSessionDuration()}s - ${((sessionTimeElapsed / _getSessionDuration()) * 100).round()}%)');
+          '✅ NOTIFICATION: Chronometer running notification shown (session start: $_sessionStartTime)');
     } catch (e) {
       print('❌ NOTIFICATION ERROR: Failed to show running notification: $e');
     }
@@ -1996,6 +1946,10 @@ class TimerService extends ChangeNotifier {
   Future<void> _hideNotification() async {
     print('🚫 NOTIFICATION: Hiding running notification (ID: 1)');
     try {
+      if (Platform.isIOS) {
+        await LiveActivityService.instance.endSessionActivity();
+        return;
+      }
       await _notificationsPlugin.cancel(1);
       print('✅ NOTIFICATION: Running notification hidden successfully');
     } catch (e) {
@@ -2114,16 +2068,23 @@ class TimerService extends ChangeNotifier {
             .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
         if (androidPlugin != null) {
-          // Channel for ongoing timer notifications
+          // Channel for the ongoing chronometer notification. v2: the old
+          // 'timer_channel' was already created on user devices and channel
+          // settings are frozen after creation, so a new ID guarantees the
+          // silent (no sound/vibration) configuration actually applies.
           const timerChannel = AndroidNotificationChannel(
-            'timer_channel',
+            'timer_channel_v2',
             'Timer Notifications',
-            description: 'Notifications for goal timer sessions',
+            description: 'Ongoing notification for the active goal session',
             importance: Importance.defaultImportance,
             enableVibration: false,
             playSound: false,
           );
           await androidPlugin.createNotificationChannel(timerChannel);
+          // Remove the legacy channel so it doesn't linger in system settings.
+          try {
+            await androidPlugin.deleteNotificationChannel('timer_channel');
+          } catch (_) {}
 
           // Channel for session completion notifications
           const completionChannel = AndroidNotificationChannel(

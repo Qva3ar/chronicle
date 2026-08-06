@@ -145,7 +145,6 @@ struct ChronoRoutinesWidgetEntryView : View {
     }
 }
 
-@main
 struct ChronoRoutinesWidget: Widget {
     let kind: String = "ChronoRoutinesWidget"
 

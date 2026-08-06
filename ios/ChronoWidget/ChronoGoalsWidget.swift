@@ -162,7 +162,6 @@ struct ChronoGoalsWidgetEntryView : View {
     }
 }
 
-@main
 struct ChronoGoalsWidget: Widget {
     let kind: String = "ChronoGoalsWidget"
 

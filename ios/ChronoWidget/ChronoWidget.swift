@@ -190,7 +190,6 @@ struct LargeWidgetView: View {
     }
 }
 
-@main
 struct ChronoWidget: Widget {
     let kind: String = "ChronoWidget"
 

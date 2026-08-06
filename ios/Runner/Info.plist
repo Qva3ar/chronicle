@@ -2,6 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.chrono.session_completion</string>
+		<string>com.chrono.daily_reset</string>
+		<string>com.chrono.daily_reset_check</string>
+		<string>com.chrono.insight_generation</string>
+		<string>com.chrono.routine_notification</string>
+		<string>com.chrono.checkin_notification</string>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundAppRefresh</string>
+		<string>be.tramckrijte.workmanagerExample.iOSBackgroundProcessingTask</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,12 +35,32 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>mailto</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Access to your photo library is needed to import data dump files.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Chrono needs to send you notifications for routines, goal sessions, and daily insights.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Access to your photo library is needed to import data dump files.</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
@@ -45,35 +78,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
-		<string>processing</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.chrono.session_completion</string>
-		<string>com.chrono.daily_reset</string>
-		<string>com.chrono.insight_generation</string>
-		<string>com.chrono.routine_notification</string>
-		<string>com.chrono.checkin_notification</string>
-		<string>be.tramckrijte.workmanagerExample.iOSBackgroundAppRefresh</string>
-		<string>be.tramckrijte.workmanagerExample.iOSBackgroundProcessingTask</string>
-	</array>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>Chrono needs to send you notifications for routines, goal sessions, and daily insights.</string>
-    <key>ITSAppUsesNonExemptEncryption</key>
-    <false/>
-    <key>LSApplicationQueriesSchemes</key>
-    <array>
-      <string>https</string>
-      <string>http</string>
-      <string>mailto</string>
-    </array>
 </dict>
 </plist>

@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
 import UserNotifications
+import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -9,6 +10,25 @@ import UserNotifications
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
+
+    // Workmanager: the background Dart isolate runs on its own plugin
+    // registry, so every plugin used by background tasks (sqflite,
+    // shared_preferences, notifications, ...) must be registered here.
+    // Without this callback the midnight daily reset crashes in background.
+    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
+
+    // BGTaskScheduler handlers must be registered before app launch finishes.
+    // Identifiers must match BGTaskSchedulerPermittedIdentifiers in Info.plist
+    // and the uniqueName used on the Dart side.
+    // Daily reset: BGProcessingTask scheduled for next midnight (best effort).
+    WorkmanagerPlugin.registerBGProcessingTask(withIdentifier: "com.chrono.daily_reset")
+    // Safety check: BGAppRefreshTask, re-scheduled by the plugin every ~6h.
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "com.chrono.daily_reset_check",
+      frequency: NSNumber(value: 6 * 60 * 60)
+    )
 
     // Request notification permissions
     if #available(iOS 10.0, *) {
