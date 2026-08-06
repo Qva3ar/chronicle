@@ -45,3 +45,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 android/app/.cxx/
+
+# Claude Code local settings and worktrees
+.claude/
