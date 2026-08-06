@@ -200,8 +200,6 @@ class _TagsManagerState extends State<TagsManager> {
                 selectedChipIndex = null;
               }
             });
-            // Dismiss keyboard after selecting a tag
-            _searchFocusNode.unfocus();
           },
         );
       }).toList(),

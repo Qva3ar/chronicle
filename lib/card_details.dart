@@ -318,7 +318,6 @@ class _CardDetailPageState extends State<CardDetailPage> {
                             });
                             selectedTags = modalSelected.toList();
                             setTagIds();
-                            searchFocusNode.unfocus();
                           },
                         );
                       }).toList(),
