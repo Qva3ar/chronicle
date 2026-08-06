@@ -3356,9 +3356,24 @@ class DatabaseHelper {
   }
 
   /// Reset all goals' progress for the day
+  ///
+  /// IMPORTANT: This is a catch-up reset — it usually runs NOT at midnight but
+  /// at the first app open / delayed WorkManager task of the new day, possibly
+  /// SECONDS AFTER the user already started working. Everything created or
+  /// started after local midnight belongs to the new day and must survive:
+  /// - a session with `session_resumed_timestamp_seconds` >= today's midnight
+  ///   is a fresh today-session — wiping it would stop the user's running
+  ///   timer a few seconds after start;
+  /// - a goal progress record created today is the live record of that
+  ///   session — marking it 'day_ended' would corrupt today's note.
   Future<void> resetGoalsStatus() async {
     try {
       final Database db = await instance.database;
+
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final todayMidnightMs = todayMidnight.millisecondsSinceEpoch;
+      final todayMidnightSeconds = todayMidnightMs ~/ 1000;
 
       // 🎯 NEW: Finalize incomplete goal records before reset
       // Find all goals with active records from yesterday
@@ -3374,6 +3389,13 @@ class DatabaseHelper {
         if (recordId != null) {
           final record = await getRecordById(recordId);
           if (record != null) {
+            final createdAt = record[DatabaseColumns.recordCreatedAt] as int? ?? 0;
+            if (createdAt >= todayMidnightMs) {
+              // Today's live record (session started after midnight, before
+              // this catch-up reset ran) — leave it active.
+              continue;
+            }
+
             final text = record[DatabaseColumns.recordText] as String;
 
             bool isActive = false;
@@ -3425,7 +3447,10 @@ status: day_ended
         }
       }
 
-      // Now reset all goals
+      // Now reset all goals — EXCEPT sessions started today (after local
+      // midnight): those belong to the new day, the user started them before
+      // this catch-up reset got a chance to run. IFNULL keeps the condition
+      // NULL-safe so goals with no session timestamp are always reset.
       await db.update(
         DatabaseTables.goals,
         {
@@ -3435,7 +3460,10 @@ status: day_ended
           DatabaseColumns.goalCompletedAt: null,
           DatabaseColumns.goalCurrentDayRecordId: null,
         },
-        where: '${DatabaseColumns.goalArchivedAt} IS NULL',
+        where: '${DatabaseColumns.goalArchivedAt} IS NULL AND '
+            '(IFNULL(${DatabaseColumns.goalIsActive}, 0) = 0 OR '
+            'IFNULL(${DatabaseColumns.goalSessionResumedTimestampSeconds}, 0) < ?)',
+        whereArgs: [todayMidnightSeconds],
       );
     } catch (e) {
       log('Error resetting goals status: $e');

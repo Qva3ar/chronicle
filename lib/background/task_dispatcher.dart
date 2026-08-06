@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io' show Platform;
 import 'package:workmanager/workmanager.dart';
 import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/goal.model.dart';
@@ -35,7 +36,14 @@ void backgroundTaskDispatcher() {
           success = await _handleSessionCompletion(inputData);
           break;
         case TaskNames.dailyReset:
+        // Legacy unique name: on iOS the dispatcher receives the task's
+        // uniqueName (not the Android taskName), and old installs may still
+        // have a pending task registered under the short 'daily_reset' name.
+        case 'daily_reset':
           success = await _handleDailyReset(inputData);
+          break;
+        case TaskNames.dailyResetCheck:
+          success = await _handleDailyResetCheck(inputData);
           break;
         case TaskNames.insightGeneration:
           success = await _handleInsightGeneration(inputData);
@@ -63,6 +71,7 @@ void backgroundTaskDispatcher() {
 class TaskNames {
   static const String sessionCompletion = 'com.chrono.session_completion';
   static const String dailyReset = 'com.chrono.daily_reset';
+  static const String dailyResetCheck = 'com.chrono.daily_reset_check';
   static const String insightGeneration = 'com.chrono.insight_generation';
   static const String routineNotification = 'com.chrono.routine_notification';
   static const String checkinNotification = 'com.chrono.checkin_notification';
@@ -214,18 +223,48 @@ Future<bool> _handleDailyReset(Map<String, dynamic>? inputData) async {
   try {
     print('[DailyReset] 🌅 Starting WorkManager daily reset at ${DateTime.now()}');
 
-    // Use the shared daily reset service which handles all reset logic
-    // and stores the last reset date in SharedPreferences
+    // Use the shared daily reset service which handles all reset logic,
+    // is guarded by the last-reset-date check (idempotent) and stores the
+    // last reset date in SharedPreferences.
     await DailyResetService.instance.performDailyResetAndStoreDate();
 
     print('[DailyReset] ✅ Daily reset completed successfully');
 
-    // Schedule next reset for tomorrow at midnight
-    await BackgroundTaskManager.scheduleDailyReset();
-
     return true;
   } catch (e, stackTrace) {
     print('[DailyReset] ❌ Error: $e');
+    print('Stack trace: $stackTrace');
+    return false;
+  } finally {
+    // ALWAYS schedule the next midnight task, even when this run failed —
+    // otherwise the self-rescheduling chain breaks and no reset fires on the
+    // following midnights until the app is opened again.
+    try {
+      await BackgroundTaskManager.scheduleDailyReset();
+    } catch (e) {
+      print('[DailyReset] ❌ Failed to schedule next reset: $e');
+    }
+  }
+}
+
+/// Handle periodic daily-reset safety check.
+///
+/// Fires every few hours and runs the date-guarded reset. Almost always a
+/// no-op (the date key already matches today); it only performs the reset
+/// when the midnight one-off task was killed by Doze / aggressive OEM
+/// battery managers and the app hasn't been opened since.
+Future<bool> _handleDailyResetCheck(Map<String, dynamic>? inputData) async {
+  try {
+    final performed = await DailyResetService.instance.runDailyResetIfNeeded();
+    if (performed) {
+      print('[DailyResetCheck] ✅ Missed midnight reset performed by periodic check');
+      // The midnight one-off apparently didn't fire — make sure the chain is
+      // re-armed for the next midnight.
+      await BackgroundTaskManager.scheduleDailyReset();
+    }
+    return true;
+  } catch (e, stackTrace) {
+    print('[DailyResetCheck] ❌ Error: $e');
     print('Stack trace: $stackTrace');
     return false;
   }
@@ -664,6 +703,16 @@ class BackgroundTaskManager {
       } catch (e) {
         print('[BackgroundTaskManager] ℹ️ No old insight task to clean up: $e');
       }
+
+      // Clean up the daily reset task registered under the legacy short
+      // unique name ('daily_reset'); it is now registered under
+      // TaskNames.dailyReset so the name matches the iOS BGTask identifier.
+      try {
+        await Workmanager().cancelByUniqueName('daily_reset');
+        print('[BackgroundTaskManager] 🧹 Cleaned up legacy daily_reset registration');
+      } catch (e) {
+        print('[BackgroundTaskManager] ℹ️ No legacy daily_reset task to clean up: $e');
+      }
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to initialize WorkManager: $e');
     }
@@ -736,12 +785,13 @@ class BackgroundTaskManager {
         final nextReset = now.add(testInterval);
 
         await Workmanager().registerOneOffTask(
-          'daily_reset',
+          TaskNames.dailyReset,
           TaskNames.dailyReset,
           initialDelay: testInterval,
           constraints: Constraints(
             networkType: NetworkType.notRequired,
           ),
+          existingWorkPolicy: ExistingWorkPolicy.replace,
         );
 
         print(
@@ -767,20 +817,74 @@ class BackgroundTaskManager {
 
         final delay = nextMidnight.difference(now);
 
-        await Workmanager().registerOneOffTask(
-          'daily_reset',
-          TaskNames.dailyReset,
-          initialDelay: delay,
-          constraints: Constraints(
-            networkType: NetworkType.notRequired,
-          ),
-        );
+        // uniqueName == taskName (com.chrono.daily_reset) on purpose: on iOS
+        // the uniqueName IS the BGTaskScheduler identifier, so it must match
+        // BGTaskSchedulerPermittedIdentifiers in Info.plist AND the value the
+        // dispatcher switch receives (iOS passes uniqueName, not taskName).
+        if (Platform.isIOS) {
+          // iOS: one-off tasks run immediately via beginBackgroundTask and
+          // ignore initialDelay, so a "midnight one-off" is impossible.
+          // A BGProcessingTask with earliestBeginDate = next midnight is the
+          // only deferred option. It is best-effort (iOS decides the actual
+          // run time); guaranteed correctness comes from the catch-up paths
+          // (startup / resume / foreground midnight timer).
+          await Workmanager().registerProcessingTask(
+            TaskNames.dailyReset,
+            TaskNames.dailyReset,
+            initialDelay: delay,
+          );
+        } else {
+          // Android: REPLACE guarantees a stale pending task never blocks a
+          // fresh, correctly-timed one (default policy is KEEP, which
+          // silently drops the new registration).
+          await Workmanager().registerOneOffTask(
+            TaskNames.dailyReset,
+            TaskNames.dailyReset,
+            initialDelay: delay,
+            constraints: Constraints(
+              networkType: NetworkType.notRequired,
+            ),
+            existingWorkPolicy: ExistingWorkPolicy.replace,
+          );
+        }
 
         print(
             '[BackgroundTaskManager] ✅ Daily reset scheduled for $nextMidnight (timezone: ${tz.local.name})');
       }
     } catch (e) {
       print('[BackgroundTaskManager] ❌ Failed to schedule daily reset: $e');
+    }
+  }
+
+  /// Schedule the periodic daily-reset safety check.
+  ///
+  /// Runs every 6 hours and executes the date-guarded reset check
+  /// ([DailyResetService.runDailyResetIfNeeded]). Almost always a no-op;
+  /// it exists to catch the case where the midnight one-off task was killed
+  /// by Doze / OEM battery managers and the app hasn't been opened since,
+  /// so home-screen widgets and notifications still get a fresh day.
+  ///
+  /// On iOS this maps to a BGAppRefreshTask (best-effort, timing decided by
+  /// the system); the identifier is registered in AppDelegate.swift and
+  /// listed in Info.plist.
+  static Future<void> scheduleDailyResetCheck() async {
+    try {
+      await Workmanager().registerPeriodicTask(
+        TaskNames.dailyResetCheck,
+        TaskNames.dailyResetCheck,
+        frequency: const Duration(hours: 6),
+        initialDelay: const Duration(hours: 1),
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+        ),
+        // KEEP (default) is correct here: the periodic task has no
+        // schedule-dependent payload, so an existing registration is fine
+        // and re-registering on every launch shouldn't reset its cycle.
+      );
+
+      print('[BackgroundTaskManager] ✅ Daily reset safety check scheduled (every 6h)');
+    } catch (e) {
+      print('[BackgroundTaskManager] ❌ Failed to schedule daily reset check: $e');
     }
   }
 

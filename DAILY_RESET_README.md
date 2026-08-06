@@ -2,7 +2,27 @@
 
 ## Overview
 
-The Daily Reset system manages the automatic resetting of routines and goals at midnight each day. It uses WorkManager for reliable background execution and carefully preserves user progress (like routine streaks) while resetting daily completion status.
+The Daily Reset system manages the automatic resetting of routines and goals at midnight each day. All reset logic lives in `DailyResetService` (`lib/services/daily_reset_service.dart`) and is **idempotent by date**: every trigger path goes through the `last_daily_reset_date` SharedPreferences guard, so duplicate or late triggers are harmless no-ops. An in-flight lock additionally prevents two concurrent triggers from running the reset twice.
+
+## Reset Trigger Paths (Defense in Depth)
+
+Because no single background mechanism is reliable on both platforms (Android Doze / OEM battery killers, iOS BGTaskScheduler being best-effort), the reset is triggered from several independent places. All of them call the same date-guarded `DailyResetService.runDailyResetIfNeeded()`:
+
+| # | Path | When | File |
+|---|------|------|------|
+| 1 | WorkManager midnight task (`com.chrono.daily_reset`) | ~00:00 local time | `lib/background/task_dispatcher.dart` `_handleDailyReset()` |
+| 2 | Periodic safety check (`com.chrono.daily_reset_check`) | Every ~6h in background | `lib/background/task_dispatcher.dart` `_handleDailyResetCheck()` |
+| 3 | App startup catch-up | Deferred init after first frame | `lib/main.dart` `_deferredInitialization()` |
+| 4 | App resume catch-up | `AppLifecycleState.resumed` | `lib/services/app_lifecycle_service.dart` `_onAppForeground()` |
+| 5 | Foreground midnight timer | App kept open across 00:00 | `lib/services/app_lifecycle_service.dart` `_armMidnightTimer()` |
+
+Guaranteed correctness comes from paths 3–5: whenever the user sees the app, the data is reset. Paths 1–2 exist so background state (widgets, notifications) is also fresh without opening the app.
+
+### Platform specifics
+
+- **Android:** path 1 is a one-off WorkManager task with `initialDelay` to next local midnight and `ExistingWorkPolicy.replace` (default `KEEP` would let a stale pending task silently block a fresh registration). Doze can still delay/drop it — hence paths 2–5.
+- **iOS:** one-off workmanager tasks run immediately via `beginBackgroundTask` and **ignore `initialDelay`**, so path 1 uses `registerProcessingTask` (a `BGProcessingTask` with `earliestBeginDate` = next midnight). iOS decides the actual run time — it is best-effort only. Both identifiers are registered in `ios/Runner/AppDelegate.swift` (`registerBGProcessingTask` / `registerPeriodicTask`) and listed in `BGTaskSchedulerPermittedIdentifiers` in `ios/Runner/Info.plist`. `WorkmanagerPlugin.setPluginRegistrantCallback` is also required there so the background Dart isolate can use sqflite/shared_preferences.
+- **Task naming:** `uniqueName` **must equal** the task name constant (`com.chrono.daily_reset`). On iOS the dispatcher receives the `uniqueName` (which is also the BGTask identifier), while Android passes the `taskName` — using the same string for both makes the dispatcher switch work on both platforms. The dispatcher still accepts the legacy `'daily_reset'` name for tasks scheduled by old installs.
 
 ## Architecture
 
@@ -11,19 +31,21 @@ The Daily Reset system manages the automatic resetting of routines and goals at 
 
 The unified WorkManager dispatcher handles all background tasks including:
 - Session completion timers
-- **Daily reset (at midnight)**
+- **Daily reset (at midnight)** and the periodic reset safety check
 - Routine notifications
 - Insight generation
 
 ### Daily Reset Handler
-**Function:** `_handleDailyReset()`
+**Function:** `_handleDailyReset()` → `DailyResetService.performDailyResetAndStoreDate()`
 
 Executes at midnight (00:00) local time and performs:
-1. Reset routine `isDone` status to `false`
-2. Reset goal progress to `0`
-3. Reschedule routine notifications for the new day
-4. Schedule next daily reset (for tomorrow's midnight)
-5. Run daily summary generation (optional)
+1. Finalize yesterday's productivity record (from live state)
+2. Reset routine `isDone` status to `false` (streak-safe, see below)
+3. Run the routine streak self-heal pass
+4. Reset goal progress to `0`
+5. Reschedule routine notifications and todo reminders for the new day
+6. Run daily summary generation (optional)
+7. Schedule next daily reset — done in a `finally` block, so the chain is re-armed **even when the reset itself fails**
 
 ## What Gets Reset
 
@@ -44,6 +66,34 @@ Executes at midnight (00:00) local time and performs:
 | `completedAt` | ✅ Cleared | Allow goal to be completed again today |
 
 **Note:** When a goal is completed during the day, the app creates a record/note to preserve the achievement history.
+
+### ⚠️ Today-Session Guard (Catch-Up Race)
+
+The reset usually runs NOT at midnight but as a **catch-up** at the first app
+open of the new day (or a Doze-delayed WorkManager task firing when the user
+unlocks the phone). By that time the user may have **already started a goal
+session** — the reset would land a few seconds later and wipe
+`isActive`/`timeSpentSeconds` of the running session, stopping the timer 2-3
+seconds after start.
+
+`resetGoalsStatus()` therefore treats local midnight as the day boundary:
+
+- Goals with `isActive = 1` **and** `sessionResumedTimestampSeconds >= today's
+  midnight` are **skipped** by the reset — they are fresh today-sessions.
+- Goal progress records **created today** are never finalized to `day_ended` —
+  only records from before midnight are.
+
+This makes the reset safe regardless of which isolate runs it (main isolate or
+WorkManager background isolate) and in any interleaving with `startSession()`.
+
+Two ordering guards complement this on the main isolate:
+
+- `TimerService.startSession()` awaits `runDailyResetIfNeeded()` before
+  reading the goal, so the baseline it reads is post-reset (0), not
+  yesterday's leftover time. On already-reset days this is a cheap prefs read.
+- `AppLifecycleService._onAppForeground()` calls `TimerService.refreshState()`
+  only after the reset future settles, so a stale yesterday-session is never
+  re-adopted from the DB mid-reset.
 
 ## Critical Implementation Details
 
@@ -154,59 +204,62 @@ if (lastCompletedDate == today) {
 ## Scheduling
 
 ### Daily Reset Timing
-**File:** `task_dispatcher.dart:551-584`
+**File:** `task_dispatcher.dart` — `BackgroundTaskManager.scheduleDailyReset()`
 
 ```dart
-static Future<void> scheduleDailyReset() async {
-  final now = tz.TZDateTime.now(tz.local);
+final now = tz.TZDateTime.now(tz.local);
+tz.TZDateTime nextMidnight = tz.TZDateTime(
+  tz.local, now.year, now.month, now.day + 1, 0, 0, 0,
+);
+final delay = nextMidnight.difference(now);
 
-  // Calculate next midnight
-  tz.TZDateTime nextMidnight = tz.TZDateTime(
-    tz.local,
-    now.year,
-    now.month,
-    now.day + 1,
-    0, 0, 0,  // 00:00:00
-  );
-
-  if (nextMidnight.isBefore(now) || nextMidnight.isAtSameMomentAs(now)) {
-    nextMidnight = nextMidnight.add(const Duration(days: 1));
-  }
-
-  final delay = nextMidnight.difference(now);
-
-  await Workmanager().registerOneOffTask(
-    'daily_reset',
+if (Platform.isIOS) {
+  // BGProcessingTask with earliestBeginDate = next midnight (best effort)
+  await Workmanager().registerProcessingTask(
+    TaskNames.dailyReset,
     TaskNames.dailyReset,
     initialDelay: delay,
   );
+} else {
+  await Workmanager().registerOneOffTask(
+    TaskNames.dailyReset,
+    TaskNames.dailyReset,
+    initialDelay: delay,
+    existingWorkPolicy: ExistingWorkPolicy.replace,
+  );
 }
 ```
 
+### Periodic Safety Check
+**File:** `task_dispatcher.dart` — `BackgroundTaskManager.scheduleDailyResetCheck()`
+
+A periodic task (`com.chrono.daily_reset_check`, every 6h) runs the date-guarded reset check. Almost always a no-op; it only performs the reset when the midnight task was killed and the app hasn't been opened since. If it does perform a reset, it also re-arms the midnight task.
+
 ### Self-Rescheduling
-After each reset completes, it automatically schedules the next reset:
+After each midnight run, `_handleDailyReset()` schedules the next reset in a `finally` block:
 
 ```dart
-// Schedule next reset
-await BackgroundTaskManager.scheduleDailyReset();
+} finally {
+  await BackgroundTaskManager.scheduleDailyReset();
+}
 ```
 
-This ensures the daily reset continues to run even if the app is never opened.
+This keeps the chain alive even when a run fails.
 
 ## Initialization
 
-**File:** `main.dart`
+**File:** `main.dart` — `_deferredInitialization()`
+
+Each init step runs in isolation (`_initStep`) so a failure in one service can never silently skip the reset catch-up. Reset-critical steps run first:
 
 ```dart
-void main() async {
-  // Initialize WorkManager with unified dispatcher
-  await BackgroundTaskManager.initialize();
-
-  // Schedule first daily reset
-  await BackgroundTaskManager.scheduleDailyReset();
-
-  runApp(MyApp());
-}
+await _initStep('TimerService', ...);
+await _initStep('AppLifecycleService', ...);   // arms the foreground midnight timer
+await _initStep('NotificationService', ...);
+await _initStep('BackgroundTaskManager', () => BackgroundTaskManager.initialize());
+await _initStep('scheduleDailyReset', () => BackgroundTaskManager.scheduleDailyReset());
+await _initStep('scheduleDailyResetCheck', () => BackgroundTaskManager.scheduleDailyResetCheck());
+await _initStep('runDailyResetIfNeeded', ...); // catch-up if midnight was missed
 ```
 
 ## Testing Notes
@@ -219,16 +272,27 @@ void main() async {
 
 ### Common Issues
 - **Streaks resetting:** Check that `resetRoutinesDoneStatus()` is used, not `toggleRoutineDone()`
-- **Reset not running:** Verify WorkManager initialization in main.dart
+- **Reset not running:** Verify WorkManager initialization in main.dart; on iOS, verify the identifiers in AppDelegate.swift and Info.plist match the Dart `uniqueName`
 - **Timezone issues:** Ensure timezone is properly set in background task dispatcher
+- **iOS background tasks not firing:** BGTaskScheduler is best-effort by design; correctness is guaranteed by the catch-up paths (startup / resume / foreground midnight timer)
+
+### Simulating on iOS
+Pause the debugger in Xcode and run:
+```
+e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.chrono.daily_reset"]
+```
 
 ## Related Files
 
-- `lib/background/task_dispatcher.dart` - Main dispatcher and daily reset handler
-- `lib/db_manager.dart` - Database methods (resetRoutinesDoneStatus, resetGoalsStatus, toggleRoutineDone)
+- `lib/services/daily_reset_service.dart` - Reset logic, date guard, in-flight lock
+- `lib/background/task_dispatcher.dart` - Dispatcher, midnight task, periodic safety check
+- `lib/services/app_lifecycle_service.dart` - Resume catch-up and foreground midnight timer
+- `lib/db_manager.dart` - Database methods (resetRoutinesDoneStatus, resetGoalsStatus, toggleRoutineDone, healRoutineStreaksFromRecords)
 - `lib/services/routine_service.dart` - Routine service layer
 - `lib/services/goal_service.dart` - Goal service layer
 - `lib/services/notification_service.dart` - Reschedules routine notifications
+- `ios/Runner/AppDelegate.swift` - BGTask handler registration + plugin registrant callback
+- `ios/Runner/Info.plist` - BGTaskSchedulerPermittedIdentifiers
 
 ## Migration Notes
 

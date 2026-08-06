@@ -12,12 +12,11 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/models/routine.model.dart';
-import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/main.dart';
 import 'package:chrono/screens/goals_screen.dart';
 import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
-import 'package:chrono/ai/summarizer.dart';
+import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
 import 'package:chrono/services/productivity_service.dart';
@@ -173,10 +172,18 @@ class NotificationService {
     try {
       final payload = response.payload!;
 
-      // Handle daily reset notification (iOS)
+      // Handle legacy daily reset notification (iOS). Scheduling of this
+      // notification was removed long ago, but a stale pending notification
+      // from an old install could still be tapped. Delegate to the shared,
+      // date-guarded reset service — the old inline implementation used
+      // RoutineService.resetRoutine() (toggleRoutineDone), which corrupts
+      // routine streaks when run at midnight.
       if (payload == 'daily_reset') {
-        debugPrint('🌅 Daily reset notification tapped (iOS)');
-        _performDailyResetIOS();
+        debugPrint('🌅 Daily reset notification tapped (iOS legacy)');
+        DailyResetService.instance.runDailyResetIfNeeded().catchError((e) {
+          debugPrint('❌ Daily reset from legacy notification failed: $e');
+          return false;
+        });
         return;
       }
 
@@ -299,50 +306,6 @@ class NotificationService {
       debugPrint('✅ Routine "${routine.name}" marked as done from notification');
     } catch (e, stackTrace) {
       debugPrint('❌ Error handling routine done action: $e');
-      debugPrint('Stack trace: $stackTrace');
-    }
-  }
-
-  // Handle daily reset for iOS
-  Future<void> _performDailyResetIOS() async {
-    try {
-      debugPrint('🌅 iOS DAILY RESET: Starting daily reset at ${DateTime.now()}');
-
-      // Add tolerance check to prevent multiple resets on the same day
-      final prefs = await SharedPreferences.getInstance();
-      final lastResetDateStr = prefs.getString('last_daily_reset_date');
-      final today = DateTime.now();
-      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-
-      if (lastResetDateStr == todayStr) {
-        debugPrint('⚠️ iOS DAILY RESET: Already performed today ($todayStr), skipping');
-        return;
-      }
-
-      final dbManager = DatabaseHelper.instance;
-      final routineService = RoutineService(dbManager);
-      final goalService = GoalService(dbManager);
-
-      // Reset active (non-archived) routines and goals
-      final routines = await routineService.getAllRoutines();
-      for (final routine in routines.where((r) => !r.isArchived)) {
-        await routineService.resetRoutine(routine.id);
-      }
-      await goalService.resetAllGoals();
-
-      // Mark that we've done the reset for today
-      await prefs.setString('last_daily_reset_date', todayStr);
-      debugPrint('✅ iOS DAILY RESET: Completed successfully for $todayStr');
-
-      await checkAndRescheduleRoutines(fromBackgroundTask: false);
-
-      // Schedule next reset - now handled by BackgroundTaskManager
-      // await _scheduleDailyReset();
-
-      // Run optional summarization rollup
-      await Summarizer.instance.runDailySummary();
-    } catch (e, stackTrace) {
-      debugPrint('❌ iOS DAILY RESET ERROR: $e');
       debugPrint('Stack trace: $stackTrace');
     }
   }

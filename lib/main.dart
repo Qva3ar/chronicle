@@ -66,18 +66,39 @@ void main() async {
   }
 }
 
+/// Runs a single deferred-init step in isolation so one failing service can
+/// never silently skip the steps after it (most importantly the daily reset
+/// catch-up and the WorkManager scheduling).
+Future<void> _initStep(String name, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (e, stackTrace) {
+    log('Deferred init step "$name" failed: $e');
+    log('Stack trace: $stackTrace');
+  }
+}
+
 /// Background initialization - does not block app launch
 Future<void> _deferredInitialization() async {
   try {
-    await SubscriptionService.instance.initialize();
-    await GPTNoteBindService().loadModel();
-    await TimerService.instance.initialize();
-    AppLifecycleService.instance.initialize();
-    await NotificationService().initialize();
-    await NotificationService().cancelCheckinNotifications(); // Disabled by user request
-    await BackgroundTaskManager.initialize();
-    await BackgroundTaskManager.scheduleDailyReset();
-    await DailyResetService.instance.runDailyResetIfNeeded();
+    // Reset-critical steps first: timer state, lifecycle observer (arms the
+    // foreground midnight timer), notifications (needed by the reset to
+    // reschedule routines), WorkManager and the daily reset catch-up.
+    await _initStep('TimerService', () => TimerService.instance.initialize());
+    await _initStep('AppLifecycleService', () async => AppLifecycleService.instance.initialize());
+    await _initStep('NotificationService', () => NotificationService().initialize());
+    await _initStep('BackgroundTaskManager', () => BackgroundTaskManager.initialize());
+    await _initStep('scheduleDailyReset', () => BackgroundTaskManager.scheduleDailyReset());
+    await _initStep('scheduleDailyResetCheck', () => BackgroundTaskManager.scheduleDailyResetCheck());
+    await _initStep('runDailyResetIfNeeded', () async {
+      await DailyResetService.instance.runDailyResetIfNeeded();
+    });
+
+    // Non-critical services after the reset path is secured.
+    await _initStep('SubscriptionService', () => SubscriptionService.instance.initialize());
+    await _initStep('GPTNoteBindService', () => GPTNoteBindService().loadModel());
+    await _initStep('cancelCheckinNotifications',
+        () => NotificationService().cancelCheckinNotifications()); // Disabled by user request
 
     // Re-ensure todo reminders on every launch. Unlike the daily reset (which
     // only reschedules when a new day is detected), this guards against the

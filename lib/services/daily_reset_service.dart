@@ -25,6 +25,11 @@ class DailyResetService {
   final _resetCompletedSubject = PublishSubject<void>();
   Stream<void> get onResetComplete => _resetCompletedSubject.stream;
 
+  /// In-flight guard: concurrent callers (WorkManager task, app startup,
+  /// resume, foreground midnight timer) share the same reset future instead
+  /// of running the reset twice in parallel.
+  Future<bool>? _inFlight;
+
   /// Run daily reset if needed (fallback mechanism for all platforms)
   /// This checks if today's date is different from the last reset date
   /// If different, performs the full daily reset and updates the stored date
@@ -33,7 +38,21 @@ class DailyResetService {
   /// Should be called:
   /// - On app startup (after DB and services initialized)
   /// - On app resume (AppLifecycleState.resumed)
-  Future<bool> runDailyResetIfNeeded() async {
+  /// - By the WorkManager midnight task (via [performDailyResetAndStoreDate])
+  /// - By the foreground midnight timer
+  Future<bool> runDailyResetIfNeeded() {
+    final pending = _inFlight;
+    if (pending != null) {
+      return pending;
+    }
+    final future = _runDailyResetIfNeeded().whenComplete(() {
+      _inFlight = null;
+    });
+    _inFlight = future;
+    return future;
+  }
+
+  Future<bool> _runDailyResetIfNeeded() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -72,33 +91,27 @@ class DailyResetService {
       }
     } catch (e, stackTrace) {
       log('[DailyResetService] Error in runDailyResetIfNeeded: $e\n$stackTrace');
-      return false;
+      // Rethrow so the WorkManager task can report failure (and be retried by
+      // the OS). The date key is NOT stored on failure, so the next catch-up
+      // (startup / resume / periodic check) will attempt the reset again.
+      rethrow;
     }
   }
 
-  /// Perform the actual daily reset operations
-  /// Called by both WorkManager background task and fallback mechanism
+  /// Perform the daily reset from the WorkManager background task.
   ///
-  /// This method:
-  /// - Resets all routines (mark is_done = 0)
-  /// - Resets all goals' daily progress
-  /// - Re-schedules routine notifications for the new day
-  /// - Updates the last reset date in SharedPreferences
+  /// Delegates to [runDailyResetIfNeeded] so the WorkManager path is guarded
+  /// by the same `last_daily_reset_date` check as startup/resume catch-up.
+  /// This makes the reset idempotent by date: a late-firing, retried or
+  /// duplicated background task on a day that was already reset is a no-op
+  /// instead of a second destructive reset.
   Future<void> performDailyResetAndStoreDate() async {
     try {
-      await _performDailyReset();
-
-      // Store timestamp to prevent duplicate resets
-      final prefs = await SharedPreferences.getInstance();
-
-      if (_testMode) {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        await prefs.setInt(_lastResetTimestampKey, now);
-        print('[DailyResetService] ✅ Reset completed and timestamp stored: ${_formatTimestamp(now)}');
+      final performed = await runDailyResetIfNeeded();
+      if (performed) {
+        print('[DailyResetService] ✅ Daily reset completed and date stored');
       } else {
-        final today = _getTodayDateString();
-        await prefs.setString(_lastResetDateKey, today);
-        print('[DailyResetService] ✅ Daily reset completed and date stored: $today');
+        print('[DailyResetService] ℹ️ Daily reset already done today — skipped');
       }
     } catch (e, stackTrace) {
       print('[DailyResetService] ❌ Error in performDailyResetAndStoreDate: $e');
