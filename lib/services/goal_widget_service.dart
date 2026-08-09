@@ -7,6 +7,7 @@ import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/record.service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:chrono/services/goals_widget_updater.dart';
+import 'package:chrono/services/timer_service.dart' show kAlertVibrationPattern;
 
 /// Top-level callback for goal widget interactions
 /// MUST be top-level function for background execution
@@ -161,12 +162,17 @@ Future<void> goalWidgetCallback(Uri? uri) async {
 }
 
 Future<void> _showRunningNotification(FlutterLocalNotificationsPlugin notifications, Goal goal) async {
+  // Use the silent v2 channel created by TimerService; the legacy
+  // 'timer_channel' was deleted and showing on it would recreate it with
+  // noisy default settings.
   final androidDetails = AndroidNotificationDetails(
-    'timer_channel',
+    'timer_channel_v2',
     'Timer Notifications',
-    channelDescription: 'Notifications for goal timer sessions',
-    importance: Importance.high,
-    priority: Priority.high,
+    channelDescription: 'Ongoing notification for the active goal session',
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
+    playSound: false,
+    enableVibration: false,
     ongoing: true,
     autoCancel: false,
     icon: '@mipmap/launcher_icon',
@@ -184,10 +190,14 @@ Future<void> _showRunningNotification(FlutterLocalNotificationsPlugin notificati
 
 Future<void> _showGoalCompleteNotification(FlutterLocalNotificationsPlugin notifications, Goal goal) async {
   final androidDetails = AndroidNotificationDetails(
-    'goal_complete',
+    'goal_complete_v2',
     'Goal Complete',
+    channelDescription: 'Notifications for completed goals',
     importance: Importance.max,
     priority: Priority.max,
+    playSound: true,
+    enableVibration: true,
+    vibrationPattern: kAlertVibrationPattern,
   );
   final details = NotificationDetails(android: androidDetails);
   await notifications.show(

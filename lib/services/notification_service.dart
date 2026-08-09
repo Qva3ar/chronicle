@@ -18,7 +18,8 @@ import 'package:chrono/screens/routine_manager_screen.dart';
 import 'package:chrono/screens/todo_list_screen.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/background/task_dispatcher.dart';
-import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
+import 'package:chrono/services/timer_service.dart'
+    show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID, kAlertVibrationPattern;
 import 'package:chrono/services/productivity_service.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
@@ -30,7 +31,10 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
-  static const String _routineChannelId = 'routine_channel';
+  // v2: the old 'routine_channel' was created without an explicit vibration
+  // pattern and Android freezes channel settings after creation, so the weak
+  // default vibration stuck. New ID guarantees the strong pattern applies.
+  static const String _routineChannelId = 'routine_channel_v2';
   static const String _routineChannelName = 'Routine Notifications';
   static const String _routineChannelDesc = 'Notifications for daily routines';
 
@@ -116,27 +120,33 @@ class NotificationService {
       );
 
       if (Platform.isAndroid) {
-        await _notifications
-            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(
-              const AndroidNotificationChannel(
-                _routineChannelId,
-                _routineChannelName,
-                description: _routineChannelDesc,
-                importance: Importance.high,
-              ),
-            );
+        final androidPlugin = _notifications
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-        await _notifications
-            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(
-              const AndroidNotificationChannel(
-                _checkinChannelId,
-                _checkinChannelName,
-                description: _checkinChannelDesc,
-                importance: Importance.high,
-              ),
-            );
+        await androidPlugin?.createNotificationChannel(
+          AndroidNotificationChannel(
+            _routineChannelId,
+            _routineChannelName,
+            description: _routineChannelDesc,
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+            vibrationPattern: kAlertVibrationPattern,
+          ),
+        );
+        // Remove the legacy channel so it doesn't linger in system settings.
+        try {
+          await androidPlugin?.deleteNotificationChannel('routine_channel');
+        } catch (_) {}
+
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _checkinChannelId,
+            _checkinChannelName,
+            description: _checkinChannelDesc,
+            importance: Importance.high,
+          ),
+        );
       }
 
       // Daily reset is now handled by BackgroundTaskManager (initialized in main.dart)

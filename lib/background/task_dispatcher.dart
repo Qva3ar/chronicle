@@ -11,7 +11,8 @@ import 'package:chrono/ai/context_builder.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:chrono/utils/timezone_helper.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:chrono/services/timer_service.dart' show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID;
+import 'package:chrono/services/timer_service.dart'
+    show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID, kAlertVibrationPattern;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:home_widget/home_widget.dart';
@@ -525,13 +526,14 @@ Future<void> _showRoutineNotification(
         : 'Reminder ${currentRetry}/$numberOfRetries';
 
     final androidDetails = AndroidNotificationDetails(
-      'routine_channel',
+      'routine_channel_v2',
       'Routine Notifications',
       channelDescription: 'Notifications for daily routines',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      vibrationPattern: kAlertVibrationPattern,
       actions: [
         AndroidNotificationAction(
           ROUTINE_DONE_ACTION_ID,
@@ -544,6 +546,7 @@ Future<void> _showRoutineNotification(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
       categoryIdentifier: 'routine_category',
     );
 
@@ -593,23 +596,25 @@ Future<void> _showSessionCompletionNotifications(
 
     if (isGoalComplete) {
       // Show goal completion notification
-      const androidDetails = AndroidNotificationDetails(
-        'goal_complete',
+      final androidDetails = AndroidNotificationDetails(
+        'goal_complete_v2',
         'Goal Complete',
         channelDescription: 'Notifications for completed goals',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: kAlertVibrationPattern,
       );
 
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
       );
 
-      const details = NotificationDetails(
+      final details = NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       );
@@ -634,13 +639,14 @@ Future<void> _showSessionCompletionNotifications(
     }
 
     final androidDetails = AndroidNotificationDetails(
-      'session_complete_channel',
+      'session_complete_channel_v2',
       'Session Completed',
       channelDescription: 'Notifications when a session is completed',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
       enableVibration: true,
+      vibrationPattern: kAlertVibrationPattern,
       autoCancel: true,
       actions: actions.isNotEmpty ? actions : null,
     );
@@ -651,6 +657,7 @@ Future<void> _showSessionCompletionNotifications(
       presentSound: true,
       sound: 'default',
       badgeNumber: 1,
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     final details = NotificationDetails(

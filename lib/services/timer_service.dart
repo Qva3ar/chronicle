@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../db_manager.dart';
 import '../models/goal.model.dart';
@@ -23,6 +24,14 @@ import 'productivity_service.dart';
 
 const String CONTINUE_ACTION_ID = 'CONTINUE_SESSION_ACTION';
 const String ROUTINE_DONE_ACTION_ID = 'ROUTINE_DONE_ACTION';
+
+/// Strong vibration pattern for alert notifications (session/goal/routine).
+/// Android channel settings are frozen after first creation, so the pattern
+/// only takes effect through the *_v2 channels created in
+/// TimerService.initializeNotifications / NotificationService.initialize.
+/// Format: [delay, vibrate, pause, vibrate, ...] in milliseconds.
+final Int64List kAlertVibrationPattern =
+    Int64List.fromList(<int>[0, 400, 250, 400, 250, 600]);
 
 // Helper functions for background notification actions
 @pragma('vm:entry-point')
@@ -152,13 +161,14 @@ Future<void> _scheduleBackgroundCompletionNotification(
         : '${goal.title} - ${_formatTimeStatic(sessionDuration)} session finished. Great work!';
 
     final androidDetails = AndroidNotificationDetails(
-      'session_complete_channel',
+      'session_complete_channel_v2',
       'Session Completed',
       channelDescription: 'Notifications when a session is completed',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
       enableVibration: true,
+      vibrationPattern: kAlertVibrationPattern,
       autoCancel: true,
       actions: !isGoalCompletion
           ? [
@@ -1488,14 +1498,15 @@ class TimerService extends ChangeNotifier {
     if (_activeGoal == null) return;
 
     try {
-      const androidDetails = AndroidNotificationDetails(
-        'session_complete_channel',
+      final androidDetails = AndroidNotificationDetails(
+        'session_complete_channel_v2',
         'Session Completed',
         channelDescription: 'Notifications when a session is completed',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: kAlertVibrationPattern,
         autoCancel: true,
       );
 
@@ -1505,9 +1516,10 @@ class TimerService extends ChangeNotifier {
         presentSound: true,
         sound: 'default',
         badgeNumber: 1,
+        interruptionLevel: InterruptionLevel.timeSensitive,
       );
 
-      const details = NotificationDetails(
+      final details = NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       );
@@ -1616,16 +1628,17 @@ class TimerService extends ChangeNotifier {
 
     try {
       // Add "Continue" button for resuming session
-      const androidDetails = AndroidNotificationDetails(
-        'session_complete_channel',
+      final androidDetails = AndroidNotificationDetails(
+        'session_complete_channel_v2',
         'Session Completed',
         channelDescription: 'Notifications when a session is completed',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: kAlertVibrationPattern,
         autoCancel: true,
-        actions: [
+        actions: const [
           AndroidNotificationAction(
             'CONTINUE_SESSION_ACTION',
             'Continue',
@@ -1639,9 +1652,10 @@ class TimerService extends ChangeNotifier {
         presentSound: true,
         sound: 'default',
         badgeNumber: 1,
+        interruptionLevel: InterruptionLevel.timeSensitive,
       );
 
-      const details = NotificationDetails(
+      final details = NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       );
@@ -1762,13 +1776,14 @@ class TimerService extends ChangeNotifier {
           : null;
 
       final androidDetails = AndroidNotificationDetails(
-        'session_complete_channel',
+        'session_complete_channel_v2',
         'Session Completed',
         channelDescription: 'Notifications when a session is completed',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: kAlertVibrationPattern,
         autoCancel: true,
         actions: actions,
       );
@@ -1778,6 +1793,7 @@ class TimerService extends ChangeNotifier {
         presentBadge: true,
         presentSound: true,
         sound: 'default',
+        interruptionLevel: InterruptionLevel.timeSensitive,
       );
 
       final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
@@ -1960,21 +1976,25 @@ class TimerService extends ChangeNotifier {
   Future<void> _showGoalCompleteNotification() async {
     if (_activeGoal == null) return;
 
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'goal_complete',
+    final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'goal_complete_v2',
       'Goal Complete',
       channelDescription: 'Notifications for completed goals',
       importance: Importance.max,
       priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: kAlertVibrationPattern,
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: iOSPlatformChannelSpecifics,
     );
@@ -2086,27 +2106,39 @@ class TimerService extends ChangeNotifier {
             await androidPlugin.deleteNotificationChannel('timer_channel');
           } catch (_) {}
 
-          // Channel for session completion notifications
-          const completionChannel = AndroidNotificationChannel(
-            'session_complete_channel',
+          // Channel for session completion notifications. v2: the old
+          // 'session_complete_channel' was created without an explicit
+          // vibration pattern, and channel settings are frozen after creation,
+          // so the default (weak) vibration stuck. A new ID guarantees the
+          // strong pattern actually applies.
+          final completionChannel = AndroidNotificationChannel(
+            'session_complete_channel_v2',
             'Session Completed',
             description: 'Notifications when a session is completed',
             importance: Importance.max,
             enableVibration: true,
+            vibrationPattern: kAlertVibrationPattern,
             playSound: true,
           );
           await androidPlugin.createNotificationChannel(completionChannel);
+          try {
+            await androidPlugin.deleteNotificationChannel('session_complete_channel');
+          } catch (_) {}
 
-          // Channel for goal completion
-          const goalCompleteChannel = AndroidNotificationChannel(
-            'goal_complete',
+          // Channel for goal completion. v2: same reason as above.
+          final goalCompleteChannel = AndroidNotificationChannel(
+            'goal_complete_v2',
             'Goal Complete',
             description: 'Notifications for completed goals',
             importance: Importance.max,
             enableVibration: true,
+            vibrationPattern: kAlertVibrationPattern,
             playSound: true,
           );
           await androidPlugin.createNotificationChannel(goalCompleteChannel);
+          try {
+            await androidPlugin.deleteNotificationChannel('goal_complete');
+          } catch (_) {}
 
           print('All notification channels created');
 
@@ -2367,13 +2399,14 @@ class TimerService extends ChangeNotifier {
       const int notificationId = 2;
 
       final androidDetails = AndroidNotificationDetails(
-        'session_complete_channel',
+        'session_complete_channel_v2',
         'Session Completed',
         channelDescription: 'Notifications when a session is completed',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: kAlertVibrationPattern,
         autoCancel: true,
         // Add "Continue" action only if goal is not complete
         actions: !isGoalCompletion
