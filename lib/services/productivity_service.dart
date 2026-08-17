@@ -168,14 +168,25 @@ class ProductivityService {
     final scoreStartMs = scoreDayStart.millisecondsSinceEpoch;
     final scoreEndMs = scoreDayEnd.millisecondsSinceEpoch;
 
+    // For live/today scoring (useLiveState) we drop archived routines & goals:
+    // they no longer count toward the current index. For historical, record-based
+    // recompute we KEEP them, so a past day's breakdown still matches the score
+    // that was stored while the item was active. Their contribution comes purely
+    // from that day's completion/goal records, so an item archived later still
+    // shows up correctly and the header number lines up with the breakdown.
     final routineMaps = await _db.getAllRoutines();
     final allRoutines = routineMaps.map((m) => Routine.fromMap(m)).toList();
-    final dayRoutines =
-        allRoutines.where((r) => !r.isArchived && r.isActiveOnDay(currentDayIndex)).toList();
+    final dayRoutines = allRoutines
+        .where((r) =>
+            (useLiveState ? !r.isArchived : true) &&
+            r.isActiveOnDay(currentDayIndex))
+        .toList();
 
     final allGoals = await _db.getAllGoals();
     final activeGoals = allGoals
-        .where((g) => !g.isArchived && g.isActiveOnDay(currentDayIndex))
+        .where((g) =>
+            (useLiveState ? !g.isArchived : true) &&
+            g.isActiveOnDay(currentDayIndex))
         .toList();
 
     if (dayRoutines.isEmpty && activeGoals.isEmpty) {
