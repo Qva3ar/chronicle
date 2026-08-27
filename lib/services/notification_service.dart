@@ -435,85 +435,111 @@ class NotificationService {
     final numberOfRetries =
         (periodAfter > 0 && interval > 0) ? (periodAfter / interval).floor() : 0;
 
+    // Build notification details shared by both platforms. On Android this
+    // carries the routine channel, strong vibration and the "Done ✓" action;
+    // on iOS the time-sensitive routine category. (Android details are simply
+    // ignored on iOS and vice versa, so one object serves both.)
+    final androidDetails = AndroidNotificationDetails(
+      _routineChannelId,
+      _routineChannelName,
+      channelDescription: _routineChannelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: kAlertVibrationPattern,
+      actions: const [
+        AndroidNotificationAction(ROUTINE_DONE_ACTION_ID, 'Done ✓'),
+      ],
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+      categoryIdentifier: 'routine_category',
+    );
+    final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    // Schedule main + retries as exact, Doze-piercing local notifications — the
+    // same mechanism todos and session completion already use. The old Android
+    // path used inexact WorkManager one-off tasks, which Doze batched: overnight
+    // reminders piled up and all fired at once on the morning wake. Using
+    // zonedSchedule with exactAllowWhileIdle makes each reminder fire at its
+    // real wall-clock time (e.g. an hourly routine spreads across 9,10,…,17
+    // instead of dumping together). Cancellation on "Done" (markRoutineDone ->
+    // cancelRoutineNotification) replaces the old runtime isDone re-check.
     try {
-      if (Platform.isIOS) {
-        // iOS: Use flutter_local_notifications zonedSchedule for exact timing
-        // Schedule main notification
-        await _notifications.zonedSchedule(
-          _getMainNotificationId(routineId),
-          'Time for: $routineName',
-          'Tap to mark as done',
-          tzScheduledTime,
-          const NotificationDetails(
-            iOS: DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: true,
-              presentSound: true,
-              interruptionLevel: InterruptionLevel.timeSensitive,
-              categoryIdentifier: 'routine_category',
-            ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          payload: 'routine_$routineId',
-        );
+      await _scheduleExactRoutineNotification(
+        id: _getMainNotificationId(routineId),
+        title: 'Time for: $routineName',
+        body: 'Tap to mark as done',
+        when: tzScheduledTime,
+        details: details,
+        payload: 'routine_$routineId',
+      );
 
-        // Schedule retry notifications if needed
-        if (numberOfRetries > 0) {
-          for (int retry = 1; retry <= numberOfRetries; retry++) {
-            final retryTime = tz.TZDateTime.from(
-              scheduledTime.add(Duration(minutes: retry * interval)),
-              tz.local,
-            );
-            if (retryTime.isAfter(now)) {
-              await _notifications.zonedSchedule(
-                _getRetryNotificationId(routineId, retry),
-                'Reminder: $routineName',
-                'Reminder $retry/$numberOfRetries',
-                retryTime,
-                const NotificationDetails(
-                  iOS: DarwinNotificationDetails(
-                    presentAlert: true,
-                    presentBadge: true,
-                    presentSound: true,
-                    interruptionLevel: InterruptionLevel.timeSensitive,
-                    categoryIdentifier: 'routine_category',
-                  ),
-                ),
-                androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                payload: 'routine_${routineId}_retry_$retry',
-              );
-            }
-          }
-        }
-        debugPrint('✅ iOS: Scheduled routine notifications for $routineName at $scheduledTime with $numberOfRetries retries');
-      } else {
-        // Android: Use WorkManager for background execution
-        await BackgroundTaskManager.scheduleRoutineNotification(
-          routineId: routineId,
-          routineName: routineName,
-          scheduledTime: scheduledTime,
-          currentRetry: 0,
-          numberOfRetries: numberOfRetries,
-        );
-
-        // Schedule retry notifications if needed
-        if (numberOfRetries > 0) {
-          for (int retry = 1; retry <= numberOfRetries; retry++) {
-            final retryTime = scheduledTime.add(Duration(minutes: retry * interval));
-            await BackgroundTaskManager.scheduleRoutineNotification(
-              routineId: routineId,
-              routineName: routineName,
-              scheduledTime: retryTime,
-              currentRetry: retry,
-              numberOfRetries: numberOfRetries,
+      if (numberOfRetries > 0) {
+        for (int retry = 1; retry <= numberOfRetries; retry++) {
+          final retryTime = tz.TZDateTime.from(
+            scheduledTime.add(Duration(minutes: retry * interval)),
+            tz.local,
+          );
+          if (retryTime.isAfter(now)) {
+            await _scheduleExactRoutineNotification(
+              id: _getRetryNotificationId(routineId, retry),
+              title: 'Reminder: $routineName',
+              body: 'Reminder $retry/$numberOfRetries',
+              when: retryTime,
+              details: details,
+              payload: 'routine_${routineId}_retry_$retry',
             );
           }
         }
-        debugPrint('✅ Android: Scheduled routine notification for $routineName at $scheduledTime with $numberOfRetries retries');
       }
+      debugPrint(
+          '✅ Scheduled routine "$routineName" at $scheduledTime with $numberOfRetries retries');
     } catch (e, stackTrace) {
       debugPrint('Error scheduling notification for $routineName: $e');
       debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Schedule a single routine notification as an exact, Doze-piercing alarm,
+  /// falling back to an inexact schedule when exact alarms are unavailable
+  /// (e.g. SCHEDULE_EXACT_ALARM revoked by the user) so the reminder still
+  /// fires, just not to the second. [androidScheduleMode] is ignored on iOS.
+  @pragma('vm:entry-point')
+  Future<void> _scheduleExactRoutineNotification({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime when,
+    required NotificationDetails details,
+    required String payload,
+  }) async {
+    try {
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: payload,
+      );
+    } catch (exactError) {
+      debugPrint(
+          '⚠️ Exact routine schedule failed ($exactError). Falling back to inexact.');
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
     }
   }
 

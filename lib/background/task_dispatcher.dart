@@ -352,7 +352,14 @@ Future<bool> _handleInsightGeneration(Map<String, dynamic>? inputData) async {
   }
 }
 
-/// Handle routine notification
+/// Handle routine notification.
+///
+/// LEGACY/DRAIN-ONLY: routine reminders are now scheduled as exact, Doze-piercing
+/// local notifications via NotificationService.scheduleRoutineNotification
+/// (zonedSchedule + exactAllowWhileIdle), not WorkManager. This handler is kept
+/// so that any routine tasks already queued in WorkManager on devices upgrading
+/// from the old version still fire (and honor the isDone check) instead of
+/// failing as an unknown task. No new routine WorkManager tasks are registered.
 Future<bool> _handleRoutineNotification(Map<String, dynamic>? inputData) async {
   try {
     if (inputData == null) {
