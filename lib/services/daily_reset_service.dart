@@ -4,6 +4,7 @@ import 'package:chrono/services/goal_service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 import 'package:chrono/ai/summarizer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -164,6 +165,17 @@ class DailyResetService {
     // Reset goals' daily progress
     await goalService.resetAllGoals();
     print('[DailyResetService] ✅ Goals reset complete');
+
+    // Recompute the cached `time` of sunrise/sunset-anchored routines for the
+    // new day. Must happen BEFORE rescheduling, otherwise the alarms would be
+    // armed from yesterday's sun times.
+    try {
+      await SolarTimeService.instance.reload();
+      await SolarTimeService.instance.refreshSolarRoutineTimes();
+      print('[DailyResetService] ✅ Solar routine times refreshed');
+    } catch (e) {
+      print('[DailyResetService] ⚠️ Solar routine refresh failed (non-critical): $e');
+    }
 
     // Reschedule routine notifications for the new day
     final notificationService = NotificationService();

@@ -168,25 +168,27 @@ class ProductivityService {
     final scoreStartMs = scoreDayStart.millisecondsSinceEpoch;
     final scoreEndMs = scoreDayEnd.millisecondsSinceEpoch;
 
-    // For live/today scoring (useLiveState) we drop archived routines & goals:
-    // they no longer count toward the current index. For historical, record-based
-    // recompute we KEEP them, so a past day's breakdown still matches the score
-    // that was stored while the item was active. Their contribution comes purely
-    // from that day's completion/goal records, so an item archived later still
-    // shows up correctly and the header number lines up with the breakdown.
+    // Archived routines & goals are excluded from the score — for TODAY (live)
+    // and for PAST days (record-based recompute) alike. They must be dropped
+    // consistently: the midnight finalization runs with useLiveState=true and
+    // already excludes them, so a later records-based recompute of that same day
+    // (e.g. backdating a routine, or the history bottom sheet) MUST exclude them
+    // too. Otherwise the recompute adds every archived item's weight to the
+    // denominator (they have no completion that day) and silently tanks a score
+    // the live finalization had stored correctly — the exact cause of a
+    // backdated day dropping from ~7 to ~4 vs. an untouched neighbouring day.
+    // A routine/goal completed on a past day and archived later no longer counts
+    // toward that day, which also matches the expectation that archived items
+    // neither show in the day breakdown nor affect the index.
     final routineMaps = await _db.getAllRoutines();
     final allRoutines = routineMaps.map((m) => Routine.fromMap(m)).toList();
     final dayRoutines = allRoutines
-        .where((r) =>
-            (useLiveState ? !r.isArchived : true) &&
-            r.isActiveOnDay(currentDayIndex))
+        .where((r) => !r.isArchived && r.isActiveOnDay(currentDayIndex))
         .toList();
 
     final allGoals = await _db.getAllGoals();
     final activeGoals = allGoals
-        .where((g) =>
-            (useLiveState ? !g.isArchived : true) &&
-            g.isActiveOnDay(currentDayIndex))
+        .where((g) => !g.isArchived && g.isActiveOnDay(currentDayIndex))
         .toList();
 
     if (dayRoutines.isEmpty && activeGoals.isEmpty) {

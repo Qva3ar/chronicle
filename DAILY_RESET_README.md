@@ -56,6 +56,16 @@ Executes at midnight (00:00) local time and performs:
 | `streak` | ❌ **PRESERVED** | Maintain user's achievement history |
 | `lastCompletedDate` | ❌ **PRESERVED** | Track last completion for streak calculation |
 | SharedPreferences `routine_{id}_done` | ✅ Cleared | Reset notification system state |
+| `time` (solar routines only) | ✅ Recomputed | Sunrise/sunset move every day |
+
+#### ⚠️ Solar routines must be refreshed BEFORE rescheduling
+
+Routines anchored to sunrise or sunset store today's computed time in `time`
+(see [SOLAR_ROUTINES_README.md](SOLAR_ROUTINES_README.md)). The reset calls
+`SolarTimeService.instance.refreshSolarRoutineTimes()` immediately before
+`checkAndRescheduleRoutines()`. Reversing that order arms every alarm from
+yesterday's sun times, which drifts by a few minutes a day and by over an hour
+across a season.
 
 ### Goals
 | Field | Action | Reason |
@@ -291,6 +301,7 @@ e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWith
 - `lib/services/routine_service.dart` - Routine service layer
 - `lib/services/goal_service.dart` - Goal service layer
 - `lib/services/notification_service.dart` - Reschedules routine notifications
+- `lib/services/solar_time_service.dart` - Recomputes sunrise/sunset-anchored routine times
 - `ios/Runner/AppDelegate.swift` - BGTask handler registration + plugin registrant callback
 - `ios/Runner/Info.plist` - BGTaskSchedulerPermittedIdentifiers
 

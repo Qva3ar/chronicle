@@ -973,10 +973,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routineOtherDays => 'Other days';
 
   @override
-  String get routineDuration => 'Duration';
+  String get routineDuration => 'For';
 
   @override
-  String get routineInterval => 'Interval';
+  String get routineInterval => 'Every';
+
+  @override
+  String get routineRemindersExplainer =>
+      'Chrono keeps reminding you until the routine is done.';
 
   @override
   String get routineAdditional => 'Additional';
@@ -995,6 +999,141 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonMin => 'min';
+
+  @override
+  String get routineAnchorFixed => 'Clock';
+
+  @override
+  String get routineAnchorSunrise => 'Sunrise';
+
+  @override
+  String get routineAnchorSunset => 'Sunset';
+
+  @override
+  String get routineAnchorSunriseOf => 'sunrise';
+
+  @override
+  String get routineAnchorSunsetOf => 'sunset';
+
+  @override
+  String routineAnchorAt(String anchor) {
+    return 'At $anchor';
+  }
+
+  @override
+  String routineAnchorOffsetBefore(String duration, String anchor) {
+    return '$duration before $anchor';
+  }
+
+  @override
+  String routineAnchorOffsetAfter(String duration, String anchor) {
+    return '$duration after $anchor';
+  }
+
+  @override
+  String routineAnchorScaleBefore(String duration) {
+    return '$duration before';
+  }
+
+  @override
+  String routineAnchorScaleAfter(String duration) {
+    return '$duration after';
+  }
+
+  @override
+  String get routineAnchorScaleAt => 'on time';
+
+  @override
+  String get commonHourShort => 'h';
+
+  @override
+  String routineAnchorPreview(String time, String anchor, String anchorTime) {
+    return 'Today at $time · $anchor $anchorTime';
+  }
+
+  @override
+  String routineAnchorNoEventToday(String anchor) {
+    return 'No $anchor today at your location';
+  }
+
+  @override
+  String get routineAnchorNeedsLocation =>
+      'Set your location to use sunrise and sunset';
+
+  @override
+  String get routineAnchorSetLocation => 'Set location';
+
+  @override
+  String get routineAnchorLocationMissing =>
+      'Set your location before saving a sunrise or sunset routine';
+
+  @override
+  String get solarSectionTitle => 'Sunrise & sunset';
+
+  @override
+  String get solarLocationTitle => 'Location';
+
+  @override
+  String get solarLocationDesc =>
+      'Needed only to compute sunrise and sunset. Stays on your device and is never sent anywhere.';
+
+  @override
+  String get solarLocationNotSet => 'Not set';
+
+  @override
+  String get solarLocationSourceGps => 'From GPS';
+
+  @override
+  String get solarLocationSourceManual => 'Entered manually';
+
+  @override
+  String get solarUseGps => 'Use my location';
+
+  @override
+  String get solarEnterManually => 'Enter coordinates';
+
+  @override
+  String get solarLatitude => 'Latitude';
+
+  @override
+  String get solarLongitude => 'Longitude';
+
+  @override
+  String get solarCoordinatesInvalid =>
+      'Latitude must be between -90 and 90, longitude between -180 and 180';
+
+  @override
+  String get solarTodaySunrise => 'Sunrise today';
+
+  @override
+  String get solarTodaySunset => 'Sunset today';
+
+  @override
+  String get solarCorrectionTitle => 'Calibration';
+
+  @override
+  String get solarCorrectionDesc =>
+      'If the calculated times differ from your local timetable, shift them here. Elevation above sea level alone can account for several minutes.';
+
+  @override
+  String get solarSunriseCorrection => 'Sunrise correction';
+
+  @override
+  String get solarSunsetCorrection => 'Sunset correction';
+
+  @override
+  String get solarErrorServiceDisabled =>
+      'Location services are turned off on this device';
+
+  @override
+  String get solarErrorPermissionDenied => 'Location permission denied';
+
+  @override
+  String get solarErrorPermissionForever =>
+      'Location permission is permanently denied. Enable it in system settings or enter coordinates manually.';
+
+  @override
+  String get solarErrorFailed => 'Could not determine your location';
 
   @override
   String get dayMon => 'Mon';

@@ -17,7 +17,7 @@ import 'package:path_provider/path_provider.dart';
 /// Database configuration constants
 class DatabaseConfig {
   static const String databaseName = "awarnes-4.db";
-  static const int databaseVersion = 57;
+  static const int databaseVersion = 58;
   static const int pageSize = 20;
 }
 
@@ -78,6 +78,8 @@ class DatabaseColumns {
   static const String routinePreviousLastCompletedDate = 'previous_last_completed_date';
   static const String routinePriority = 'priority';
   static const String routineIsArchived = 'is_archived';
+  static const String routineAnchorType = 'anchor_type';
+  static const String routineAnchorOffsetMinutes = 'anchor_offset_minutes';
 
   // Goal table columns
   static const String goalTitle = 'title';
@@ -406,7 +408,9 @@ class DatabaseHelper {
           ${DatabaseColumns.routinePreviousStreak} INTEGER,
           ${DatabaseColumns.routinePreviousLastCompletedDate} TEXT,
           ${DatabaseColumns.routinePriority} INTEGER NOT NULL DEFAULT 2,
-          ${DatabaseColumns.routineIsArchived} INTEGER NOT NULL DEFAULT 0
+          ${DatabaseColumns.routineIsArchived} INTEGER NOT NULL DEFAULT 0,
+          ${DatabaseColumns.routineAnchorType} TEXT NOT NULL DEFAULT 'fixed',
+          ${DatabaseColumns.routineAnchorOffsetMinutes} INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -1695,6 +1699,20 @@ class DatabaseHelper {
           ''');
         }
         log('Upgraded database to v57: Added days_of_week column to goals table.');
+      }
+
+      if (oldVersion < 58) {
+        log('Starting migration to v58: Add solar anchor columns to routines...');
+        // 'fixed' keeps every existing routine on its literal `time`; solar
+        // routines instead treat `time` as a cache recomputed each midnight
+        // from sunrise/sunset plus anchor_offset_minutes (negative = before).
+        await db.execute(
+          "ALTER TABLE ${DatabaseTables.routines} ADD COLUMN ${DatabaseColumns.routineAnchorType} TEXT NOT NULL DEFAULT 'fixed'",
+        );
+        await db.execute(
+          'ALTER TABLE ${DatabaseTables.routines} ADD COLUMN ${DatabaseColumns.routineAnchorOffsetMinutes} INTEGER NOT NULL DEFAULT 0',
+        );
+        log('Upgraded database to v58: Added routine solar anchor columns.');
       }
     } catch (e) {
       log('Error during database upgrade: $e');
@@ -3417,10 +3435,26 @@ class DatabaseHelper {
 
             // Only update if status is still 'active' (not completed)
             if (isActive) {
+              // Snapshot the goal's live time into the record before it is
+              // finalized. Background/resumed sessions let `timeSpentSeconds`
+              // outrun the last-flushed `time_minutes`, so the record would
+              // under-represent the day. The midnight productivity finalization
+              // (which runs just before this) already credited the LIVE value,
+              // so we must persist the same value here — otherwise a later
+              // records-only recompute of this past day (e.g. backdating a
+              // routine) would under-credit goals and wrongly lower the index.
+              final liveSeconds =
+                  goalData[DatabaseColumns.goalTimeSpentSeconds] as int? ?? 0;
+              final liveMinutes = (liveSeconds / 60).round();
+              if (liveMinutes > timeMinutes) {
+                timeMinutes = liveMinutes;
+              }
+
               String updatedText;
 
               if (isJson) {
                 jsonData['status'] = 'day_ended';
+                jsonData['time_minutes'] = timeMinutes;
                 updatedText = jsonEncode(jsonData);
               } else {
                 updatedText = '''

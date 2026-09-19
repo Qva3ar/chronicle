@@ -15,6 +15,7 @@ import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/todo_notification_service.dart';
 import 'package:chrono/services/daily_reset_service.dart';
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 import 'package:chrono/services/widget_service.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/goal_widget_service.dart';
@@ -90,8 +91,21 @@ Future<void> _deferredInitialization() async {
     await _initStep('BackgroundTaskManager', () => BackgroundTaskManager.initialize());
     await _initStep('scheduleDailyReset', () => BackgroundTaskManager.scheduleDailyReset());
     await _initStep('scheduleDailyResetCheck', () => BackgroundTaskManager.scheduleDailyResetCheck());
+    await _initStep('SolarTimeService', () async {
+      await SolarTimeService.instance.ensureInitialized();
+    });
     await _initStep('runDailyResetIfNeeded', () async {
       await DailyResetService.instance.runDailyResetIfNeeded();
+    });
+    // The daily reset only refreshes solar routines when it detects a new day.
+    // Repeat it unconditionally on launch so a stale cached time (reset task
+    // skipped by an aggressive-battery OEM, or coordinates changed while the
+    // app was closed) is corrected as soon as the user opens the app.
+    await _initStep('refreshSolarRoutines', () async {
+      final updated = await SolarTimeService.instance.refreshSolarRoutineTimes();
+      if (updated > 0) {
+        await NotificationService().checkAndRescheduleRoutines();
+      }
     });
 
     // Non-critical services after the reset path is secured.

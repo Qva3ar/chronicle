@@ -28,7 +28,7 @@ This is a Flutter application called "Chrono" - a goal-oriented note-taking and 
 
 **Database Layer (lib/db_manager.dart)**
 - SQLite database using sqflite package
-- Database version: 22
+- Database version: 58
 - Tables: tags, record, record_tag, instructions, routines, goals, sessions
 - Comprehensive CRUD operations with proper error handling
 - Database migrations handled through version upgrades
@@ -101,6 +101,7 @@ This is a Flutter application called "Chrono" - a goal-oriented note-taking and 
 For detailed documentation on specific systems, see:
 
 - **[DAILY_RESET_README.md](DAILY_RESET_README.md)** - Daily reset system, routine streak logic, and critical implementation details
+- **[SOLAR_ROUTINES_README.md](SOLAR_ROUTINES_README.md)** - Routines anchored to sunrise/sunset, why `time` is a daily cache, and the refresh-before-reschedule ordering
 - **[PRODUCTIVITY_INDEX_README.md](PRODUCTIVITY_INDEX_README.md)** - Productivity index calculation, Banner/note sync, backdating, and when to call createOrUpdateDailyRecord
 - **[TIMER_SYSTEM_README.md](TIMER_SYSTEM_README.md)** - Goal session timing and background task handling
 - **[INSIGHTS_SYSTEM_README.md](INSIGHTS_SYSTEM_README.md)** - AI insights generation system
@@ -131,6 +132,26 @@ await routineService.resetRoutine(routine.id);  // Uses toggleRoutineDone - will
 ```
 
 **Why:** `toggleRoutineDone()` is designed for user undo actions and will restore `previousStreak` if called on the same day as completion. This will break routine streaks during midnight reset. See [DAILY_RESET_README.md](DAILY_RESET_README.md) for details.
+
+### Solar-Anchored Routines ⚠️
+
+Routines can be tied to sunrise/sunset. For those, `routine.time` is a **cache of
+today's computed time**, refreshed once a day. Two rules:
+
+✅ **Refresh before rescheduling:**
+```dart
+await SolarTimeService.instance.refreshSolarRoutineTimes();
+await notificationService.checkAndRescheduleRoutines();
+```
+
+✅ **Resolve per target day when scheduling:**
+```dart
+final next = SolarTimeService.instance.nextOccurrenceOf(routine);
+```
+
+❌ **Wrong:** `routine.getNextOccurrence()` without a resolver reuses today's
+cached time for next Friday's sunset. Also call `ensureInitialized()` first in
+background isolates. See [SOLAR_ROUTINES_README.md](SOLAR_ROUTINES_README.md).
 
 ### Goal Completion
 

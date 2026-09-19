@@ -1,5 +1,24 @@
 import 'package:flutter/material.dart';
 
+/// What a routine's time is measured from.
+///
+/// [fixed] routines use [Routine.time] literally. Solar routines derive their
+/// time from the day's sunrise/sunset plus [Routine.anchorOffsetMinutes], and
+/// [Routine.time] holds the value computed for today (refreshed at midnight by
+/// SolarTimeService) so every synchronous reader keeps working unchanged.
+enum RoutineAnchor {
+  fixed,
+  sunrise,
+  sunset;
+
+  static RoutineAnchor fromName(String? value) => RoutineAnchor.values.firstWhere(
+        (anchor) => anchor.name == value,
+        orElse: () => RoutineAnchor.fixed,
+      );
+
+  bool get isSolar => this != RoutineAnchor.fixed;
+}
+
 class Routine {
   final int? id;
   final String name;
@@ -13,6 +32,11 @@ class Routine {
   final bool showStreak;
   final int priority;
   final bool isArchived;
+  final RoutineAnchor anchorType;
+
+  /// Signed minutes from the anchor. Negative is before it, so "an hour before
+  /// sunset" is -60. Ignored when [anchorType] is [RoutineAnchor.fixed].
+  final int anchorOffsetMinutes;
 
   Routine({
     this.id,
@@ -27,6 +51,8 @@ class Routine {
     this.showStreak = true,
     this.priority = 2,
     this.isArchived = false,
+    this.anchorType = RoutineAnchor.fixed,
+    this.anchorOffsetMinutes = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +70,8 @@ class Routine {
       'show_streak': showStreak ? 1 : 0,
       'priority': priority,
       'is_archived': isArchived ? 1 : 0,
+      'anchor_type': anchorType.name,
+      'anchor_offset_minutes': anchorOffsetMinutes,
     };
   }
 
@@ -67,6 +95,8 @@ class Routine {
       showStreak: (map['show_streak'] as int? ?? 1) == 1,
       priority: map['priority'] as int? ?? 2,
       isArchived: (map['is_archived'] as int? ?? 0) == 1,
+      anchorType: RoutineAnchor.fromName(map['anchor_type'] as String?),
+      anchorOffsetMinutes: map['anchor_offset_minutes'] as int? ?? 0,
     );
   }
 
@@ -83,6 +113,8 @@ class Routine {
     bool? showStreak,
     int? priority,
     bool? isArchived,
+    RoutineAnchor? anchorType,
+    int? anchorOffsetMinutes,
   }) {
     return Routine(
       id: id ?? this.id,
@@ -97,6 +129,8 @@ class Routine {
       showStreak: showStreak ?? this.showStreak,
       priority: priority ?? this.priority,
       isArchived: isArchived ?? this.isArchived,
+      anchorType: anchorType ?? this.anchorType,
+      anchorOffsetMinutes: anchorOffsetMinutes ?? this.anchorOffsetMinutes,
     );
   }
 
@@ -104,23 +138,30 @@ class Routine {
     return daysOfWeek[dayIndex];
   }
 
-  DateTime getNextOccurrence() {
+  /// [resolveTime] lets a caller supply the time for a specific calendar date,
+  /// which solar routines need because sunset on next Friday is not sunset
+  /// today. Omit it to use the stored [time] for every day, which is the right
+  /// behaviour for fixed routines and an acceptable fallback when no location
+  /// is configured.
+  DateTime getNextOccurrence({TimeOfDay Function(DateTime date)? resolveTime}) {
     final now = DateTime.now();
-    final currentTime = TimeOfDay.fromDateTime(now);
     final currentDay = now.weekday - 1; // Convert to 0-based index (Monday = 0)
 
+    TimeOfDay timeOn(DateTime date) => resolveTime?.call(date) ?? time;
+
     // If the routine is active today and the time hasn't passed yet
-    if (isActiveOnDay(currentDay) &&
-        (currentTime.hour < time.hour ||
-            (currentTime.hour == time.hour &&
-                currentTime.minute < time.minute))) {
-      return DateTime(
+    if (isActiveOnDay(currentDay)) {
+      final todayTime = timeOn(now);
+      final todayOccurrence = DateTime(
         now.year,
         now.month,
         now.day,
-        time.hour,
-        time.minute,
+        todayTime.hour,
+        todayTime.minute,
       );
+      if (todayOccurrence.isAfter(now)) {
+        return todayOccurrence;
+      }
     }
 
     // Find the next active day
@@ -129,12 +170,13 @@ class Routine {
       final nextDay = (currentDay + daysToAdd) % 7;
       if (isActiveOnDay(nextDay)) {
         final nextDate = now.add(Duration(days: daysToAdd));
+        final nextTime = timeOn(nextDate);
         return DateTime(
           nextDate.year,
           nextDate.month,
           nextDate.day,
-          time.hour,
-          time.minute,
+          nextTime.hour,
+          nextTime.minute,
         );
       }
       daysToAdd++;

@@ -532,6 +532,7 @@
 		};
 		4BA17059F2C1E0849659301F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = ChronoWidget/ChronoWidget.entitlements;
@@ -553,6 +554,7 @@
 		};
 		68BDEB41ADECCAB9BBFDD460 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = ChronoWidget/ChronoWidget.entitlements;
@@ -573,6 +575,7 @@
 		};
 		8A4FABBE04B02869E8E0AC34 /* Profile */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = ChronoWidget/ChronoWidget.entitlements;

@@ -978,10 +978,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routineOtherDays => 'Другие дни';
 
   @override
-  String get routineDuration => 'Длительность';
+  String get routineDuration => 'В течение';
 
   @override
-  String get routineInterval => 'Интервал';
+  String get routineInterval => 'Каждые';
+
+  @override
+  String get routineRemindersExplainer =>
+      'Chrono повторяет напоминание, пока рутина не выполнена.';
 
   @override
   String get routineAdditional => 'Дополнительно';
@@ -1000,6 +1004,142 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get commonMin => 'мин';
+
+  @override
+  String get routineAnchorFixed => 'По часам';
+
+  @override
+  String get routineAnchorSunrise => 'Восход';
+
+  @override
+  String get routineAnchorSunset => 'Закат';
+
+  @override
+  String get routineAnchorSunriseOf => 'восхода';
+
+  @override
+  String get routineAnchorSunsetOf => 'заката';
+
+  @override
+  String routineAnchorAt(String anchor) {
+    return 'В момент $anchor';
+  }
+
+  @override
+  String routineAnchorOffsetBefore(String duration, String anchor) {
+    return 'за $duration до $anchor';
+  }
+
+  @override
+  String routineAnchorOffsetAfter(String duration, String anchor) {
+    return 'через $duration после $anchor';
+  }
+
+  @override
+  String routineAnchorScaleBefore(String duration) {
+    return '$duration до';
+  }
+
+  @override
+  String routineAnchorScaleAfter(String duration) {
+    return '$duration после';
+  }
+
+  @override
+  String get routineAnchorScaleAt => 'в момент';
+
+  @override
+  String get commonHourShort => 'ч';
+
+  @override
+  String routineAnchorPreview(String time, String anchor, String anchorTime) {
+    return 'Сегодня в $time · $anchor $anchorTime';
+  }
+
+  @override
+  String routineAnchorNoEventToday(String anchor) {
+    return 'Сегодня в вашей местности нет события «$anchor»';
+  }
+
+  @override
+  String get routineAnchorNeedsLocation =>
+      'Укажите местоположение, чтобы использовать восход и закат';
+
+  @override
+  String get routineAnchorSetLocation => 'Указать местоположение';
+
+  @override
+  String get routineAnchorLocationMissing =>
+      'Укажите местоположение перед сохранением рутины с привязкой к солнцу';
+
+  @override
+  String get solarSectionTitle => 'Восход и закат';
+
+  @override
+  String get solarLocationTitle => 'Местоположение';
+
+  @override
+  String get solarLocationDesc =>
+      'Нужно только для расчёта восхода и заката. Остаётся на устройстве и никуда не отправляется.';
+
+  @override
+  String get solarLocationNotSet => 'Не указано';
+
+  @override
+  String get solarLocationSourceGps => 'По GPS';
+
+  @override
+  String get solarLocationSourceManual => 'Введено вручную';
+
+  @override
+  String get solarUseGps => 'Определить автоматически';
+
+  @override
+  String get solarEnterManually => 'Ввести координаты';
+
+  @override
+  String get solarLatitude => 'Широта';
+
+  @override
+  String get solarLongitude => 'Долгота';
+
+  @override
+  String get solarCoordinatesInvalid =>
+      'Широта должна быть от -90 до 90, долгота от -180 до 180';
+
+  @override
+  String get solarTodaySunrise => 'Восход сегодня';
+
+  @override
+  String get solarTodaySunset => 'Закат сегодня';
+
+  @override
+  String get solarCorrectionTitle => 'Калибровка';
+
+  @override
+  String get solarCorrectionDesc =>
+      'Если расчётное время расходится с вашим местным расписанием, сдвиньте его здесь. Одна только высота над уровнем моря даёт несколько минут разницы.';
+
+  @override
+  String get solarSunriseCorrection => 'Поправка восхода';
+
+  @override
+  String get solarSunsetCorrection => 'Поправка заката';
+
+  @override
+  String get solarErrorServiceDisabled =>
+      'На устройстве отключены службы геолокации';
+
+  @override
+  String get solarErrorPermissionDenied =>
+      'Доступ к геолокации не предоставлен';
+
+  @override
+  String get solarErrorPermissionForever =>
+      'Доступ к геолокации запрещён навсегда. Включите его в системных настройках или введите координаты вручную.';
+
+  @override
+  String get solarErrorFailed => 'Не удалось определить местоположение';
 
   @override
   String get dayMon => 'Пн';

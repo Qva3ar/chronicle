@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:chrono/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -19,11 +21,26 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   List<ProductivityScore> _history = [];
   bool _loading = true;
   _DateRange _range = _DateRange.week;
+  StreamSubscription<int>? _productivitySub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Reload when a productivity record is created/updated elsewhere (e.g.
+    // backdating a routine or goal from the calendar). Without this the chart
+    // keeps showing the value it read in initState and looks like the edit had
+    // no effect, even though the DB was updated correctly.
+    _productivitySub =
+        ProductivityService.instance.onProductivityUpdated.listen((_) {
+      if (mounted) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _productivitySub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {

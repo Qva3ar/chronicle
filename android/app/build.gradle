@@ -82,4 +82,10 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+
+    // Google Play requires Billing Library 8.0.0+ for updates after Aug 31, 2026.
+    // Adapty SDK 3.15.x defaults to Billing 7 but is compatible with v8, so we
+    // force the newer version here. Remove once adapty_flutter 4.x is adopted
+    // (which uses Billing 8 by default).
+    implementation 'com.android.billingclient:billing:8.0.0'
 }

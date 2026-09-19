@@ -5,6 +5,7 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/models/routine.model.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 
 /// Top-level callback for routine widget interactions
 /// MUST be top-level function for background execution
@@ -66,7 +67,8 @@ Future<void> routineWidgetCallback(Uri? uri) async {
           await db.deleteRoutineRecordsForToday(routine.id!);
 
           // 2. Reschedule notification if undone
-          final nextOccurrence = routine.getNextOccurrence();
+          await SolarTimeService.instance.ensureInitialized();
+          final nextOccurrence = SolarTimeService.instance.nextOccurrenceOf(routine);
           await notificationService.scheduleRoutineNotification(
             routineId: routine.id!,
             routineName: routine.name,

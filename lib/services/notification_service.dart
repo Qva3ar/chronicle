@@ -21,6 +21,7 @@ import 'package:chrono/background/task_dispatcher.dart';
 import 'package:chrono/services/timer_service.dart'
     show backgroundNotificationActionHandler, ROUTINE_DONE_ACTION_ID, kAlertVibrationPattern;
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 import 'package:chrono/features/checkin/data/models/checkin_type.dart';
 import 'package:chrono/features/checkin/presentation/widgets/checkin_dialog.dart';
 
@@ -386,6 +387,11 @@ class NotificationService {
     try {
       final dbManager = DatabaseHelper.instance;
       final routineService = RoutineService(dbManager);
+
+      // Background isolates start with an empty SolarTimeService, so load the
+      // stored coordinates before any sunrise/sunset-anchored routine is read.
+      await SolarTimeService.instance.ensureInitialized();
+
       final routines = await routineService.getAllRoutines();
 
       // First, clear all done statuses from SharedPreferences
@@ -393,7 +399,7 @@ class NotificationService {
 
       // Then reschedule each active (non-archived) routine
       for (final routine in routines.where((r) => !r.isArchived)) {
-        final nextOccurrence = routine.getNextOccurrence();
+        final nextOccurrence = SolarTimeService.instance.nextOccurrenceOf(routine);
         await scheduleRoutineNotification(
           routineId: routine.id!,
           routineName: routine.name,

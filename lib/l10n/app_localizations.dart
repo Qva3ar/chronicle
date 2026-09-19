@@ -1835,14 +1835,20 @@ abstract class AppLocalizations {
   /// No description provided for @routineDuration.
   ///
   /// In en, this message translates to:
-  /// **'Duration'**
+  /// **'For'**
   String get routineDuration;
 
   /// No description provided for @routineInterval.
   ///
   /// In en, this message translates to:
-  /// **'Interval'**
+  /// **'Every'**
   String get routineInterval;
+
+  /// No description provided for @routineRemindersExplainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Chrono keeps reminding you until the routine is done.'**
+  String get routineRemindersExplainer;
 
   /// No description provided for @routineAdditional.
   ///
@@ -1873,6 +1879,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'min'**
   String get commonMin;
+
+  /// No description provided for @routineAnchorFixed.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get routineAnchorFixed;
+
+  /// No description provided for @routineAnchorSunrise.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunrise'**
+  String get routineAnchorSunrise;
+
+  /// No description provided for @routineAnchorSunset.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunset'**
+  String get routineAnchorSunset;
+
+  /// No description provided for @routineAnchorSunriseOf.
+  ///
+  /// In en, this message translates to:
+  /// **'sunrise'**
+  String get routineAnchorSunriseOf;
+
+  /// No description provided for @routineAnchorSunsetOf.
+  ///
+  /// In en, this message translates to:
+  /// **'sunset'**
+  String get routineAnchorSunsetOf;
+
+  /// No description provided for @routineAnchorAt.
+  ///
+  /// In en, this message translates to:
+  /// **'At {anchor}'**
+  String routineAnchorAt(String anchor);
+
+  /// No description provided for @routineAnchorOffsetBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} before {anchor}'**
+  String routineAnchorOffsetBefore(String duration, String anchor);
+
+  /// No description provided for @routineAnchorOffsetAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} after {anchor}'**
+  String routineAnchorOffsetAfter(String duration, String anchor);
+
+  /// No description provided for @routineAnchorScaleBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} before'**
+  String routineAnchorScaleBefore(String duration);
+
+  /// No description provided for @routineAnchorScaleAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} after'**
+  String routineAnchorScaleAfter(String duration);
+
+  /// No description provided for @routineAnchorScaleAt.
+  ///
+  /// In en, this message translates to:
+  /// **'on time'**
+  String get routineAnchorScaleAt;
+
+  /// No description provided for @commonHourShort.
+  ///
+  /// In en, this message translates to:
+  /// **'h'**
+  String get commonHourShort;
+
+  /// No description provided for @routineAnchorPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Today at {time} · {anchor} {anchorTime}'**
+  String routineAnchorPreview(String time, String anchor, String anchorTime);
+
+  /// No description provided for @routineAnchorNoEventToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No {anchor} today at your location'**
+  String routineAnchorNoEventToday(String anchor);
+
+  /// No description provided for @routineAnchorNeedsLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your location to use sunrise and sunset'**
+  String get routineAnchorNeedsLocation;
+
+  /// No description provided for @routineAnchorSetLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Set location'**
+  String get routineAnchorSetLocation;
+
+  /// No description provided for @routineAnchorLocationMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your location before saving a sunrise or sunset routine'**
+  String get routineAnchorLocationMissing;
+
+  /// No description provided for @solarSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunrise & sunset'**
+  String get solarSectionTitle;
+
+  /// No description provided for @solarLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get solarLocationTitle;
+
+  /// No description provided for @solarLocationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Needed only to compute sunrise and sunset. Stays on your device and is never sent anywhere.'**
+  String get solarLocationDesc;
+
+  /// No description provided for @solarLocationNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get solarLocationNotSet;
+
+  /// No description provided for @solarLocationSourceGps.
+  ///
+  /// In en, this message translates to:
+  /// **'From GPS'**
+  String get solarLocationSourceGps;
+
+  /// No description provided for @solarLocationSourceManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Entered manually'**
+  String get solarLocationSourceManual;
+
+  /// No description provided for @solarUseGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my location'**
+  String get solarUseGps;
+
+  /// No description provided for @solarEnterManually.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter coordinates'**
+  String get solarEnterManually;
+
+  /// No description provided for @solarLatitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Latitude'**
+  String get solarLatitude;
+
+  /// No description provided for @solarLongitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Longitude'**
+  String get solarLongitude;
+
+  /// No description provided for @solarCoordinatesInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Latitude must be between -90 and 90, longitude between -180 and 180'**
+  String get solarCoordinatesInvalid;
+
+  /// No description provided for @solarTodaySunrise.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunrise today'**
+  String get solarTodaySunrise;
+
+  /// No description provided for @solarTodaySunset.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunset today'**
+  String get solarTodaySunset;
+
+  /// No description provided for @solarCorrectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Calibration'**
+  String get solarCorrectionTitle;
+
+  /// No description provided for @solarCorrectionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'If the calculated times differ from your local timetable, shift them here. Elevation above sea level alone can account for several minutes.'**
+  String get solarCorrectionDesc;
+
+  /// No description provided for @solarSunriseCorrection.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunrise correction'**
+  String get solarSunriseCorrection;
+
+  /// No description provided for @solarSunsetCorrection.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunset correction'**
+  String get solarSunsetCorrection;
+
+  /// No description provided for @solarErrorServiceDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Location services are turned off on this device'**
+  String get solarErrorServiceDisabled;
+
+  /// No description provided for @solarErrorPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission denied'**
+  String get solarErrorPermissionDenied;
+
+  /// No description provided for @solarErrorPermissionForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is permanently denied. Enable it in system settings or enter coordinates manually.'**
+  String get solarErrorPermissionForever;
+
+  /// No description provided for @solarErrorFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not determine your location'**
+  String get solarErrorFailed;
 
   /// No description provided for @dayMon.
   ///

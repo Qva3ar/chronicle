@@ -13,7 +13,9 @@ import 'package:chrono/screens/routine_calendar_screen.dart';
 import 'package:chrono/services/routine_widget_service.dart';
 import 'package:chrono/services/filter_service.dart';
 import 'package:chrono/services/productivity_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 import 'package:chrono/widgets/reminder_timeline_widget.dart';
+import 'package:chrono/widgets/solar_location_sheet.dart';
 import 'package:chrono/shared/premium_gate.dart';
 
 class RoutineManagerScreen extends StatefulWidget {
@@ -163,7 +165,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
       await _db.deleteRoutineRecordsForToday(routine.id!);
 
       // Reschedule notification if routine is marked as undone
-      final nextOccurrence = routine.getNextOccurrence();
+      final nextOccurrence = SolarTimeService.instance.nextOccurrenceOf(routine);
       await _notifications.scheduleRoutineNotification(
         routineId: routine.id!,
         routineName: routine.name,
@@ -223,7 +225,7 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
     });
     if (!archive) {
       // Reschedule notifications when unarchiving
-      final nextOccurrence = routine.getNextOccurrence();
+      final nextOccurrence = SolarTimeService.instance.nextOccurrenceOf(routine);
       await _notifications.scheduleRoutineNotification(
         routineId: routine.id!,
         routineName: routine.name,
@@ -519,16 +521,31 @@ class _RoutineManagerScreenState extends State<RoutineManagerScreen> with Widget
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      isArchived
-                          ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
-                          : isOtherDay
-                              ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
-                              : '${routine.time.format(context)} — ${_formatDaysOfWeek(routine.daysOfWeek)}',
-                      style: TextStyle(
-                        color: dimmed ? textHint : routine.isDone ? textHint : textMuted,
-                        fontSize: 12,
-                      ),
+                    Row(
+                      children: [
+                        if (routine.anchorType.isSolar) ...[
+                          Icon(
+                            routine.anchorType == RoutineAnchor.sunrise
+                                ? Icons.wb_twilight_rounded
+                                : Icons.nights_stay_rounded,
+                            size: 12,
+                            color: dimmed || routine.isDone ? textHint : textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Flexible(
+                          child: Text(
+                            isArchived || isOtherDay
+                                ? '${routine.time.format(context)} · ${_formatDaysOfWeek(routine.daysOfWeek)}'
+                                : '${routine.time.format(context)} — ${_formatDaysOfWeek(routine.daysOfWeek)}',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: dimmed ? textHint : routine.isDone ? textHint : textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -629,6 +646,15 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
   int _interval = 10;
   bool _showStreak = true;
   int _priority = 2;
+  RoutineAnchor _anchorType = RoutineAnchor.fixed;
+
+  /// Signed minutes from the anchor, negative meaning before it. The slider
+  /// spans [-_offsetRange, _offsetRange] so both directions live on one
+  /// control, with the anchor itself at the centre.
+  int _anchorOffsetMinutes = 0;
+
+  static const int _offsetRange = 120;
+  static const int _offsetStep = 5;
 
   @override
   void initState() {
@@ -641,6 +667,11 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       _interval = widget.routine!.interval;
       _showStreak = widget.routine!.showStreak;
       _priority = widget.routine!.priority;
+      _anchorType = widget.routine!.anchorType;
+      // Snap onto the slider grid so the thumb never sits between divisions.
+      final stored =
+          widget.routine!.anchorOffsetMinutes.clamp(-_offsetRange, _offsetRange);
+      _anchorOffsetMinutes = (stored / _offsetStep).round() * _offsetStep;
     }
     _periodController = TextEditingController(text: _periodAfter.toString());
     _intervalController = TextEditingController(text: _interval.toString());
@@ -652,6 +683,56 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
     _periodController.dispose();
     _intervalController.dispose();
     super.dispose();
+  }
+
+  String _anchorLabel(RoutineAnchor anchor) {
+    final l = AppLocalizations.of(context);
+    return switch (anchor) {
+      RoutineAnchor.fixed => l.routineAnchorFixed,
+      RoutineAnchor.sunrise => l.routineAnchorSunrise,
+      RoutineAnchor.sunset => l.routineAnchorSunset,
+    };
+  }
+
+  /// Genitive in Russian ("заката"), so the offset reads as a phrase rather
+  /// than a label glued to a noun.
+  String _anchorLabelOf(RoutineAnchor anchor) {
+    final l = AppLocalizations.of(context);
+    return anchor == RoutineAnchor.sunrise
+        ? l.routineAnchorSunriseOf
+        : l.routineAnchorSunsetOf;
+  }
+
+  String _formatMinutes(int minutes) {
+    final l = AppLocalizations.of(context);
+    if (minutes < 60) return '$minutes ${l.commonMin}';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    final hoursText = '$hours ${l.commonHourShort}';
+    return rest == 0 ? hoursText : '$hoursText $rest ${l.commonMin}';
+  }
+
+  /// "30 min before sunset" / "at sunset" / "15 min after sunrise"
+  String _offsetPhrase() {
+    final l = AppLocalizations.of(context);
+    final anchor = _anchorLabelOf(_anchorType);
+    if (_anchorOffsetMinutes == 0) return l.routineAnchorAt(anchor);
+    final duration = _formatMinutes(_anchorOffsetMinutes.abs());
+    return _anchorOffsetMinutes < 0
+        ? l.routineAnchorOffsetBefore(duration, anchor)
+        : l.routineAnchorOffsetAfter(duration, anchor);
+  }
+
+  void _nudgeOffset(int deltaMinutes) {
+    setState(() {
+      _anchorOffsetMinutes = (_anchorOffsetMinutes + deltaMinutes)
+          .clamp(-_offsetRange, _offsetRange);
+    });
+  }
+
+  Future<void> _setLocation() async {
+    final changed = await showSolarLocationSheet(context);
+    if (changed && mounted) setState(() {});
   }
 
   Future<void> _selectTime() async {
@@ -678,10 +759,26 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       return;
     }
 
+    final solar = SolarTimeService.instance;
+    if (_anchorType.isSolar && !solar.hasLocation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).routineAnchorLocationMissing),
+        ),
+      );
+      return;
+    }
+
+    // For solar routines `time` is a cache of today's computed value, so the
+    // list, sorting and the home widget keep reading a single plain field.
+    final resolvedTime = _anchorType.isSolar
+        ? solar.resolveTime(_anchorType, _anchorOffsetMinutes, DateTime.now())
+        : null;
+
     final routine = Routine(
       id: widget.routine?.id,
       name: _nameController.text,
-      time: _time,
+      time: resolvedTime ?? _time,
       daysOfWeek: _daysOfWeek,
       periodAfter: _periodAfter,
       interval: _interval,
@@ -691,6 +788,8 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
       lastCompletedDate: widget.routine?.lastCompletedDate,
       priority: _priority,
       isArchived: widget.routine?.isArchived ?? false,
+      anchorType: _anchorType,
+      anchorOffsetMinutes: _anchorType.isSolar ? _anchorOffsetMinutes : 0,
     );
 
     final db = DatabaseHelper.instance;
@@ -698,7 +797,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
 
     if (widget.routine == null) {
       final id = await db.insertRoutine(routine.toMap());
-      final nextOccurrence = routine.getNextOccurrence();
+      final nextOccurrence = solar.nextOccurrenceOf(routine);
       await notifications.scheduleRoutineNotification(
         routineId: id,
         routineName: routine.name,
@@ -709,7 +808,7 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
     } else {
       await db.updateRoutine(widget.routine!.id!, routine.toMap());
       await notifications.cancelRoutineNotification(widget.routine!.id!);
-      final nextOccurrence = routine.getNextOccurrence();
+      final nextOccurrence = solar.nextOccurrenceOf(routine);
       await notifications.scheduleRoutineNotification(
         routineId: widget.routine!.id!,
         routineName: routine.name,
@@ -739,6 +838,211 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
     3: 'Важно выполнить для продуктивности',
     4: 'Критически важно, сильно влияет на индекс',
   };
+
+  /// Pill row choosing what the routine's time is measured from.
+  Widget _buildAnchorSelector() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Row(
+        children: [
+          for (final anchor in RoutineAnchor.values) ...[
+            if (anchor != RoutineAnchor.values.first) const SizedBox(width: 8),
+            Expanded(
+              child: _pill(
+                label: _anchorLabel(anchor),
+                icon: switch (anchor) {
+                  RoutineAnchor.fixed => Icons.access_time_rounded,
+                  RoutineAnchor.sunrise => Icons.wb_twilight_rounded,
+                  RoutineAnchor.sunset => Icons.nights_stay_rounded,
+                },
+                selected: _anchorType == anchor,
+                onTap: () => setState(() => _anchorType = anchor),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _pill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: selected
+                ? MyColors.orangeDivider.withValues(alpha: 0.15)
+                : cardColor3,
+            border: Border.all(
+              color: selected
+                  ? MyColors.orangeDivider.withValues(alpha: 0.5)
+                  : cardBorder.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? MyColors.orangeDivider : textMuted,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: selected ? MyColors.orangeDivider : textMuted,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Offset editor plus a live preview of when the routine lands today.
+  Widget _buildSolarSchedule() {
+    final l = AppLocalizations.of(context);
+    final service = SolarTimeService.instance;
+
+    if (!service.hasLocation) {
+      return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        title: Text(
+          l.routineAnchorSetLocation,
+          style: const TextStyle(color: MyColors.orangeDivider, fontSize: 16),
+        ),
+        subtitle: Text(
+          l.routineAnchorNeedsLocation,
+          style: const TextStyle(color: textMuted, fontSize: 13),
+        ),
+        trailing: const Icon(Icons.my_location_rounded, color: MyColors.orangeDivider),
+        onTap: _setLocation,
+      );
+    }
+
+    final today = DateTime.now();
+    final anchorTime = service.anchorTimeFor(_anchorType, today);
+    final resolved = service.resolveTime(_anchorType, _anchorOffsetMinutes, today);
+    final anchorName = _anchorLabel(_anchorType).toLowerCase();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The phrase carries the meaning; the slider is just how you set it.
+          Text(
+            _offsetPhrase(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: MyColors.orangeDivider,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            anchorTime == null || resolved == null
+                ? l.routineAnchorNoEventToday(anchorName)
+                : l.routineAnchorPreview(
+                    resolved.format(context),
+                    anchorName,
+                    TimeOfDay.fromDateTime(anchorTime).format(context),
+                  ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: anchorTime == null ? warningColor : textMuted,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Dragging gets you close; the steppers let you land exactly on
+              // a round value like "an hour before" without a keyboard.
+              _offsetStepper(Icons.remove_rounded, -_offsetStep),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: MyColors.orangeDivider,
+                    inactiveTrackColor: cardBorder,
+                    thumbColor: MyColors.orangeDivider,
+                    overlayColor: MyColors.orangeDivider.withValues(alpha: 0.2),
+                    trackHeight: 4,
+                    showValueIndicator: ShowValueIndicator.never,
+                    // 48 divisions would otherwise draw a picket fence of
+                    // ticks; the phrase above already reports the value.
+                    tickMarkShape: SliderTickMarkShape.noTickMark,
+                  ),
+                  child: Slider(
+                    value: _anchorOffsetMinutes.toDouble(),
+                    min: -_offsetRange.toDouble(),
+                    max: _offsetRange.toDouble(),
+                    divisions: (_offsetRange * 2) ~/ _offsetStep,
+                    onChanged: (value) => setState(
+                      () => _anchorOffsetMinutes = value.round(),
+                    ),
+                  ),
+                ),
+              ),
+              _offsetStepper(Icons.add_rounded, _offsetStep),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _scaleLabel(l.routineAnchorScaleBefore(_formatMinutes(_offsetRange))),
+                _scaleLabel(l.routineAnchorScaleAt),
+                _scaleLabel(l.routineAnchorScaleAfter(_formatMinutes(_offsetRange))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _offsetStepper(IconData icon, int deltaMinutes) {
+    final enabled = deltaMinutes < 0
+        ? _anchorOffsetMinutes > -_offsetRange
+        : _anchorOffsetMinutes < _offsetRange;
+    return IconButton(
+      onPressed: enabled ? () => _nudgeOffset(deltaMinutes) : null,
+      icon: Icon(icon, size: 20),
+      color: textSecondary,
+      disabledColor: cardBorder,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      padding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _scaleLabel(String text) => Text(
+        text,
+        style: const TextStyle(color: textMuted, fontSize: 13),
+      );
 
   Widget _buildPrioritySlider() {
     return Column(
@@ -893,13 +1197,17 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
             ChronoSettingsGroup(
               title: AppLocalizations.of(context).routineSchedule,
               children: [
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  title: Text(AppLocalizations.of(context).routineTime, style: const TextStyle(color: textPrimary, fontSize: 16)),
-                  subtitle: Text(_time.format(context), style: const TextStyle(color: textMuted)),
-                  trailing: const Icon(Icons.access_time_rounded, color: textSecondary),
-                  onTap: _selectTime,
-                ),
+                _buildAnchorSelector(),
+                if (_anchorType == RoutineAnchor.fixed)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(AppLocalizations.of(context).routineTime, style: const TextStyle(color: textPrimary, fontSize: 16)),
+                    subtitle: Text(_time.format(context), style: const TextStyle(color: textMuted)),
+                    trailing: const Icon(Icons.access_time_rounded, color: textSecondary),
+                    onTap: _selectTime,
+                  )
+                else
+                  _buildSolarSchedule(),
                 Divider(height: 1, color: cardBorder.withValues(alpha: 0.5)),
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -971,35 +1279,49 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
               title: AppLocalizations.of(context).routineRemindersPersistence,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                  child: Row(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _periodController,
-                          style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration(AppLocalizations.of(context).routineDuration, suffixText: AppLocalizations.of(context).commonMin),
-                          keyboardType: TextInputType.number,
-                          onChanged: (value) {
-                            setState(() {
-                              _periodAfter = int.tryParse(value) ?? 30;
-                            });
-                          },
-                        ),
+                      // Without this line the two numbers read as a timer for
+                      // the routine itself rather than as nagging reminders.
+                      Text(
+                        AppLocalizations.of(context).routineRemindersExplainer,
+                        style: const TextStyle(color: textMuted, fontSize: 13, height: 1.4),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _intervalController,
-                          style: const TextStyle(color: textPrimary),
-                          decoration: _inputDecoration(AppLocalizations.of(context).routineInterval, suffixText: AppLocalizations.of(context).commonMin),
-                          keyboardType: TextInputType.number,
-                          onChanged: (value) {
-                            setState(() {
-                              _interval = int.tryParse(value) ?? 10;
-                            });
-                          },
-                        ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          // "Every 10 min" then "for 30 min" reads left to
+                          // right as one sentence.
+                          Expanded(
+                            child: TextFormField(
+                              controller: _intervalController,
+                              style: const TextStyle(color: textPrimary),
+                              decoration: _inputDecoration(AppLocalizations.of(context).routineInterval, suffixText: AppLocalizations.of(context).commonMin),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                setState(() {
+                                  _interval = int.tryParse(value) ?? 10;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _periodController,
+                              style: const TextStyle(color: textPrimary),
+                              decoration: _inputDecoration(AppLocalizations.of(context).routineDuration, suffixText: AppLocalizations.of(context).commonMin),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                setState(() {
+                                  _periodAfter = int.tryParse(value) ?? 30;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1007,7 +1329,16 @@ class _RoutineFormScreenState extends State<RoutineFormScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                   child: ReminderTimelineWidget(
-                    scheduledTime: _time,
+                    // Solar routines have no fixed _time yet, so preview the
+                    // reminder window from where the anchor puts them today.
+                    scheduledTime: _anchorType.isSolar
+                        ? SolarTimeService.instance.resolveTime(
+                              _anchorType,
+                              _anchorOffsetMinutes,
+                              DateTime.now(),
+                            ) ??
+                            _time
+                        : _time,
                     periodAfter: _periodAfter,
                     interval: _interval,
                     onPeriodAfterChanged: (value) {

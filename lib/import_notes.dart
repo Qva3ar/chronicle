@@ -10,6 +10,7 @@ import 'package:chrono/models/instructions.model.dart';
 import 'package:chrono/record.service.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/goal_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:sqflite/sqflite.dart';
@@ -176,6 +177,7 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
           });
 
           List<dynamic> routines = importData['routines'];
+          await SolarTimeService.instance.ensureInitialized();
           for (var routineData in routines) {
             routineData = Map<String, dynamic>.from(routineData);
 
@@ -194,7 +196,8 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
             // Schedule notifications for the imported routine
             try {
               Routine routine = Routine.fromMap({...routineData, '_id': newRoutineId});
-              DateTime nextOccurrence = routine.getNextOccurrence();
+              DateTime nextOccurrence =
+                  SolarTimeService.instance.nextOccurrenceOf(routine);
               await _notificationService.scheduleRoutineNotification(
                 routineId: newRoutineId,
                 routineName: routine.name,
@@ -206,6 +209,9 @@ class _ImportNotesDialogState extends State<ImportNotesDialog> {
               print('Failed to schedule notification for routine ${routineData['name']}: $e');
             }
           }
+          // Solar routines arrive with the exporting device's cached time,
+          // which is wrong here if the backup is old or from another location.
+          await SolarTimeService.instance.refreshSolarRoutineTimes();
           importedItems += routines.length;
         }
 

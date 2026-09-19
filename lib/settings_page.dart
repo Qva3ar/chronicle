@@ -5,6 +5,9 @@ import 'package:chrono/db_manager.dart';
 import 'package:chrono/services/notification_service.dart';
 import 'package:chrono/services/routine_service.dart';
 import 'package:chrono/services/goal_service.dart';
+import 'package:chrono/services/solar_time_service.dart';
+import 'package:chrono/models/routine.model.dart';
+import 'package:chrono/widgets/solar_location_sheet.dart';
 import 'package:chrono/onboarding/primary_goal_screen.dart';
 import 'package:chrono/colors.dart';
 import 'package:chrono/shared/chrono_ui.dart';
@@ -27,6 +30,142 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _loadMainIntention();
+    SolarTimeService.instance.ensureInitialized().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// Applies a solar change immediately instead of waiting for the next
+  /// midnight reset, otherwise the setting looks like it did nothing.
+  Future<void> _applySolarChange() async {
+    await SolarTimeService.instance.refreshSolarRoutineTimes();
+    await _notificationService.checkAndRescheduleRoutines();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editSolarLocation() async {
+    final changed = await showSolarLocationSheet(context);
+    if (changed) await _applySolarChange();
+  }
+
+  Future<void> _editCorrection(RoutineAnchor anchor) async {
+    final l = AppLocalizations.of(context);
+    final service = SolarTimeService.instance;
+    final current = service.correctionFor(anchor);
+    final controller = TextEditingController(text: current.toString());
+
+    final result = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor2,
+        title: Text(
+          anchor == RoutineAnchor.sunrise
+              ? l.solarSunriseCorrection
+              : l.solarSunsetCorrection,
+          style: const TextStyle(color: textPrimary, fontSize: 17),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.solarCorrectionDesc,
+              style: const TextStyle(color: textMuted, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: textPrimary),
+              keyboardType: const TextInputType.numberWithOptions(signed: true),
+              decoration: InputDecoration(
+                suffixText: l.commonMin,
+                suffixStyle: const TextStyle(color: textMuted),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(l.commonCancel, style: const TextStyle(color: textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              int.tryParse(controller.text.trim()) ?? 0,
+            ),
+            child: Text(
+              l.commonSave,
+              style: const TextStyle(
+                color: MyColors.orangeDivider,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    if (result == null) return;
+
+    await service.setCorrection(anchor, result);
+    await _applySolarChange();
+  }
+
+  String _correctionLabel(int minutes, String unit) =>
+      minutes == 0 ? '0 $unit' : '${minutes > 0 ? '+' : ''}$minutes $unit';
+
+  Widget _buildSolarGroup(AppLocalizations l) {
+    final service = SolarTimeService.instance;
+    final today = DateTime.now();
+
+    String locationSubtitle() {
+      if (!service.hasLocation) return l.solarLocationNotSet;
+      final coords = '${service.latitude!.toStringAsFixed(3)}, '
+          '${service.longitude!.toStringAsFixed(3)}';
+      final source = service.source == 'gps'
+          ? l.solarLocationSourceGps
+          : l.solarLocationSourceManual;
+      return '$coords · $source';
+    }
+
+    String eventSubtitle(DateTime? event) => event == null
+        ? '—'
+        : TimeOfDay.fromDateTime(event).format(context);
+
+    return ChronoSettingsGroup(
+      title: l.solarSectionTitle,
+      children: [
+        ChronoSettingsRow(
+          icon: Icons.place_outlined,
+          iconColor: infoColor,
+          label: l.solarLocationTitle,
+          subtitle: locationSubtitle(),
+          onTap: _editSolarLocation,
+        ),
+        if (service.hasLocation) ...[
+          ChronoSettingsRow(
+            icon: Icons.wb_twilight_rounded,
+            iconColor: warningColor,
+            label: l.solarTodaySunrise,
+            subtitle:
+                '${eventSubtitle(service.sunriseFor(today))} · ${_correctionLabel(service.sunriseCorrectionMinutes, l.commonMin)}',
+            onTap: () => _editCorrection(RoutineAnchor.sunrise),
+          ),
+          ChronoSettingsRow(
+            icon: Icons.nights_stay_rounded,
+            iconColor: warningColor,
+            label: l.solarTodaySunset,
+            subtitle:
+                '${eventSubtitle(service.sunsetFor(today))} · ${_correctionLabel(service.sunsetCorrectionMinutes, l.commonMin)}',
+            onTap: () => _editCorrection(RoutineAnchor.sunset),
+          ),
+        ],
+      ],
+    );
   }
 
   Future<void> _loadMainIntention() async {
@@ -431,6 +570,11 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ],
           ),
+
+          const SizedBox(height: 20),
+
+          // ── Sunrise & sunset ──
+          _buildSolarGroup(l),
 
           const SizedBox(height: 20),
 
