@@ -38,11 +38,15 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 /// [DisplayFeatureSubScreen] splits the screen and confines every dialog and
 /// bottom sheet to one side of it, squashing them to half width or less.
 /// Chrono has no dual-screen layouts, so there is nothing to avoid.
+///
+/// The [MediaQuery] is inserted unconditionally: skipping it when the list is
+/// already empty would add and remove an inherited widget as the device
+/// reports features, and tearing one down under a subtree that depends on it
+/// is how you get `_dependents.isEmpty` assertions.
 Widget ignoreDisplayFeatures(BuildContext context, Widget? child) {
-  final media = MediaQuery.of(context);
-  if (media.displayFeatures.isEmpty) return child!;
   return MediaQuery(
-    data: media.copyWith(displayFeatures: const <DisplayFeature>[]),
+    data: MediaQuery.of(context)
+        .copyWith(displayFeatures: const <DisplayFeature>[]),
     child: child!,
   );
 }

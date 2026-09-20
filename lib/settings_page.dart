@@ -49,66 +49,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _editCorrection(RoutineAnchor anchor) async {
-    final l = AppLocalizations.of(context);
     final service = SolarTimeService.instance;
-    final current = service.correctionFor(anchor);
-    final controller = TextEditingController(text: current.toString());
 
     final result = await showDialog<int>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: cardColor2,
-        title: Text(
-          anchor == RoutineAnchor.sunrise
-              ? l.solarSunriseCorrection
-              : l.solarSunsetCorrection,
-          style: const TextStyle(color: textPrimary, fontSize: 17),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.solarCorrectionDesc,
-              style: const TextStyle(color: textMuted, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              style: const TextStyle(color: textPrimary),
-              keyboardType: const TextInputType.numberWithOptions(signed: true),
-              decoration: InputDecoration(
-                suffixText: l.commonMin,
-                suffixStyle: const TextStyle(color: textMuted),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(l.commonCancel, style: const TextStyle(color: textMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(
-              dialogContext,
-              int.tryParse(controller.text.trim()) ?? 0,
-            ),
-            child: Text(
-              l.commonSave,
-              style: const TextStyle(
-                color: MyColors.orangeDivider,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
+      builder: (_) => _CorrectionDialog(
+        anchor: anchor,
+        initialMinutes: service.correctionFor(anchor),
       ),
     );
-
-    controller.dispose();
     if (result == null) return;
 
     await service.setCorrection(anchor, result);
@@ -714,6 +663,90 @@ class _DangerAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Owns its own [TextEditingController] so the field stays usable for the whole
+/// of the dialog's exit animation. Disposing a controller as soon as
+/// `showDialog` completes tears it out from under a widget that is still
+/// mounted and painting.
+class _CorrectionDialog extends StatefulWidget {
+  const _CorrectionDialog({
+    required this.anchor,
+    required this.initialMinutes,
+  });
+
+  final RoutineAnchor anchor;
+  final int initialMinutes;
+
+  @override
+  State<_CorrectionDialog> createState() => _CorrectionDialogState();
+}
+
+class _CorrectionDialogState extends State<_CorrectionDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialMinutes.toString());
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
+    return AlertDialog(
+      backgroundColor: cardColor2,
+      title: Text(
+        widget.anchor == RoutineAnchor.sunrise
+            ? l.solarSunriseCorrection
+            : l.solarSunsetCorrection,
+        style: const TextStyle(color: textPrimary, fontSize: 17),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.solarCorrectionDesc,
+            style: const TextStyle(color: textMuted, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            style: const TextStyle(color: textPrimary),
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            decoration: InputDecoration(
+              suffixText: l.commonMin,
+              suffixStyle: const TextStyle(color: textMuted),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l.commonCancel, style: const TextStyle(color: textMuted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(
+            context,
+            int.tryParse(_controller.text.trim()) ?? 0,
+          ),
+          child: Text(
+            l.commonSave,
+            style: const TextStyle(
+              color: MyColors.orangeDivider,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
