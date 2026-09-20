@@ -1,4 +1,6 @@
 import 'dart:developer';
+import 'dart:ui' show DisplayFeature;
+
 import 'package:chrono/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -28,6 +30,22 @@ import 'package:chrono/ai/context_builder.dart';
 
 // Global navigator key for navigation from notifications
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+/// Hides display features from the widget tree.
+///
+/// When a device reports a display feature that spans the full screen height —
+/// a fold, or a camera cutout that some OEMs report that way — Flutter's
+/// [DisplayFeatureSubScreen] splits the screen and confines every dialog and
+/// bottom sheet to one side of it, squashing them to half width or less.
+/// Chrono has no dual-screen layouts, so there is nothing to avoid.
+Widget ignoreDisplayFeatures(BuildContext context, Widget? child) {
+  final media = MediaQuery.of(context);
+  if (media.displayFeatures.isEmpty) return child!;
+  return MediaQuery(
+    data: media.copyWith(displayFeatures: const <DisplayFeature>[]),
+    child: child!,
+  );
+}
 
 void main() async {
   try {
@@ -189,6 +207,7 @@ class MyApp extends StatelessWidget {
     final localeProvider = context.watch<LocaleProvider>();
     return MaterialApp(
       navigatorKey: navigatorKey,
+      builder: ignoreDisplayFeatures,
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
       locale: localeProvider.locale,
