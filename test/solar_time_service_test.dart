@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,15 +31,90 @@ Routine _routine({
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final service = SolarTimeService.instance;
   final isTashkentOffset = DateTime.now().timeZoneOffset == const Duration(hours: 5);
+  const timezoneChannel = MethodChannel('flutter_timezone');
+
+  /// Makes the fake device report [identifier] as its IANA timezone, or nothing
+  /// at all when null.
+  void mockDeviceTimezone(String? identifier) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      timezoneChannel,
+      identifier == null ? null : (call) async => identifier,
+    );
+  }
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    mockDeviceTimezone('Asia/Tashkent');
     await service.reload();
     await service.setManualLocation(_lat, _lng);
     await service.setCorrection(RoutineAnchor.sunrise, 0);
     await service.setCorrection(RoutineAnchor.sunset, 0);
+  });
+
+  tearDown(() => mockDeviceTimezone(null));
+
+  group('location from the device timezone', () {
+    test('a fresh install is seeded without asking for anything', () async {
+      SharedPreferences.setMockInitialValues({});
+      await service.reload();
+
+      expect(service.hasLocation, isTrue);
+      expect(service.source, SolarTimeService.sourceTimezone);
+      expect(service.label, 'Tashkent');
+      // zone.tab's representative point for Asia/Tashkent.
+      expect(service.latitude, closeTo(41.33, 0.01));
+      expect(service.longitude, closeTo(69.3, 0.01));
+    });
+
+    test('an unknown timezone leaves the location unset', () async {
+      SharedPreferences.setMockInitialValues({});
+      mockDeviceTimezone('Mars/Olympus_Mons');
+      await service.reload();
+
+      expect(service.hasLocation, isFalse);
+    });
+
+    test('moving to another timezone re-seeds the location', () async {
+      SharedPreferences.setMockInitialValues({});
+      await service.reload();
+      expect(service.label, 'Tashkent');
+
+      mockDeviceTimezone('America/Argentina/Buenos_Aires');
+      await service.reload();
+
+      expect(service.label, 'Buenos Aires');
+      expect(service.latitude, lessThan(0));
+    });
+
+    test('a GPS fix outranks the timezone and survives a reload', () async {
+      SharedPreferences.setMockInitialValues({
+        'solar_lat': 43.297,
+        'solar_lng': 76.894,
+        'solar_location_source': SolarTimeService.sourceGps,
+      });
+      await service.reload();
+
+      expect(service.source, SolarTimeService.sourceGps);
+      expect(service.latitude, 43.297);
+    });
+
+    test('dropping the GPS fix falls back to the timezone', () async {
+      SharedPreferences.setMockInitialValues({
+        'solar_lat': 43.297,
+        'solar_lng': 76.894,
+        'solar_location_source': SolarTimeService.sourceGps,
+      });
+      await service.reload();
+
+      expect(await service.useTimezoneLocation(), isTrue);
+      expect(service.source, SolarTimeService.sourceTimezone);
+      expect(service.label, 'Tashkent');
+    });
   });
 
   test('sunrise and sunset match published times for Tashkent', () {

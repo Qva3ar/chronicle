@@ -1997,7 +1997,7 @@ abstract class AppLocalizations {
   /// No description provided for @solarLocationDesc.
   ///
   /// In en, this message translates to:
-  /// **'Needed only to compute sunrise and sunset. Stays on your device and is never sent anywhere.'**
+  /// **'Chrono takes it from your timezone, which is usually accurate to a few minutes. Use GPS for an exact match. Either way it stays on your device and is never sent anywhere.'**
   String get solarLocationDesc;
 
   /// No description provided for @solarLocationNotSet.
@@ -2012,41 +2012,23 @@ abstract class AppLocalizations {
   /// **'From GPS'**
   String get solarLocationSourceGps;
 
-  /// No description provided for @solarLocationSourceManual.
+  /// No description provided for @solarLocationSourceTimezone.
   ///
   /// In en, this message translates to:
-  /// **'Entered manually'**
-  String get solarLocationSourceManual;
+  /// **'From timezone'**
+  String get solarLocationSourceTimezone;
 
   /// No description provided for @solarUseGps.
   ///
   /// In en, this message translates to:
-  /// **'Use my location'**
+  /// **'Use GPS for an exact match'**
   String get solarUseGps;
 
-  /// No description provided for @solarEnterManually.
+  /// No description provided for @solarUseTimezone.
   ///
   /// In en, this message translates to:
-  /// **'Enter coordinates'**
-  String get solarEnterManually;
-
-  /// No description provided for @solarLatitude.
-  ///
-  /// In en, this message translates to:
-  /// **'Latitude'**
-  String get solarLatitude;
-
-  /// No description provided for @solarLongitude.
-  ///
-  /// In en, this message translates to:
-  /// **'Longitude'**
-  String get solarLongitude;
-
-  /// No description provided for @solarCoordinatesInvalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Latitude must be between -90 and 90, longitude between -180 and 180'**
-  String get solarCoordinatesInvalid;
+  /// **'Go back to the timezone estimate'**
+  String get solarUseTimezone;
 
   /// No description provided for @solarTodaySunrise.
   ///
@@ -2099,7 +2081,7 @@ abstract class AppLocalizations {
   /// No description provided for @solarErrorPermissionForever.
   ///
   /// In en, this message translates to:
-  /// **'Location permission is permanently denied. Enable it in system settings or enter coordinates manually.'**
+  /// **'Location permission is permanently denied. Enable it in system settings, or keep the timezone estimate.'**
   String get solarErrorPermissionForever;
 
   /// No description provided for @solarErrorFailed.

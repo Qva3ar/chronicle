@@ -48,8 +48,9 @@
 </ul>
 
 <h3>1.3 Approximate Location (Optional)</h3>
-<p>Chrono lets you attach a routine to sunrise or sunset instead of a fixed clock time. Calculating those times requires approximate coordinates. If, and only if, you use this feature, the App asks for coarse location permission and takes a single low-accuracy reading, or you may type coordinates in manually and grant no permission at all.</p>
-<p>The coordinates are stored locally on your device and used solely for an on-device astronomical calculation. They are <strong>never transmitted anywhere</strong>: the calculation requires no network access, and we operate no servers. Your location is not tracked continuously, not logged over time, and not shared with any third party. You can change or remove it at any time in Settings.</p>
+<p>Chrono lets you attach a routine to sunrise or sunset instead of a fixed clock time. Calculating those times requires approximate coordinates. By default the App derives them from your device's timezone setting, using a built-in lookup table of representative coordinates — this requires <strong>no location permission and no location access of any kind</strong>.</p>
+<p>If you want an exact match, you can optionally ask the App to use GPS. Only then does it request coarse location permission and take a single low-accuracy reading. You can revert to the timezone estimate at any time in Settings.</p>
+<p>In either case the coordinates are stored locally on your device and used solely for an on-device astronomical calculation. They are <strong>never transmitted anywhere</strong>: the calculation requires no network access, and we operate no servers. Your location is not tracked continuously, not logged over time, and not shared with any third party.</p>
 
 <h3>1.4 Subscription &amp; Purchase Data</h3>
 <p>If you purchase a premium subscription, the transaction is processed entirely by <strong>Apple App Store</strong> or <strong>Google Play Store</strong>. We use <strong>Adapty</strong> (a third-party subscription management service) to verify your subscription status. Adapty may receive an anonymous subscription identifier and purchase receipt from the app store. We do not receive or store your payment details (credit card number, billing address, etc.).</p>

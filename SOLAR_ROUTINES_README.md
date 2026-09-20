@@ -44,6 +44,20 @@ Coordinates live in `SharedPreferences`, cached in memory so the accessors stay
 synchronous. **Background isolates start with an empty instance**, so every
 background entry point calls `ensureInitialized()` first.
 
+### Where the coordinates come from
+
+Asking a user to type latitude and longitude is asking for a number most people
+have no way to look up, so the default needs no input at all:
+
+1. **Timezone** (default, `source == 'timezone'`). The device's IANA zone names a
+   representative city, and the tz database ships its coordinates. `reload()`
+   seeds from `timezoneCoordinates` — generated from `zone.tab` by
+   `tool/generate_timezone_coordinates.py` — and re-seeds when the zone changes.
+   No permission, no prompt, works on first launch.
+2. **GPS** (opt-in, `source == 'gps'`). A single `LocationAccuracy.low` reading
+   from the location sheet. Treated as the user's explicit choice, so it is never
+   overwritten by the timezone; `useTimezoneLocation()` reverts.
+
 ### Accuracy and the calibration setting
 
 Error budget at mid latitudes:
@@ -51,7 +65,7 @@ Error budget at mid latitudes:
 | Source | Magnitude |
 |--------|-----------|
 | The algorithm itself | about 1 minute below 60 degrees latitude |
-| Coordinate error | negligible; 1 degree of longitude is 4 minutes, coarse GPS is a few km |
+| Coordinate error | small; 1 degree of longitude is 4 minutes of time. Coarse GPS is a few km, the timezone estimate is usually a few tens of km (Asia/Almaty's representative point is 5 km from central Almaty) |
 | Elevation above sea level | **the dominant systematic term**: horizon dip is 1.76' x sqrt(metres), so Tashkent at 450 m sets about 4 minutes later than sea level, Almaty at 800 m about 6 |
 | Atmospheric refraction | 1 to 2 minutes, varies with temperature and pressure |
 | Local horizon (mountains, buildings) | not modelled by anything |
@@ -98,17 +112,18 @@ the repeat window, so 30 minutes at a 10-minute interval is 4 notifications.
 |------|-----------|
 | Polar day or night | The anchor resolves to null; the cached `time` is kept and the event is logged rather than inventing a time |
 | Offset spills past midnight | Clamped to 00:00 / 23:59, because `days_of_week` and streaks are keyed to the calendar date |
-| No coordinates set | Solar routines fall back to the cached `time`; the form blocks saving a new one and offers to set the location |
+| Timezone not in the lookup table | No coordinates; solar routines fall back to the cached `time`, and the form blocks saving a new one and offers to set the location |
 | Backup from another device | Import calls `refreshSolarRoutineTimes()` so the exporting device's cached times are replaced |
 | Pre-v58 backup | `Routine.fromMap` defaults to `fixed` / `0` |
-| DST change or travel | Corrects itself at the next refresh |
+| DST change or travel | Corrects itself at the next refresh. A timezone-derived location is re-seeded whenever the device's zone changes; a GPS fix is the user's explicit choice and is left alone |
 | Device timezone does not match the coordinates | Times will be wrong; the calculation converts through device local time |
 
 ## Privacy
 
-Coordinates are requested only when the feature is used, taken at
-`LocationAccuracy.low`, stored locally and never transmitted. Manual entry
-avoids the permission entirely. See section 1.3 of `privacy_policy.html`,
+The default path touches no location API at all — it reads the timezone setting
+and looks the city up in a bundled table. GPS is opt-in, taken once at
+`LocationAccuracy.low`. Either way the coordinates are stored locally and never
+transmitted. See section 1.3 of `privacy_policy.html`,
 `NSLocationWhenInUseUsageDescription` in `ios/Runner/Info.plist` and
 `ACCESS_COARSE_LOCATION` in the Android manifest.
 
@@ -116,7 +131,8 @@ avoids the permission entirely. See section 1.3 of `privacy_policy.html`,
 
 - `lib/services/solar_time_service.dart` - location, calculation, calibration, daily refresh
 - `lib/models/routine.model.dart` - `RoutineAnchor`, anchor fields, `getNextOccurrence` resolver
-- `lib/widgets/solar_location_sheet.dart` - shared GPS / manual coordinate entry
+- `lib/services/timezone_coordinates.dart` - generated IANA zone -> coordinates table
+- `lib/widgets/solar_location_sheet.dart` - shows the current location, switches between timezone and GPS
 - `lib/screens/routine_manager_screen.dart` - anchor picker, offset editor, live preview
 - `lib/settings_page.dart` - location and calibration settings
 - `test/solar_time_service_test.dart` - calculation, offset, clamping, migration defaults

@@ -1,10 +1,12 @@
 import 'package:daylight/daylight.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db_manager.dart';
 import '../models/routine.model.dart';
+import 'timezone_coordinates.dart';
 
 /// Outcome of a GPS location refresh, so the UI can tell the user what to do
 /// next instead of just failing silently.
@@ -36,7 +38,15 @@ class SolarTimeService {
   static const _lngKey = 'solar_lng';
   static const _labelKey = 'solar_location_label';
   static const _sourceKey = 'solar_location_source';
+  static const _zoneKey = 'solar_location_zone';
   static const _updatedAtKey = 'solar_location_updated_at';
+
+  /// Location derived from the device timezone. Good to a few minutes of solar
+  /// time and needs no permission, so it is the default.
+  static const String sourceTimezone = 'timezone';
+
+  /// Location from a one-off GPS reading. Sticks until the user resets it.
+  static const String sourceGps = 'gps';
   static const _sunriseCorrectionKey = 'solar_sunrise_correction_min';
   static const _sunsetCorrectionKey = 'solar_sunset_correction_min';
 
@@ -49,6 +59,7 @@ class SolarTimeService {
   double? _longitude;
   String? _label;
   String? _source;
+  String? _zone;
   DateTime? _updatedAt;
   int _sunriseCorrectionMinutes = 0;
   int _sunsetCorrectionMinutes = 0;
@@ -57,7 +68,10 @@ class SolarTimeService {
   double? get longitude => _longitude;
   String? get label => _label;
   String? get source => _source;
+  String? get zone => _zone;
   DateTime? get updatedAt => _updatedAt;
+
+  bool get isFromGps => _source == sourceGps;
   int get sunriseCorrectionMinutes => _sunriseCorrectionMinutes;
   int get sunsetCorrectionMinutes => _sunsetCorrectionMinutes;
 
@@ -78,6 +92,7 @@ class SolarTimeService {
       _longitude = prefs.getDouble(_lngKey);
       _label = prefs.getString(_labelKey);
       _source = prefs.getString(_sourceKey);
+      _zone = prefs.getString(_zoneKey);
       final updatedAtMillis = prefs.getInt(_updatedAtKey);
       _updatedAt = updatedAtMillis == null
           ? null
@@ -88,7 +103,49 @@ class SolarTimeService {
     } catch (e) {
       debugPrint('[SolarTime] Failed to load location: $e');
     }
+
+    // A GPS fix is the user's explicit choice and outranks the timezone.
+    // Otherwise seed — or re-seed after travel — from the device timezone so
+    // solar routines work without asking for anything.
+    if (!isFromGps) {
+      await _seedFromTimezone();
+    }
   }
+
+  /// Fills in coordinates from the device's IANA timezone, which carries a
+  /// representative city. Accurate to roughly a few minutes of solar time —
+  /// within what [setCorrection] is there to absorb — and needs no permission.
+  ///
+  /// No-ops when the current location already came from this timezone.
+  Future<bool> _seedFromTimezone() async {
+    try {
+      final id = (await FlutterTimezone.getLocalTimezone()).identifier;
+      if (hasLocation && _zone == id) return false;
+
+      final coordinates = timezoneCoordinates[id];
+      if (coordinates == null) {
+        debugPrint('[SolarTime] No coordinates known for timezone $id');
+        return false;
+      }
+
+      await _persistLocation(
+        latitude: coordinates.$1,
+        longitude: coordinates.$2,
+        source: sourceTimezone,
+        label: _cityFromZone(id),
+        zone: id,
+      );
+      debugPrint('[SolarTime] Location seeded from timezone $id');
+      return true;
+    } catch (e) {
+      debugPrint('[SolarTime] Timezone lookup failed: $e');
+      return false;
+    }
+  }
+
+  /// "America/Argentina/Buenos_Aires" -> "Buenos Aires".
+  static String _cityFromZone(String zone) =>
+      zone.split('/').last.replaceAll('_', ' ');
 
   // ── Location management ────────────────────────────────────────────────
 
@@ -122,8 +179,9 @@ class SolarTimeService {
       await _persistLocation(
         latitude: position.latitude,
         longitude: position.longitude,
-        source: 'gps',
+        source: sourceGps,
         label: null,
+        zone: null,
       );
       return SolarLocationResult.success;
     } catch (e) {
@@ -132,6 +190,13 @@ class SolarTimeService {
     }
   }
 
+  /// Drops a GPS fix and goes back to the timezone estimate.
+  Future<bool> useTimezoneLocation() async {
+    await clearLocation();
+    return _seedFromTimezone();
+  }
+
+  @visibleForTesting
   Future<void> setManualLocation(
     double latitude,
     double longitude, {
@@ -142,6 +207,7 @@ class SolarTimeService {
       longitude: longitude,
       source: 'manual',
       label: label,
+      zone: null,
     );
   }
 
@@ -151,11 +217,13 @@ class SolarTimeService {
     await prefs.remove(_lngKey);
     await prefs.remove(_labelKey);
     await prefs.remove(_sourceKey);
+    await prefs.remove(_zoneKey);
     await prefs.remove(_updatedAtKey);
     _latitude = null;
     _longitude = null;
     _label = null;
     _source = null;
+    _zone = null;
     _updatedAt = null;
   }
 
@@ -163,7 +231,8 @@ class SolarTimeService {
     required double latitude,
     required double longitude,
     required String source,
-    String? label,
+    required String? label,
+    required String? zone,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -176,10 +245,16 @@ class SolarTimeService {
     } else {
       await prefs.setString(_labelKey, label);
     }
+    if (zone == null) {
+      await prefs.remove(_zoneKey);
+    } else {
+      await prefs.setString(_zoneKey, zone);
+    }
     _latitude = latitude;
     _longitude = longitude;
     _source = source;
     _label = label;
+    _zone = zone;
     _updatedAt = now;
     _loaded = true;
   }

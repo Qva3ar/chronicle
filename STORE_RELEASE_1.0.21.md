@@ -8,7 +8,7 @@ Marketing version `1.0.21`, build `22`. Android and iOS both take these from `pu
 Sunrise and sunset routines
 Tie a routine to sunrise or sunset instead of a clock time. For example: every Friday, an hour before sunset, with reminders every 10 minutes.
 
-You can set your location once with GPS or type coordinates in Settings. Times stay on your device and are never sent anywhere. If they differ from your local timetable, adjust them with a small calibration.
+Your location comes from your timezone, so it works right away without any permission. Prefer an exact match? Switch to GPS in Settings. Times stay on your device and are never sent anywhere, and a small calibration lets you match your local timetable.
 
 Also in this update
 • Routine reminders now fire at the exact time instead of being batched overnight
@@ -22,7 +22,7 @@ Also in this update
 Рутины по восходу и закату
 Рутину можно привязать к восходу или закату, а не к часам. Например: каждую пятницу за час до заката, с напоминаниями каждые 10 минут.
 
-Местоположение задаётся один раз по GPS или координатами в Настройках. Оно остаётся на устройстве и никуда не отправляется. Если время расходится с вашим расписанием, его можно чуть сдвинуть калибровкой.
+Местоположение берётся из часового пояса, поэтому всё работает сразу и без разрешений. Нужна точность — включите GPS в Настройках. Данные остаются на устройстве и никуда не отправляются, а калибровка поможет подогнать время под ваше расписание.
 
 Ещё в этом обновлении
 • Напоминания рутин приходят в точное время, а не пачкой утром
@@ -33,16 +33,16 @@ Also in this update
 Play Console release notes are capped at 500 characters. The English block above is ~620 — use this shorter variant if the form rejects it:
 
 ```
-Sunrise and sunset routines: tie a habit to sunrise or sunset (e.g. an hour before sunset every Friday). Location is optional, stays on-device, and can be calibrated. Routine reminders now fire on time. Also: Play Billing 8 and a productivity-history fix for archived items.
+Sunrise and sunset routines: tie a habit to sunrise or sunset (e.g. an hour before sunset every Friday). Works straight away from your timezone, no permission needed; GPS is optional. Routine reminders now fire on time. Also: Play Billing 8 and a productivity-history fix for archived items.
 ```
 
 ```
-Рутины по восходу и закату: привычку можно привязать к солнцу (например, за час до заката по пятницам). Локация опциональна, остаётся на устройстве. Напоминания теперь приходят вовремя. Ещё: Play Billing 8 и исправление истории продуктивности.
+Рутины по восходу и закату: привычку можно привязать к солнцу (например, за час до заката по пятницам). Работает сразу по часовому поясу, без разрешений; GPS — по желанию. Напоминания теперь приходят вовремя. Ещё: Play Billing 8 и исправление истории продуктивности.
 ```
 
 ## Store questionnaires
 
-Location is requested only when the user opts into solar routines. Coordinates never leave the device.
+By default Chrono never touches a location API: coordinates are looked up from the device timezone in a bundled table. GPS is opt-in and, either way, coordinates never leave the device.
 
 ### App Store Connect → App Privacy
 
@@ -69,7 +69,7 @@ Same rule: Play asks what you *collect* (send off the device). Approximate locat
 Still expect a review question because `ACCESS_COARSE_LOCATION` is in the manifest. Answer:
 
 - Permission is optional and used only to compute sunrise/sunset on device.
-- User can type coordinates instead and never grant the permission.
+- The default path derives coordinates from the device timezone, so most users never grant it.
 - Data is not transmitted, not sold, not used for ads.
 
 Play Billing Library is now 8.0.0 (required for updates after 31 Aug 2026). No listing change besides the version.
@@ -78,8 +78,8 @@ Play Billing Library is now 8.0.0 (required for updates after 31 Aug 2026). No l
 
 Chrono can schedule a routine relative to local sunrise or sunset. That needs an approximate location. The app:
 
-1. Asks for coarse location only when the user taps “Use my location”, or
-2. Accepts latitude/longitude typed in Settings, with no permission.
+1. Derives it from the device timezone by default, using a bundled table of representative coordinates from the tz database. No permission, no location API call.
+2. Asks for coarse location only if the user explicitly taps “Use GPS for an exact match”.
 
 A single low-accuracy reading is stored in SharedPreferences and used for an offline astronomical calculation (`daylight`). Nothing is sent to a server.
 

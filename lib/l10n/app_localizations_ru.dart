@@ -1080,7 +1080,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get solarLocationDesc =>
-      'Нужно только для расчёта восхода и заката. Остаётся на устройстве и никуда не отправляется.';
+      'Хроно берёт его из часового пояса — обычно это точно до нескольких минут. GPS даёт точное совпадение. В любом случае данные остаются на устройстве и никуда не отправляются.';
 
   @override
   String get solarLocationNotSet => 'Не указано';
@@ -1089,23 +1089,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get solarLocationSourceGps => 'По GPS';
 
   @override
-  String get solarLocationSourceManual => 'Введено вручную';
+  String get solarLocationSourceTimezone => 'По часовому поясу';
 
   @override
-  String get solarUseGps => 'Определить автоматически';
+  String get solarUseGps => 'Уточнить по GPS';
 
   @override
-  String get solarEnterManually => 'Ввести координаты';
-
-  @override
-  String get solarLatitude => 'Широта';
-
-  @override
-  String get solarLongitude => 'Долгота';
-
-  @override
-  String get solarCoordinatesInvalid =>
-      'Широта должна быть от -90 до 90, долгота от -180 до 180';
+  String get solarUseTimezone => 'Вернуться к часовому поясу';
 
   @override
   String get solarTodaySunrise => 'Восход сегодня';
@@ -1136,7 +1126,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get solarErrorPermissionForever =>
-      'Доступ к геолокации запрещён навсегда. Включите его в системных настройках или введите координаты вручную.';
+      'Доступ к геолокации запрещён навсегда. Включите его в системных настройках или оставьте расчёт по часовому поясу.';
 
   @override
   String get solarErrorFailed => 'Не удалось определить местоположение';

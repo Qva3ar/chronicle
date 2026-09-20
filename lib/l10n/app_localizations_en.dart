@@ -1075,7 +1075,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get solarLocationDesc =>
-      'Needed only to compute sunrise and sunset. Stays on your device and is never sent anywhere.';
+      'Chrono takes it from your timezone, which is usually accurate to a few minutes. Use GPS for an exact match. Either way it stays on your device and is never sent anywhere.';
 
   @override
   String get solarLocationNotSet => 'Not set';
@@ -1084,23 +1084,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get solarLocationSourceGps => 'From GPS';
 
   @override
-  String get solarLocationSourceManual => 'Entered manually';
+  String get solarLocationSourceTimezone => 'From timezone';
 
   @override
-  String get solarUseGps => 'Use my location';
+  String get solarUseGps => 'Use GPS for an exact match';
 
   @override
-  String get solarEnterManually => 'Enter coordinates';
-
-  @override
-  String get solarLatitude => 'Latitude';
-
-  @override
-  String get solarLongitude => 'Longitude';
-
-  @override
-  String get solarCoordinatesInvalid =>
-      'Latitude must be between -90 and 90, longitude between -180 and 180';
+  String get solarUseTimezone => 'Go back to the timezone estimate';
 
   @override
   String get solarTodaySunrise => 'Sunrise today';
@@ -1130,7 +1120,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get solarErrorPermissionForever =>
-      'Location permission is permanently denied. Enable it in system settings or enter coordinates manually.';
+      'Location permission is permanently denied. Enable it in system settings, or keep the timezone estimate.';
 
   @override
   String get solarErrorFailed => 'Could not determine your location';

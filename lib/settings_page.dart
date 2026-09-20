@@ -124,12 +124,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
     String locationSubtitle() {
       if (!service.hasLocation) return l.solarLocationNotSet;
-      final coords = '${service.latitude!.toStringAsFixed(3)}, '
-          '${service.longitude!.toStringAsFixed(3)}';
-      final source = service.source == 'gps'
+      final place = service.label ??
+          '${service.latitude!.toStringAsFixed(3)}, '
+              '${service.longitude!.toStringAsFixed(3)}';
+      final source = service.isFromGps
           ? l.solarLocationSourceGps
-          : l.solarLocationSourceManual;
-      return '$coords · $source';
+          : l.solarLocationSourceTimezone;
+      return '$place · $source';
     }
 
     String eventSubtitle(DateTime? event) => event == null
